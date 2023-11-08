@@ -81,6 +81,13 @@ describe('formula', () => {
     const wb = mk([[0, 0, '=B5+1']])
     expect(val(wb, 0, 0)).toBe(1)
   })
+  it('空单元格在比较中按 0', () => {
+    const wb = mk([[0, 0, '=B5=0'], [0, 1, '=B5<1'], [0, 2, '=B5>1'], [0, 3, '=B5&""']])
+    expect(val(wb, 0, 0)).toBe(true)
+    expect(val(wb, 0, 1)).toBe(true)
+    expect(val(wb, 0, 2)).toBe(false)
+    expect(val(wb, 0, 3)).toBe('') // 空格拼接为空串，不受影响
+  })
   it('displayText', () => {
     const wb = mk([[0, 0, '=1/3'], [0, 1, '=TRUE'], [0, 2, '=1/0'], [0, 3, '42'], [1, 0, '=0.1+0.2']])
     expect(txt(wb, 0, 1)).toBe('TRUE')

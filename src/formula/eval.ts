@@ -17,16 +17,33 @@ export interface EvalCtx {
   get(sheet: SheetId, row: number, col: number): FormulaValue
 }
 
+// 内部哨兵：标记「空单元格引用」（仅 ref 求值路径产生）。
+// 空单元格在算术/比较中按 0、在拼接中按 ''、在聚合函数中被忽略、显示为 ''。
+// 与公式里显式写出的空串字面量 "" 区分："" 始终是字符串语义。
+// 该哨兵不越过公式边界——engine 在缓存/返回前 unwrap 为 ''。
+interface Blank {
+  readonly blank: true
+}
+const BLANK: Blank = { blank: true }
+type V = FormulaValue | Blank
+
+export function isBlank(v: unknown): v is Blank {
+  return v === BLANK
+}
+
 const err = (error: string): FormulaError => ({ error })
 
-export function evalNode(node: AST, ctx: EvalCtx): FormulaValue {
+export function evalNode(node: AST, ctx: EvalCtx): V {
   switch (node.type) {
     case 'num':
     case 'str':
     case 'bool':
       return node.value
-    case 'ref':
-      return ctx.get(ctx.sheet, node.addr.row, node.addr.col)
+    case 'ref': {
+      // 空单元格（''）标记为 BLANK：比较/算术按 0，拼接按 ''（仅 ref 路径）
+      const v = ctx.get(ctx.sheet, node.addr.row, node.addr.col)
+      return v === '' ? BLANK : v
+    }
     case 'range':
       // 区域只在函数参数位置合法（evalCall 特判）；其他位置 → #VALUE!
       return err('#VALUE!')
@@ -53,7 +70,7 @@ export function evalNode(node: AST, ctx: EvalCtx): FormulaValue {
   }
 }
 
-function evalBinary(op: string, l: AST, r: AST, ctx: EvalCtx): FormulaValue {
+function evalBinary(op: string, l: AST, r: AST, ctx: EvalCtx): V {
   const a = evalNode(l, ctx)
   if (isError(a)) return a
   const b = evalNode(r, ctx)
@@ -96,10 +113,11 @@ function evalBinary(op: string, l: AST, r: AST, ctx: EvalCtx): FormulaValue {
   return err('#VALUE!')
 }
 
-// 算术 coercion：数字原样；布尔 TRUE→1/FALSE→0；空串（含空单元格）→ 0；
+// 算术 coercion：数字原样；布尔 TRUE→1/FALSE→0；空单元格（BLANK）与空串 → 0；
 // 纯数字字符串 → 数字（Excel 同款隐式转换）；其余字符串 → #VALUE!
-function toNum(v: FormulaValue): number | FormulaError {
+function toNum(v: V): number | FormulaError {
   if (isError(v)) return v
+  if (isBlank(v)) return 0
   if (typeof v === 'number') return v
   if (typeof v === 'boolean') return v ? 1 : 0
   const t = v.trim()
@@ -108,15 +126,17 @@ function toNum(v: FormulaValue): number | FormulaError {
   return Number.isNaN(n) ? err('#VALUE!') : n
 }
 
-function toText(v: FormulaValue): string {
+function toText(v: V): string {
+  if (isBlank(v)) return '' // 空单元格拼接为空串
   if (typeof v === 'string') return v
   if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
   if (typeof v === 'number') return formatNumber(v)
   return v.error
 }
 
-function toBool(v: FormulaValue): boolean | FormulaError {
+function toBool(v: V): boolean | FormulaError {
   if (isError(v)) return v
+  if (isBlank(v)) return false // 空单元格按 0 → false
   if (typeof v === 'boolean') return v
   if (typeof v === 'number') return v !== 0
   const t = v.trim().toUpperCase()
@@ -125,31 +145,34 @@ function toBool(v: FormulaValue): boolean | FormulaError {
   return err('#VALUE!')
 }
 
-// Excel 比较序：数字 < 字符串 < 布尔；字符串不区分大小写
-function compareValues(a: FormulaValue, b: FormulaValue): number {
+// Excel 比较序：数字 < 字符串 < 布尔；字符串不区分大小写。
+// 空单元格（BLANK，仅 ref 路径产生）在比较中按 0；空串字面量 "" 仍是字符串。
+function compareValues(a: V, b: V): number {
+  const x: FormulaValue = isBlank(a) ? 0 : a
+  const y: FormulaValue = isBlank(b) ? 0 : b
   const rank = (v: FormulaValue) => (typeof v === 'number' ? 0 : typeof v === 'string' ? 1 : 2)
-  const ra = rank(a)
-  const rb = rank(b)
+  const ra = rank(x)
+  const rb = rank(y)
   if (ra !== rb) return ra < rb ? -1 : 1
-  if (typeof a === 'number' && typeof b === 'number') return a < b ? -1 : a > b ? 1 : 0
-  if (typeof a === 'string' && typeof b === 'string') {
-    const x = a.toLowerCase()
-    const y = b.toLowerCase()
-    return x < y ? -1 : x > y ? 1 : 0
+  if (typeof x === 'number' && typeof y === 'number') return x < y ? -1 : x > y ? 1 : 0
+  if (typeof x === 'string' && typeof y === 'string') {
+    const lx = x.toLowerCase()
+    const ly = y.toLowerCase()
+    return lx < ly ? -1 : lx > ly ? 1 : 0
   }
-  const ba = a as boolean
-  const bb = b as boolean
-  return ba === bb ? 0 : ba ? 1 : -1
+  const bx = x as boolean
+  const by = y as boolean
+  return bx === by ? 0 : bx ? 1 : -1
 }
 
 // ---- 函数 ----
 
-type Fn = (args: AST[], ctx: EvalCtx) => FormulaValue
+type Fn = (args: AST[], ctx: EvalCtx) => V
 
 // 聚合类（SUM/AVERAGE/COUNT/MAX/MIN）：参数可为值或区域，忽略字符串/空白/布尔
 function aggregateArgs(args: AST[], ctx: EvalCtx): number[] | FormulaError {
   const nums: number[] = []
-  const push = (v: FormulaValue): FormulaError | null => {
+  const push = (v: V): FormulaError | null => {
     if (isError(v)) return v
     if (typeof v === 'number') nums.push(v)
     return null
@@ -215,7 +238,7 @@ const FUNCTIONS: Record<string, Fn> = {
   },
 }
 
-function evalCall(name: string, args: AST[], ctx: EvalCtx): FormulaValue {
+function evalCall(name: string, args: AST[], ctx: EvalCtx): V {
   const agg = AGGREGATES[name]
   if (agg) {
     const nums = aggregateArgs(args, ctx)

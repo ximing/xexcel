@@ -7,6 +7,7 @@ import {
   FormulaValue,
   evalNode,
   formatNumber,
+  isBlank,
   isError,
 } from './eval'
 import { parseFormula } from './parser'
@@ -77,7 +78,9 @@ export class CellEvaluator {
   private evalFormula(raw: string, sheet: SheetId): FormulaValue {
     const ctx: EvalCtx = { sheet, get: (s, r, c) => this.get(s, r, c) }
     try {
-      return evalNode(parseFormula(raw.slice(1)), ctx)
+      const v = evalNode(parseFormula(raw.slice(1)), ctx)
+      // BLANK 哨兵不越过公式边界：对外仍是 ''
+      return isBlank(v) ? '' : v
     } catch {
       // 词法/语法错误（含未知裸名字）→ #NAME?
       return { error: '#NAME?' }
