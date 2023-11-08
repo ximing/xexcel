@@ -41,6 +41,16 @@ describe('steps', () => {
     const r2 = new PatchStyleStep('s1', { sr: 2, sc: 2, er: 2, ec: 2 }, { bg: undefined }).apply(r.doc!)
     expect(r2.doc!.sheet('s1').getCell(2, 2)).toBeUndefined()
   })
+  it('PatchStyleStep 撤销可恢复纯样式格（格被删后重建）', () => {
+    // 空格 → patch bg（建格 {raw:'',style:{bg}}）→ patch bg:undefined（删格）→ undo 第二步 → 格恢复
+    const step1 = new PatchStyleStep('s1', { sr: 2, sc: 2, er: 2, ec: 2 }, { bg: '#ff0' })
+    const d1 = step1.apply(wb()).doc!
+    const step2 = new PatchStyleStep('s1', { sr: 2, sc: 2, er: 2, ec: 2 }, { bg: undefined })
+    const d2 = step2.apply(d1).doc!
+    expect(d2.sheet('s1').getCell(2, 2)).toBeUndefined()
+    const d3 = step2.invert(d1).apply(d2).doc!
+    expect(d3.sheet('s1').getCell(2, 2)).toEqual({ raw: '', style: { bg: '#ff0' } })
+  })
   it('ResizeStep 往返', () => {
     const d0 = wb()
     const step = new ResizeStep('s1', 'col', 1, 150)

@@ -65,7 +65,11 @@ export class RestoreStyleStep extends Step {
     }
     for (const e of this.entries) {
       const cell = data.getCell(e.row, e.col)
-      if (!cell) continue // 格不存在且只恢复样式 → 无需建格
+      if (!cell) {
+        // 格不存在但需恢复非空样式 → 重建纯样式格（如撤销「清空样式导致删格」）
+        if (e.style !== null) data = data.setCell(e.row, e.col, { raw: '', style: e.style })
+        continue
+      }
       if (e.style === null) {
         const next: Cell = { raw: cell.raw }
         data = data.setCell(e.row, e.col, next.raw === '' ? null : next)
