@@ -55,7 +55,8 @@ export function closeEditor(commit: boolean): void {
   finish(commit)
 }
 
-// 关闭会话；commit 时提交文本并把选区移动到 next（Enter/Tab 传下一格）
+// 关闭会话；commit 时提交文本。仅 Enter/Tab 显式传 next 时移动选区；
+// blur 提交（如点击其他单元格）不动选区——选区已被 mousedown 的 tr 更新为目标格。
 function finish(commit: boolean, next?: CellAddr): void {
   const s = session
   if (!s || s.done) return
@@ -69,9 +70,8 @@ function finish(commit: boolean, next?: CellAddr): void {
     const tr = s.view.state.tr
     const old = s.view.state.activeSheet.getCell(s.addr.row, s.addr.col)?.raw ?? ''
     if (text !== old) tr.setCell(s.addr.row, s.addr.col, text)
-    const target = next ?? s.addr
-    tr.setSelection(singleCell(target.row, target.col)).scrollIntoView()
-    s.view.dispatch(tr)
+    if (next) tr.setSelection(singleCell(next.row, next.col)).scrollIntoView()
+    if (tr.steps.length > 0 || tr.selection) s.view.dispatch(tr)
   }
   s.view.focus()
 }
