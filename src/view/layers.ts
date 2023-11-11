@@ -8,7 +8,7 @@ import { selectionRange } from '../core/selection'
 import type { SheetState } from '../core/state'
 import { evaluatorFor } from '../formula/engine'
 import { GridGeometry } from './geometry'
-import { fillPreviewKey } from './types'
+import { fillPreviewKey, ResizeGuide, resizeGuideKey } from './types'
 
 const COLOR_GRID = '#d9dce1'
 const COLOR_HEADER_BG = '#f7f8fa'
@@ -298,6 +298,17 @@ function renderOverlayLayer(
         dash: [4, 3],
         ...noListen,
       }),
+    )
+  }
+  // 行列调宽拖拽参考线：非空则画通长 1px 虚线（selection 插件写入）
+  const guide = state.getField(resizeGuideKey) as ResizeGuide | null | undefined
+  if (guide) {
+    const points =
+      guide.axis === 'col'
+        ? [guide.pos, 0, guide.pos, geom.contentHeight]
+        : [0, guide.pos, geom.contentWidth, guide.pos]
+    inner.add(
+      new Konva.Line({ points, stroke: COLOR_SELECT_BORDER, strokeWidth: 1, dash: [4, 3], ...noListen }),
     )
   }
   layer.add(clip)

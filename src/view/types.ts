@@ -9,8 +9,8 @@ export interface Rect {
   h: number
 }
 
-// 在 core HitResult 基础上预留行列调宽的边界区域（Task 6 使用）
-export type HitRegion = CoreHitResult['region'] | 'colborder' | 'rowborder'
+// region 全集在 core/plugin.ts 声明（含 colborder/rowborder 调宽边界），此处仅取别名
+export type HitRegion = CoreHitResult['region']
 
 export interface HitResult {
   region: HitRegion
@@ -18,5 +18,12 @@ export interface HitResult {
   col: number
 }
 
-// 填充手柄预览区域的 plugin state field（Task 6 fillhandle 写入；layers 读取并画 1px 虚线框）
+// 填充手柄预览区域的 plugin state field（fillhandle 插件以其为 key；layers 读取并画 1px 虚线框）
 export const fillPreviewKey = new PluginKey('fillPreview')
+
+// 行列调宽拖拽参考线：selection 插件写入，layers 读取画竖/横虚线（内容坐标像素）
+export interface ResizeGuide {
+  axis: 'row' | 'col'
+  pos: number // axis='col' → 竖线 x；axis='row' → 横线 y
+}
+export const resizeGuideKey = new PluginKey('resizeGuide')

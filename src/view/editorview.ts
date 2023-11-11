@@ -151,18 +151,24 @@ export class EditorView implements EditorViewLike {
     if (y < COL_HEADER_HEIGHT) {
       const cx = x - ROW_HEADER_WIDTH + this.scrollX
       const col = geom.colAt(cx)
-      // 列头右缘 ±3px → 列调宽边界（Task 6 使用）
+      // 列边界双侧 ±3px → 列调宽边界（bsearch 在边界返回下一列，故需补左缘判定）
       if (Math.abs(cx - geom.colLeft(col + 1)) <= BORDER_TOLERANCE) {
         return { region: 'colborder', row: -1, col }
+      }
+      if (col > 0 && Math.abs(cx - geom.colLeft(col)) <= BORDER_TOLERANCE) {
+        return { region: 'colborder', row: -1, col: col - 1 }
       }
       return { region: 'colheader', row: -1, col }
     }
     if (x < ROW_HEADER_WIDTH) {
       const cy = y - COL_HEADER_HEIGHT + this.scrollY
       const row = geom.rowAt(cy)
-      // 行头下缘 ±3px → 行调宽边界（Task 6 使用）
+      // 行边界双侧 ±3px → 行调宽边界
       if (Math.abs(cy - geom.rowTop(row + 1)) <= BORDER_TOLERANCE) {
         return { region: 'rowborder', row, col: -1 }
+      }
+      if (row > 0 && Math.abs(cy - geom.rowTop(row)) <= BORDER_TOLERANCE) {
+        return { region: 'rowborder', row: row - 1, col: -1 }
       }
       return { region: 'rowheader', row, col: -1 }
     }
@@ -198,6 +204,11 @@ export class EditorView implements EditorViewLike {
 
   focus(): void {
     this.proxy.focus({ preventScroll: true })
+  }
+
+  // 清空 proxy 累计的输入字符（keymap 开编辑器前调用，防脏值混入下次输入）
+  clearProxy(): void {
+    this.proxy.value = ''
   }
 
   render(): void {
@@ -247,7 +258,8 @@ export class EditorView implements EditorViewLike {
     return Math.max(0, this.geometry().contentHeight - (this.stage.height() - COL_HEADER_HEIGHT))
   }
 
-  private clampScroll(): void {
+  // 插件（selection 边缘自动滚动）也需要钳位，故公开
+  clampScroll(): void {
     this.scrollX = Math.max(0, Math.min(this.scrollX, this.maxScrollX()))
     this.scrollY = Math.max(0, Math.min(this.scrollY, this.maxScrollY()))
   }
@@ -300,7 +312,10 @@ export class EditorView implements EditorViewLike {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
-    this.someProp('handleKeyDown', (p) => p(this, e))
+    if (!this.someProp('handleKeyDown', (p) => p(this, e))) {
+      // 未拦截的可打印输入会落入 proxy textarea，清除避免脏值累积
+      if (e.key.length === 1) this.proxy.value = ''
+    }
   }
 
   private onPaste = (e: ClipboardEvent): void => {

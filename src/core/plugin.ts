@@ -23,8 +23,9 @@ export interface StateField<T> {
 }
 
 // HitResult 最小结构类型在 core 声明，view/types.ts 再扩展，避免循环依赖
+// colborder/rowborder：列头右缘/行头下缘 ±3px 的调宽边界（Task 6 resize 使用）
 export interface HitResult {
-  region: 'cell' | 'rowheader' | 'colheader' | 'corner' | 'fillhandle' | 'outside'
+  region: 'cell' | 'rowheader' | 'colheader' | 'corner' | 'fillhandle' | 'colborder' | 'rowborder' | 'outside'
   row: number
   col: number
 }
