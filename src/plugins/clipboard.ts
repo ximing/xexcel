@@ -4,7 +4,7 @@
 // - paste（handlePaste）：解析 TSV 二维数组，从 focus 起批量 setCell（越界行列丢弃）；
 //   选区 >1 格且剪贴板仅 1 格 → 平铺整个选区；cutRange 存在且与目标不同区域 → 清源区域
 // 全部经 dispatch transaction，不直接改 doc。
-import { CellRange, rangeCellCount, rangesEqual } from '../core/addr'
+import { CellRange, rangeCellCount, rangesEqual, rangesIntersect } from '../core/addr'
 import { Cell } from '../core/model'
 import { EditorViewLike, Plugin } from '../core/plugin'
 import { selectionRange } from '../core/selection'
@@ -61,8 +61,11 @@ export function clipboard(): Plugin {
         }
         const tr = state.tr
         if (entries.length) tr.setCells(sheetId, entries)
-        // cut 移动语义：粘贴目标与源不同区域 → 清源区域
-        if (cutRange && !rangesEqual(cutRange, target)) tr.clearRange(cutRange)
+        // cut 移动语义：目标与源不相交才清源；相交（含同一区域）跳过，
+        // 否则 clearRange 会把刚写入的重叠格一并清掉（与 Excel 禁止重叠 cut 粘贴一致）
+        if (cutRange && !rangesEqual(cutRange, target) && !rangesIntersect(cutRange, target)) {
+          tr.clearRange(cutRange)
+        }
         cutRange = null
         if (tr.steps.length) {
           tr.setSelection({

@@ -71,6 +71,10 @@ export function rangesEqual(a: CellRange, b: CellRange): boolean {
   return a.sr === b.sr && a.sc === b.sc && a.er === b.er && a.ec === b.ec
 }
 
+export function rangesIntersect(a: CellRange, b: CellRange): boolean {
+  return a.sr <= b.er && a.er >= b.sr && a.sc <= b.ec && a.ec >= b.sc
+}
+
 export function wholeRange(maxRow: number, maxCol: number): CellRange {
   return { sr: 0, sc: 0, er: maxRow - 1, ec: maxCol - 1 }
 }
