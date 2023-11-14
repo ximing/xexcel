@@ -16,6 +16,7 @@ export function App() {
     const v = new EditorView(mountRef.current!, { state: createDemoState() })
     setView(v)
     v.focus()
+    if (import.meta.env.DEV) (window as unknown as { __xcell: EditorView }).__xcell = v
     return () => {
       setView(null)
       v.destroy()
