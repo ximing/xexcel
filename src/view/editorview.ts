@@ -14,7 +14,6 @@ import { HitResult, Rect } from './types'
 
 export interface DirectEditorProps {
   state: SheetState
-  dispatch(tr: Transaction): void
 }
 
 const BORDER_TOLERANCE = 3 // 行列头边缘 ±3px 判定为调宽边界
@@ -26,7 +25,6 @@ export class EditorView implements EditorViewLike {
   scrollX = 0
   scrollY = 0
 
-  private readonly props: DirectEditorProps
   private readonly proxy: HTMLTextAreaElement
   private readonly gridLayer: Konva.Layer
   private readonly cellLayer: Konva.Layer
@@ -38,7 +36,6 @@ export class EditorView implements EditorViewLike {
   private rafId = 0
 
   constructor(mount: HTMLElement, props: DirectEditorProps) {
-    this.props = props
     this.state = props.state
 
     this.dom = document.createElement('div')
@@ -98,11 +95,12 @@ export class EditorView implements EditorViewLike {
     return this.geomCache.geom
   }
 
+  // 应用事务的唯一入口：applyTransaction → updateState → 插件 view.update → 重绘。
+  // 宿主（React bridge 等）经 subscribe 感知 state 变化，不做事务级回调
   dispatch(tr: Transaction): void {
     const { state } = this.state.applyTransaction(tr)
     this.updateState(state)
     if (tr.scrolledIntoView) this.ensureVisible(state.selection.focus)
-    this.props.dispatch(tr) // 通知宿主（如 React bridge 外层）
   }
 
   updateState(state: SheetState): void {

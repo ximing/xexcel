@@ -12,12 +12,8 @@ export function App() {
   const [view, setView] = useState<EditorView | null>(null)
 
   useEffect(() => {
-    // EditorView.dispatch 内部已 applyTransaction + updateState，props.dispatch
-    // 只是宿主通知回调；React 侧经 subscribe 刷新，若闭环回 view.dispatch 会无限递归
-    const v = new EditorView(mountRef.current!, {
-      state: createDemoState(),
-      dispatch: () => {},
-    })
+    // React 侧经 useSheetState(subscribe) 感知 state 变化，无需宿主 dispatch 回调
+    const v = new EditorView(mountRef.current!, { state: createDemoState() })
     setView(v)
     v.focus()
     return () => {
