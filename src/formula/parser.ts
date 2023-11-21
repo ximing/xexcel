@@ -3,15 +3,26 @@
 //   → 一元 -x / +x / 后缀 x% → 原子。
 // 注意：一元负号绑定优先于 ^，即 =-1^2 解析为 (-1)^2 = 1。
 //   这是 Excel 的实际语义（Excel 中 -1^2 = 1），有意与数学惯例 -(1^2) 不同，勿改。
-import { CellAddr, CellRange, fromA1, normalizeRange } from '../core/addr'
+// ref/range 节点携带 RefTarget：$ 标志（rowAbs/colAbs）与可选表名（sheet）。
+// range 的 a/b 保留书写顺序不归一；归一发生在 eval。
+import { parseColName } from '../core/addr'
 import { LexError, Token, tokenize } from './lexer'
+
+export interface RefTarget {
+  sheet?: string // 表名（原文大小写；eval 时不区分大小写解析为 SheetId）
+  row: number
+  col: number
+  rowAbs: boolean
+  colAbs: boolean
+}
 
 export type AST =
   | { type: 'num'; value: number }
   | { type: 'str'; value: string }
   | { type: 'bool'; value: boolean }
-  | { type: 'ref'; addr: CellAddr }
-  | { type: 'range'; range: CellRange }
+  | { type: 'err'; error: string } // 目前仅 '#REF!'（shiftRefs 越界产物或用户原文）
+  | { type: 'ref'; ref: RefTarget }
+  | { type: 'range'; a: RefTarget; b: RefTarget }
   | { type: 'call'; name: string; args: AST[] }
   | { type: 'unary'; op: '+' | '-'; expr: AST }
   | { type: 'binary'; op: string; left: AST; right: AST }
@@ -26,6 +37,22 @@ export function parseFormula(src: string): AST {
   const ast = p.parseCompare()
   if (p.peek() !== null) throw new ParseError(`unexpected token: ${p.peek()!.value}`)
   return ast
+}
+
+// '$A$1' / 'A1' 等 cellref token 原文 → RefTarget
+function parseCellRefText(text: string, sheet?: string): RefTarget {
+  const m = /^(\$?)([A-Za-z]+)(\$?)([0-9]+)$/.exec(text)
+  if (!m) throw new ParseError(`bad cell reference: ${text}`)
+  const col = parseColName(m[2])
+  if (col < 0) throw new ParseError(`bad cell reference: ${text}`)
+  const ref: RefTarget = {
+    row: parseInt(m[4], 10) - 1,
+    col,
+    rowAbs: m[3] === '$',
+    colAbs: m[1] === '$',
+  }
+  if (sheet !== undefined) ref.sheet = sheet
+  return ref
 }
 
 class Parser {
@@ -50,6 +77,11 @@ class Parser {
       return t.value
     }
     return null
+  }
+
+  private peekBang(): boolean {
+    const t = this.peek()
+    return t !== null && t.type === 'op' && t.value === '!'
   }
 
   // 比较（最低优先级，左结合）
@@ -111,6 +143,27 @@ class Parser {
     return node
   }
 
+  // 表名! 前缀已消费前的入口：name 为裸名或引号名文本
+  private parseSheetRef(name: string): AST {
+    this.next() // consume '!'
+    const first = this.next()
+    if (first.type !== 'cellref') throw new ParseError(`expected cell reference after '!'`)
+    const a = parseCellRefText(first.value, name)
+    if (this.peek()?.type !== 'colon') return { type: 'ref', ref: a }
+    this.next() // consume ':'
+    // 第二端允许重复表名前缀（同表），异表 → 语法错误
+    let end = this.next()
+    if ((end.type === 'ident' || end.type === 'sheetname') && this.peekBang()) {
+      if (end.value.toLowerCase() !== name.toLowerCase()) {
+        throw new ParseError('range endpoints on different sheets')
+      }
+      this.next() // consume '!'
+      end = this.next()
+    }
+    if (end.type !== 'cellref') throw new ParseError(`expected cell reference after ':'`)
+    return { type: 'range', a, b: parseCellRefText(end.value, name) }
+  }
+
   private parseAtom(): AST {
     const t = this.next()
     switch (t.type) {
@@ -118,7 +171,14 @@ class Parser {
         return { type: 'num', value: Number(t.value) }
       case 'str':
         return { type: 'str', value: t.value }
+      case 'errlit':
+        return { type: 'err', error: t.value }
+      case 'sheetname': {
+        if (this.peekBang()) return this.parseSheetRef(t.value)
+        throw new ParseError(`unexpected quoted name: ${t.value}`)
+      }
       case 'ident': {
+        if (this.peekBang()) return this.parseSheetRef(t.value)
         const upper = t.value.toUpperCase()
         if (this.peek()?.type === 'lparen') {
           this.next() // consume '('
@@ -140,20 +200,14 @@ class Parser {
         throw new ParseError(`unknown name: ${t.value}`)
       }
       case 'cellref': {
-        const a = fromA1(t.value)
-        if (!a) throw new ParseError(`bad cell reference: ${t.value}`)
+        const a = parseCellRefText(t.value)
         if (this.peek()?.type === 'colon') {
           this.next() // consume ':'
           const end = this.next()
           if (end.type !== 'cellref') throw new ParseError(`expected cell reference after ':'`)
-          const b = fromA1(end.value)
-          if (!b) throw new ParseError(`bad cell reference: ${end.value}`)
-          return {
-            type: 'range',
-            range: normalizeRange({ sr: a.row, sc: a.col, er: b.row, ec: b.col }),
-          }
+          return { type: 'range', a, b: parseCellRefText(end.value) }
         }
-        return { type: 'ref', addr: a }
+        return { type: 'ref', ref: a }
       }
       case 'lparen': {
         const inner = this.parseCompare()

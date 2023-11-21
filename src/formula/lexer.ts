@@ -6,7 +6,9 @@ export type TokenType =
   | 'num'
   | 'str'
   | 'ident'
-  | 'cellref'
+  | 'sheetname' // '...' 引号表名（'' 转义）
+  | 'cellref' // 可带 $ 前缀，value 保留原文（如 $A$1）
+  | 'errlit' // #REF! 字面量
   | 'op'
   | 'lparen'
   | 'rparen'
@@ -15,12 +17,13 @@ export type TokenType =
 
 export interface Token {
   type: TokenType
-  value: string // num/str 为解析后的文本；cellref 为 A1 原文；op 为运算符
+  value: string // num/str 为解析后的文本；cellref 为原文（含 $）；sheetname 为去引号文本；op 为运算符
 }
 
 export class LexError extends Error {}
 
 const NUM_RE = /^(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?/
+const CELLREF_RE = /^\$?[A-Za-z]+\$?[0-9]+/
 
 export function tokenize(src: string): Token[] {
   const tokens: Token[] = []
@@ -62,23 +65,61 @@ export function tokenize(src: string): Token[] {
       i = j
       continue
     }
-    // 字母开头：cellref（字母+数字且是合法 A1）或 ident（纯字母：TRUE/FALSE/函数名）
-    if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
-      let j = i
-      while (j < src.length && /[A-Za-z]/.test(src[j])) j++
-      const letters = src.slice(i, j)
-      let k = j
-      while (k < src.length && /[0-9]/.test(src[k])) k++
-      if (k > j) {
-        const candidate = src.slice(i, k)
-        if (fromA1(candidate)) {
-          tokens.push({ type: 'cellref', value: candidate })
-          i = k
+    // 引号表名：'...'，`''` 为转义的单引号
+    if (ch === "'") {
+      let j = i + 1
+      let out = ''
+      for (;;) {
+        if (j >= src.length) throw new LexError('unterminated sheet name')
+        if (src[j] === "'") {
+          if (src[j + 1] === "'") {
+            out += "'"
+            j += 2
+          } else {
+            j++
+            break
+          }
+        } else {
+          out += src[j]
+          j++
+        }
+      }
+      tokens.push({ type: 'sheetname', value: out })
+      i = j
+      continue
+    }
+    // #REF! 字面量
+    if (ch === '#') {
+      if (src.startsWith('#REF!', i)) {
+        tokens.push({ type: 'errlit', value: '#REF!' })
+        i += 5
+        continue
+      }
+      throw new LexError(`unexpected character: #`)
+    }
+    // cellref（可带 $）或 ident
+    if (ch === '$' || (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
+      const m = CELLREF_RE.exec(src.slice(i))
+      if (m) {
+        const text = m[0]
+        // 后随 '!' 的是表名前缀而非单元格引用（如 Sheet2!A1；fromA1 不限列名长度，
+        // 否则 Sheet2 会被误吞为 cellref）→ 按 ident 交给 parser 的表名分支
+        if (src[i + text.length] === '!') {
+          tokens.push({ type: 'ident', value: text })
+          i += text.length
           continue
         }
-        throw new LexError(`bad cell reference: ${candidate}`)
+        if (fromA1(text.replace(/\$/g, ''))) {
+          tokens.push({ type: 'cellref', value: text })
+          i += text.length
+          continue
+        }
+        throw new LexError(`bad cell reference: ${text}`)
       }
-      tokens.push({ type: 'ident', value: letters })
+      if (ch === '$') throw new LexError('unexpected character: $')
+      let j = i
+      while (j < src.length && /[A-Za-z]/.test(src[j])) j++
+      tokens.push({ type: 'ident', value: src.slice(i, j) })
       i = j
       continue
     }
@@ -109,7 +150,7 @@ export function tokenize(src: string): Token[] {
       i += 2
       continue
     }
-    if ('+-*/^&%=<>'.includes(ch)) {
+    if ('+-*/^&%=<>!'.includes(ch)) {
       tokens.push({ type: 'op', value: ch })
       i++
       continue
