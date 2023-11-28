@@ -227,14 +227,14 @@ export class Workbook {
     return new Workbook(this.sheets, this.order, id, this.names)
   }
 
-  addSheet(id: SheetId, data: SheetData, index?: number): Workbook {
+  addSheet(id: SheetId, data: SheetData, index?: number, name?: string): Workbook {
     if (this.sheets.has(id)) throw new Error(`sheet already exists: ${id}`)
     const sheets = new Map(this.sheets)
     sheets.set(id, data)
     const order = [...this.order]
     order.splice(index ?? order.length, 0, id)
     const names = new Map(this.names)
-    names.set(id, `Sheet${sheets.size}`)
+    names.set(id, name ?? `Sheet${sheets.size}`)
     return new Workbook(sheets, order, this.active, names)
   }
 
@@ -283,4 +283,22 @@ export class Workbook {
     for (const id of j.order) if (!names.has(id)) names.set(id, id)
     return new Workbook(sheets, j.order, j.active, names)
   }
+}
+
+// 新表 id：取现有 's<N>' 形式 id 的最大 N+1
+export function nextSheetId(wb: Workbook): SheetId {
+  let max = 0
+  for (const id of wb.sheets.keys()) {
+    const m = /^s(\d+)$/.exec(id)
+    if (m) max = Math.max(max, parseInt(m[1], 10))
+  }
+  return `s${max + 1}`
+}
+
+// 新表名：'Sheet<i>'，从表数+1 起跳过已占用名（不区分大小写）
+export function nextSheetName(wb: Workbook): string {
+  const taken = new Set([...wb.names.values()].map((n) => n.toLowerCase()))
+  let i = wb.order.length + 1
+  while (taken.has(`sheet${i}`)) i++
+  return `Sheet${i}`
 }

@@ -189,6 +189,126 @@ export class ResizeStep extends Step {
   }
 }
 
+// 插入新表。data 为新表内容（新建=空表；undo 删表=快照）；
+// active 非 null 时插入完成后设为活动表（恢复别表 active 也走此字段）。
+export class InsertSheetStep extends Step {
+  constructor(
+    readonly sheet: SheetId,
+    readonly name: string,
+    readonly data: SheetData,
+    readonly index: number | null, // null = 末尾
+    readonly active: SheetId | null,
+  ) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    if (doc.sheets.has(this.sheet)) return { ok: false, failed: `sheet already exists: ${this.sheet}` }
+    const idx = this.index ?? doc.order.length
+    if (idx < 0 || idx > doc.order.length) return { ok: false, failed: `index out of bounds: ${this.index}` }
+    if (this.active !== null && this.active !== this.sheet && !doc.sheets.has(this.active)) {
+      return { ok: false, failed: `active sheet not found: ${this.active}` }
+    }
+    let d = doc.addSheet(this.sheet, this.data, idx, this.name)
+    if (this.active !== null) d = d.setActive(this.active)
+    return { ok: true, doc: d }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    return new RemoveSheetStep(this.sheet, beforeDoc.active)
+  }
+
+  toJSON(): unknown {
+    return {
+      type: 'insertSheet',
+      sheet: this.sheet,
+      name: this.name,
+      data: this.data.toJSON(),
+      index: this.index,
+      active: this.active,
+    }
+  }
+}
+
+// 删除表。restoreActive：undo「插入表」时恢复之前的 active（可为 null=不动）。
+export class RemoveSheetStep extends Step {
+  constructor(readonly sheet: SheetId, readonly restoreActive: SheetId | null = null) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    if (!doc.sheets.has(this.sheet)) return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    if (doc.order.length <= 1) return { ok: false, failed: 'cannot remove the last sheet' }
+    let d = doc.removeSheet(this.sheet)
+    if (this.restoreActive !== null && d.sheets.has(this.restoreActive)) {
+      d = d.setActive(this.restoreActive)
+    }
+    return { ok: true, doc: d }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    // 快照整张表 + 名称 + 原位置 + 原 active，undo 完整恢复
+    return new InsertSheetStep(
+      this.sheet,
+      beforeDoc.names.get(this.sheet) ?? this.sheet,
+      beforeDoc.sheet(this.sheet),
+      beforeDoc.order.indexOf(this.sheet),
+      beforeDoc.active,
+    )
+  }
+
+  toJSON(): unknown {
+    return { type: 'removeSheet', sheet: this.sheet, restoreActive: this.restoreActive }
+  }
+}
+
+export class RenameSheetStep extends Step {
+  constructor(readonly sheet: SheetId, readonly name: string) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    if (!doc.sheets.has(this.sheet)) return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    const trimmed = this.name.trim()
+    if (trimmed === '') return { ok: false, failed: 'empty sheet name' }
+    const lower = trimmed.toLowerCase()
+    for (const [id, n] of doc.names) {
+      if (id !== this.sheet && n.toLowerCase() === lower) {
+        return { ok: false, failed: `duplicate sheet name: ${trimmed}` }
+      }
+    }
+    return { ok: true, doc: doc.renameSheet(this.sheet, trimmed) }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    return new RenameSheetStep(this.sheet, beforeDoc.names.get(this.sheet) ?? this.sheet)
+  }
+
+  toJSON(): unknown {
+    return { type: 'renameSheet', sheet: this.sheet, name: this.name }
+  }
+}
+
+// 切换活动表。调用侧应配 tr.setMeta('addToHistory', false) 不入 undo 栈。
+export class SetActiveSheetStep extends Step {
+  constructor(readonly sheet: SheetId) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    if (!doc.sheets.has(this.sheet)) return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    return { ok: true, doc: doc.setActive(this.sheet) }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    return new SetActiveSheetStep(beforeDoc.active)
+  }
+
+  toJSON(): unknown {
+    return { type: 'setActiveSheet', sheet: this.sheet }
+  }
+}
+
 export function stepFromJSON(json: any): Step {
   switch (json?.type) {
     case 'setCells':
@@ -199,6 +319,14 @@ export function stepFromJSON(json: any): Step {
       return new ResizeStep(json.sheet, json.axis, json.index, json.size)
     case 'restoreStyle':
       return new RestoreStyleStep(json.sheet, json.entries)
+    case 'insertSheet':
+      return new InsertSheetStep(json.sheet, json.name, SheetData.fromJSON(json.data), json.index, json.active)
+    case 'removeSheet':
+      return new RemoveSheetStep(json.sheet, json.restoreActive ?? null)
+    case 'renameSheet':
+      return new RenameSheetStep(json.sheet, json.name)
+    case 'setActiveSheet':
+      return new SetActiveSheetStep(json.sheet)
     default:
       throw new Error(`unknown step type: ${json?.type}`)
   }

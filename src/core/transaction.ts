@@ -1,7 +1,8 @@
 import { CellRange, normalizeRange } from './addr'
-import { Cell, CellStyle, SheetId, Workbook } from './model'
+import { Cell, CellStyle, SheetConfig, SheetData, SheetId, Workbook } from './model'
 import { Selection } from './selection'
 import { PatchStyleStep, ResizeStep, SetCellsStep, Step } from './steps'
+import { InsertSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
 import type { PluginKey } from './plugin'
 import type { SheetState } from './state'
 
@@ -63,6 +64,24 @@ export class Transaction {
     }
     if (entries.length === 0) return this
     return this._pushStep(new SetCellsStep(sheet, entries))
+  }
+
+  // 新建空表并设为 active（config 为新表行列数，通常取当前表尺寸）
+  insertSheet(id: SheetId, name: string, config: SheetConfig): this {
+    return this._pushStep(new InsertSheetStep(id, name, SheetData.create(config), null, id))
+  }
+
+  removeSheet(id: SheetId): this {
+    return this._pushStep(new RemoveSheetStep(id))
+  }
+
+  renameSheet(id: SheetId, name: string): this {
+    return this._pushStep(new RenameSheetStep(id, name))
+  }
+
+  // 调用侧配 setMeta('addToHistory', false)；并自行 setSelection 防止选区越界
+  setActiveSheet(id: SheetId): this {
+    return this._pushStep(new SetActiveSheetStep(id))
   }
 
   setSelection(sel: Selection): this {
