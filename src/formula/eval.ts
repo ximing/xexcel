@@ -1,5 +1,6 @@
 // 公式求值：对 AST 递归求值，产出 FormulaValue。
 // 错误沿调用链传播（第一个错误胜出）；区域只允许出现在函数参数位置。
+import { normalizeRange } from '../core/addr'
 import { SheetId } from '../core/model'
 import { AST } from './parser'
 
@@ -13,8 +14,9 @@ export function isError(v: unknown): v is FormulaError {
 }
 
 export interface EvalCtx {
-  sheet: SheetId // 当前公式所在表（M1 引用均为本表）
+  sheet: SheetId // 当前公式所在表
   get(sheet: SheetId, row: number, col: number): FormulaValue
+  resolveSheet(name: string): SheetId | null // 表名（不区分大小写）→ SheetId；未知 → null
 }
 
 // 内部哨兵：标记「空单元格引用」（仅 ref 求值路径产生）。
@@ -39,9 +41,13 @@ export function evalNode(node: AST, ctx: EvalCtx): V {
     case 'str':
     case 'bool':
       return node.value
+    case 'err':
+      return err(node.error)
     case 'ref': {
       // 空单元格（''）标记为 BLANK：比较/算术按 0，拼接按 ''（仅 ref 路径）
-      const v = ctx.get(ctx.sheet, node.addr.row, node.addr.col)
+      const sid = node.ref.sheet !== undefined ? ctx.resolveSheet(node.ref.sheet) : ctx.sheet
+      if (sid === null) return err('#REF!')
+      const v = ctx.get(sid, node.ref.row, node.ref.col)
       return v === '' ? BLANK : v
     }
     case 'range':
@@ -179,10 +185,12 @@ function aggregateArgs(args: AST[], ctx: EvalCtx): number[] | FormulaError {
   }
   for (const arg of args) {
     if (arg.type === 'range') {
-      const r = arg.range
+      const sid = arg.a.sheet !== undefined ? ctx.resolveSheet(arg.a.sheet) : ctx.sheet
+      if (sid === null) return err('#REF!')
+      const r = normalizeRange({ sr: arg.a.row, sc: arg.a.col, er: arg.b.row, ec: arg.b.col })
       for (let row = r.sr; row <= r.er; row++) {
         for (let col = r.sc; col <= r.ec; col++) {
-          const e = push(ctx.get(ctx.sheet, row, col))
+          const e = push(ctx.get(sid, row, col))
           if (e) return e
         }
       }

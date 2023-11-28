@@ -76,7 +76,15 @@ export class CellEvaluator {
   }
 
   private evalFormula(raw: string, sheet: SheetId): FormulaValue {
-    const ctx: EvalCtx = { sheet, get: (s, r, c) => this.get(s, r, c) }
+    const ctx: EvalCtx = {
+      sheet,
+      get: (s, r, c) => this.get(s, r, c),
+      resolveSheet: (name) => {
+        const lower = name.toLowerCase()
+        for (const [id, n] of this.workbook.names) if (n.toLowerCase() === lower) return id
+        return null
+      },
+    }
     try {
       const v = evalNode(parseFormula(raw.slice(1)), ctx)
       // BLANK 哨兵不越过公式边界：对外仍是 ''
