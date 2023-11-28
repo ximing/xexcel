@@ -7,11 +7,13 @@
 //   到新区域、清 preview
 // 全部经 dispatch transaction，不直接改 doc。拖拽态存插件闭包变量。
 import { CellRange, rangesEqual } from '../core/addr'
-import { Cell, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
+import { Cell, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH, SheetData } from '../core/model'
 import { EditorViewLike, Plugin } from '../core/plugin'
 import { selectionRange } from '../core/selection'
 import type { Transaction } from '../core/transaction'
+import type { FormulaValue } from '../formula/engine'
 import { evaluatorFor } from '../formula/engine'
+import { shiftFormula } from '../formula/transform'
 import type { EditorView } from '../view/editorview'
 import { fillPreviewKey } from '../view/types'
 
@@ -93,11 +95,14 @@ export function fillhandle(): Plugin {
   })
 }
 
-// 生成填充内容：延伸区平铺源区域；满足等差条件时写序列值。填充后选区切到整个目标区域。
-function buildFill(view: EditorView, tr: Transaction, src: CellRange, dst: CellRange): void {
-  const state = view.state
-  const sheet = state.activeSheet
-  const sheetId = state.doc.active
+// 生成填充内容：延伸区平铺源区域（公式按各自偏移量调整引用）；满足等差条件时写序列值。
+// 纯函数提取供单测；getValue 通常为 (r,c) => evaluatorFor(doc).get(sheetId, r, c)。
+export function computeFillEntries(
+  sheet: SheetData,
+  getValue: (row: number, col: number) => FormulaValue,
+  src: CellRange,
+  dst: CellRange,
+): { row: number; col: number; cell: Cell | null }[] {
   const srcRows = src.er - src.sr + 1
   const srcCols = src.ec - src.sc + 1
   const vertical = dst.er > src.er || dst.sr < src.sr // 主轴方向（targetAt 保证只沿一轴延伸）
@@ -106,7 +111,6 @@ function buildFill(view: EditorView, tr: Transaction, src: CellRange, dst: CellR
   // 等差判定：源单列纵向延伸 / 源单行横向延伸，且每格 raw 非公式、求值为 number
   let series: number[] | null = null
   if ((vertical && srcCols === 1) || (!vertical && srcRows === 1)) {
-    const ev = evaluatorFor(state.doc)
     const nums: number[] = []
     let ok = true
     const n = vertical ? srcRows : srcCols
@@ -118,7 +122,7 @@ function buildFill(view: EditorView, tr: Transaction, src: CellRange, dst: CellR
         ok = false
         break
       }
-      const val = ev.get(sheetId, r, c)
+      const val = getValue(r, c)
       if (typeof val !== 'number') {
         ok = false
         break
@@ -140,23 +144,37 @@ function buildFill(view: EditorView, tr: Transaction, src: CellRange, dst: CellR
       for (let c = src.ec + 1; c <= dst.ec; c++) entries.push({ row: src.sr, col: c, cell: numCell(last + step * (c - src.ec)) })
       for (let c = dst.sc; c < src.sc; c++) entries.push({ row: src.sr, col: c, cell: numCell(first - step * (src.sc - c)) })
     }
-  } else {
-    // 平铺：源区域按周期重复（含样式拷贝；源空格 → 清目标格）
-    for (let r = dst.sr; r <= dst.er; r++) {
-      for (let c = dst.sc; c <= dst.ec; c++) {
-        if (r >= src.sr && r <= src.er && c >= src.sc && c <= src.ec) continue
-        const sr = src.sr + (((r - src.sr) % srcRows) + srcRows) % srcRows
-        const sc = src.sc + (((c - src.sc) % srcCols) + srcCols) % srcCols
-        const s = sheet.getCell(sr, sc)
-        entries.push({
-          row: r,
-          col: c,
-          cell: s ? { raw: s.raw, ...(s.style ? { style: { ...s.style } } : {}) } : null,
-        })
-      }
-    }
+    return entries
   }
 
+  // 平铺：源区域按周期重复（公式 shift、样式拷贝；源空格 → 清目标格）
+  for (let r = dst.sr; r <= dst.er; r++) {
+    for (let c = dst.sc; c <= dst.ec; c++) {
+      if (r >= src.sr && r <= src.er && c >= src.sc && c <= src.ec) continue
+      const srow = src.sr + (((r - src.sr) % srcRows) + srcRows) % srcRows
+      const scol = src.sc + (((c - src.sc) % srcCols) + srcCols) % srcCols
+      const s = sheet.getCell(srow, scol)
+      if (!s) {
+        entries.push({ row: r, col: c, cell: null })
+        continue
+      }
+      const raw = s.raw.startsWith('=') ? shiftFormula(s.raw, r - srow, c - scol) : s.raw
+      entries.push({
+        row: r,
+        col: c,
+        cell: { raw, ...(s.style ? { style: { ...s.style } } : {}) },
+      })
+    }
+  }
+  return entries
+}
+
+// 填充后选区切到整个目标区域。
+function buildFill(view: EditorView, tr: Transaction, src: CellRange, dst: CellRange): void {
+  const state = view.state
+  const sheetId = state.doc.active
+  const ev = evaluatorFor(state.doc)
+  const entries = computeFillEntries(state.activeSheet, (r, c) => ev.get(sheetId, r, c), src, dst)
   if (entries.length) tr.setCells(sheetId, entries)
   tr.setSelection({ anchor: { row: dst.sr, col: dst.sc }, focus: { row: dst.er, col: dst.ec } }).scrollIntoView()
 }
