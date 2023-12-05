@@ -106,6 +106,11 @@ export class EditorView implements EditorViewLike {
   updateState(state: SheetState): void {
     const prev = this.state
     this.state = state
+    // 切换活动表：视口归零，避免沿用前表的滚动偏移
+    if (prev.doc.active !== state.doc.active) {
+      this.scrollX = 0
+      this.scrollY = 0
+    }
     for (let i = 0; i < state.plugins.length; i++) {
       this.pluginViews[i]?.update?.(this, prev)
     }

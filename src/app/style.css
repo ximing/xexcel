@@ -136,3 +136,88 @@ body {
   font-size: 12px;
   flex: none;
 }
+
+/* SheetTabBar 28px */
+.sheet-tab-bar {
+  height: 28px;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 8px;
+  border-top: 1px solid #e0e0e0;
+  background: #f8f9fa;
+  flex: none;
+  overflow-x: auto;
+}
+
+.sheet-tab-add {
+  align-self: center;
+  width: 24px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #5f6368;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  flex: none;
+}
+
+.sheet-tab-add:hover {
+  background: #f1f3f4;
+}
+
+.sheet-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  color: #5f6368;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: flex-end;
+  height: 26px;
+  box-sizing: border-box;
+}
+
+.sheet-tab:hover {
+  background: #f1f3f4;
+}
+
+.sheet-tab.active {
+  background: #ffffff;
+  border-color: #e0e0e0;
+  color: #1a73e8;
+  font-weight: 600;
+}
+
+.sheet-tab-close {
+  border: none;
+  background: transparent;
+  color: #9aa0a6;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.sheet-tab-close:hover {
+  background: #fce8e6;
+  color: #d93025;
+}
+
+.sheet-tab-input {
+  align-self: center;
+  height: 22px;
+  width: 96px;
+  border: 1px solid #1a73e8;
+  border-radius: 4px;
+  outline: none;
+  padding: 0 6px;
+  font: inherit;
+}
