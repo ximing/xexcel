@@ -53,4 +53,22 @@ describe('planPaste', () => {
       { row: 99, col: 25, cell: { raw: 'b' } },
     ])
   })
+  it('内部 copy 多格：源内相对偏移不重复计入（F1）', () => {
+    const p = payload({ range: { sr: 0, sc: 0, er: 1, ec: 0 }, raws: [['=B1'], ['=B2']], tsv: '2\n4' })
+    const { entries } = planPaste(p, '2\n4', { sr: 4, sc: 0, er: 5, ec: 0 }, BOUNDS)
+    expect(entries.map((e) => e.cell?.raw)).toEqual(['=B5', '=B6'])
+  })
+  it('内部 copy 平铺到更高选区：每个 tile 按自身起点偏移（F1）', () => {
+    // 注：协调者原期望第二个 tile 复用同一 delta（'=B5','=B6' 重复），
+    // 但与 F1 评审修复公式（tileRow = r - (r-target.sr)%h）、既有单格平铺用例
+    // （'=A2*2','=A3*2'）及 Excel 行为矛盾；此处按 per-tile 语义断言
+    const p = payload({ range: { sr: 0, sc: 0, er: 1, ec: 0 }, raws: [['=B1'], ['=B2']], tsv: '2\n4' })
+    const { entries } = planPaste(p, '2\n4', { sr: 4, sc: 0, er: 7, ec: 0 }, BOUNDS)
+    expect(entries.map((e) => e.cell?.raw)).toEqual(['=B5', '=B6', '=B7', '=B8'])
+  })
+  it('CRLF 指纹：粘贴文本带 \\r\\n 仍命中内部负载（F2）', () => {
+    const p = payload({ range: { sr: 0, sc: 0, er: 1, ec: 0 }, raws: [['=B1'], ['=B2']], tsv: '2\n4' })
+    const { entries } = planPaste(p, '2\r\n4', { sr: 4, sc: 0, er: 5, ec: 0 }, BOUNDS)
+    expect(entries.map((e) => e.cell?.raw)).toEqual(['=B5', '=B6'])
+  })
 })

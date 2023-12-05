@@ -20,31 +20,39 @@ export interface ClipboardPayload {
   cut: boolean
 }
 
+// 注意：text 允许传入未规范化文本（CRLF round-trip），函数内先统一成 \n 再比对指纹
 export function planPaste(
   payload: ClipboardPayload | null,
   text: string,
   target: CellRange,
   bounds: { rowCount: number; colCount: number },
 ): { entries: { row: number; col: number; cell: Cell | null }[]; clearSource: boolean } {
+  // 防御性规范化：系统剪贴板可能把 \n 变成 \r\n，不先归一会让指纹比对假阴性
+  const normText = text.replace(/\r\n?/g, '\n')
   const er = Math.min(target.er, bounds.rowCount - 1)
   const ec = Math.min(target.ec, bounds.colCount - 1)
   const entries: { row: number; col: number; cell: Cell | null }[] = []
 
   // 内部粘贴：文本与负载指纹一致 → 用 raw 网格（保留公式）
-  if (payload && text === payload.tsv) {
+  if (payload && normText === payload.tsv) {
     const h = payload.raws.length
     const w = payload.raws[0]?.length ?? 1
     for (let r = target.sr; r <= er; r++) {
+      const i = (r - target.sr) % h
       for (let c = target.sc; c <= ec; c++) {
-        const src = payload.raws[(r - target.sr) % h][(c - target.sc) % w]
+        const j = (c - target.sc) % w
+        const src = payload.raws[i][j]
         if (src === null || src === '') {
           entries.push({ row: r, col: c, cell: null })
           continue
         }
-        // copy 偏移公式引用；cut 移动语义不偏移（与 Excel 一致）
+        // copy 偏移公式引用：delta 按 tile 起点算（r-i / c-j）。
+        // 源格在源区域内的相对偏移 (i,j) 已含在 raw 文本里，若按 (r-sr, c-sc)
+        // 直接偏移会把源内偏移重复计入（多格 copy 越往下偏得越多）。
+        // 平铺时每个 tile 独立按自身起点偏移（与 Excel 一致）；cut 移动语义不偏移
         const raw =
           !payload.cut && src.startsWith('=')
-            ? shiftFormula(src, r - payload.range.sr, c - payload.range.sc)
+            ? shiftFormula(src, r - i - payload.range.sr, c - j - payload.range.sc)
             : src
         entries.push({ row: r, col: c, cell: { raw } })
       }
@@ -55,7 +63,7 @@ export function planPaste(
   }
 
   // 外部 TSV：文本原样落格（含 '=' 开头按新公式处理），空串清格，平铺到 target
-  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const lines = normText.split('\n')
   if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop()
   const grid = lines.map((l) => l.split('\t'))
   for (let r = target.sr; r <= er; r++) {
@@ -101,7 +109,10 @@ export function clipboard(): Plugin {
         const state = view.state
         const sheet = state.activeSheet
         const sheetId = state.doc.active
-        const lines = text.replace(/\r\n?/g, '\n').split('\n')
+        // 规范化一次：指纹比对（planPaste 内）与网格解析统一用 \n 文本，
+        // 避免系统剪贴板 CRLF round-trip 后误判为外部内容
+        const normText = text.replace(/\r\n?/g, '\n')
+        const lines = normText.split('\n')
         if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop()
         const grid = lines.map((l) => l.split('\t'))
         const oneCell = grid.length === 1 && grid[0].length === 1
@@ -117,7 +128,7 @@ export function clipboard(): Plugin {
                 er: start.row + grid.length - 1,
                 ec: start.col + grid[0].length - 1,
               }
-        const { entries, clearSource } = planPaste(payload, text, target, {
+        const { entries, clearSource } = planPaste(payload, normText, target, {
           rowCount: sheet.rowCount,
           colCount: sheet.colCount,
         })
