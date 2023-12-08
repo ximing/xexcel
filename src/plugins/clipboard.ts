@@ -136,7 +136,9 @@ export function clipboard(): Plugin {
         if (entries.length) tr.setCells(sheetId, entries)
         // cut 移动语义：仅当源在本表才清源（跨表粘贴不清别表数据）
         if (clearSource && payload && payload.sheet === sheetId) tr.clearRange(payload.range)
-        payload = null
+        // cut 负载一次性（移动语义）；copy 负载保留到下次 copy/cut，可反复粘贴
+        // （与 Excel 一致：每次粘贴按各自目标偏移公式引用）
+        if (payload?.cut) payload = null
         if (tr.steps.length) {
           tr.setSelection({
             anchor: { row: target.sr, col: target.sc },

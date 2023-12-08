@@ -71,4 +71,16 @@ describe('planPaste', () => {
     const { entries } = planPaste(p, '2\r\n4', { sr: 4, sc: 0, er: 5, ec: 0 }, BOUNDS)
     expect(entries.map((e) => e.cell?.raw)).toEqual(['=B5', '=B6'])
   })
+  it('copy 负载可复用：同一 payload 两次粘贴各自按目标偏移（F3）', () => {
+    // planPaste 是纯函数：负载生命周期由插件闭包管理（copy 保留、cut 一次性），
+    // 这里验证同一 copy payload 连续两次调用互不污染、各自正确偏移
+    const p = payload()
+    const first = planPaste(p, '2', { sr: 5, sc: 3, er: 5, ec: 3 }, BOUNDS)
+    const second = planPaste(p, '2', { sr: 6, sc: 3, er: 6, ec: 3 }, BOUNDS)
+    expect(first.entries).toEqual([{ row: 5, col: 3, cell: { raw: '=D6*2' } }])
+    expect(second.entries).toEqual([{ row: 6, col: 3, cell: { raw: '=D7*2' } }])
+    // cut 负载（一次性移动语义由插件侧清 payload）：planPaste 层面 clearSource 为 true
+    const cut = planPaste(payload({ cut: true }), '2', { sr: 6, sc: 3, er: 6, ec: 3 }, BOUNDS)
+    expect(cut.clearSource).toBe(true)
+  })
 })
