@@ -10,6 +10,7 @@ import { Cell, SheetId } from '../core/model'
 import { EditorViewLike, Plugin } from '../core/plugin'
 import { selectionRange } from '../core/selection'
 import { evaluatorFor } from '../formula/engine'
+import { normalizedCell } from '../formula/input'
 import { shiftFormula } from '../formula/transform'
 
 export interface ClipboardPayload {
@@ -70,7 +71,7 @@ export function planPaste(
     const rowArr = grid[(r - target.sr) % grid.length]
     for (let c = target.sc; c <= ec; c++) {
       const t = rowArr[(c - target.sc) % rowArr.length]
-      entries.push({ row: r, col: c, cell: t === '' ? null : { raw: t } })
+      entries.push({ row: r, col: c, cell: t === '' ? null : normalizedCell(t, undefined) })
     }
   }
   return { entries, clearSource: false }

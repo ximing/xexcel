@@ -2,6 +2,7 @@
 // Enter 提交 setCell 并把焦点还给表格，Esc 还原；失焦提交（Excel 习惯）。
 import { useEffect, useRef, useState } from 'react'
 import { toA1 } from '../core/addr'
+import { normalizedCell } from '../formula/input'
 import type { EditorView } from '../view/editorview'
 import { useSheetState } from './bridge'
 
@@ -31,7 +32,9 @@ export function FormulaBar({ view }: Props) {
 
   const commit = (): void => {
     if (textRef.current !== rawRef.current) {
-      view.dispatch(view.state.tr.setCell(row, col, textRef.current))
+      const oldCell = state.activeSheet.getCell(row, col)
+      const next = normalizedCell(textRef.current, oldCell)
+      view.dispatch(view.state.tr.setCell(row, col, next.raw, next.style))
       rawRef.current = textRef.current
     }
   }

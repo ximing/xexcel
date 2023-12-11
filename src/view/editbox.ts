@@ -3,6 +3,7 @@
 // proxy 处于 blur，插件 keydown 不触发。
 import type { CellAddr } from '../core/addr'
 import { singleCell } from '../core/selection'
+import { normalizedCell } from '../formula/input'
 import type { EditorView } from './editorview'
 
 interface EditSession {
@@ -68,8 +69,12 @@ function finish(commit: boolean, next?: CellAddr): void {
   s.el.remove()
   if (commit) {
     const tr = s.view.state.tr
-    const old = s.view.state.activeSheet.getCell(s.addr.row, s.addr.col)?.raw ?? ''
-    if (text !== old) tr.setCell(s.addr.row, s.addr.col, text)
+    const oldCell = s.view.state.activeSheet.getCell(s.addr.row, s.addr.col)
+    const nextCell = normalizedCell(text, oldCell)
+    const changed =
+      nextCell.raw !== (oldCell?.raw ?? '') ||
+      nextCell.style?.numFmt !== oldCell?.style?.numFmt
+    if (changed) tr.setCell(s.addr.row, s.addr.col, nextCell.raw, nextCell.style)
     if (next) tr.setSelection(singleCell(next.row, next.col)).scrollIntoView()
     if (tr.steps.length > 0 || tr.selection) s.view.dispatch(tr)
   }
