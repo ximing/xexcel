@@ -11,6 +11,7 @@ import {
   isError,
 } from './eval'
 import { parseFormula } from './parser'
+import { formatValue } from './format'
 
 export { isError }
 export type { FormulaError, FormulaValue }
@@ -71,7 +72,14 @@ export class CellEvaluator {
     const v = this.get(sheet, row, col)
     if (isError(v)) return v.error
     if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
-    if (typeof v === 'number') return formatNumber(v)
+    if (typeof v === 'number') {
+      const fmt = this.workbook.sheets.get(sheet)?.getCell(row, col)?.style?.numFmt
+      if (fmt) {
+        const s = formatValue(fmt, v)
+        if (s !== null) return s
+      }
+      return formatNumber(v)
+    }
     return v
   }
 

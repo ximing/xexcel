@@ -4,6 +4,7 @@ import { redo, redoDepth, undo, undoDepth } from '../core/history'
 import type { CellStyle } from '../core/model'
 import type { EditorView } from '../view/editorview'
 import { useSheetState } from './bridge'
+import { adjustDecimals } from '../formula/format'
 
 interface Props {
   view: EditorView
@@ -100,6 +101,57 @@ export function Toolbar({ view }: Props) {
           {{ left: '左', center: '中', right: '右' }[a]}
         </button>
       ))}
+      <span className="tool-sep" />
+      <button
+        className="tool-btn"
+        title="千分位"
+        onClick={() => {
+          patch({ numFmt: '#,##0.00' })
+          view.focus()
+        }}
+      >
+        ,
+      </button>
+      <button
+        className={'tool-btn' + (active.numFmt === '0%' ? ' active' : '')}
+        title="百分比"
+        onClick={() => {
+          patch({ numFmt: '0%' })
+          view.focus()
+        }}
+      >
+        %
+      </button>
+      <button
+        className="tool-btn"
+        title="货币"
+        onClick={() => {
+          patch({ numFmt: '¥#,##0.00' })
+          view.focus()
+        }}
+      >
+        ¥
+      </button>
+      <button
+        className="tool-btn"
+        title="增加小数位"
+        onClick={() => {
+          patch({ numFmt: adjustDecimals(active.numFmt, 1) })
+          view.focus()
+        }}
+      >
+        .0+
+      </button>
+      <button
+        className="tool-btn"
+        title="减少小数位"
+        onClick={() => {
+          patch({ numFmt: adjustDecimals(active.numFmt, -1) })
+          view.focus()
+        }}
+      >
+        .0-
+      </button>
     </div>
   )
 }

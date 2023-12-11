@@ -11,6 +11,7 @@ export interface CellStyle {
   color?: string
   bg?: string
   align?: 'left' | 'center' | 'right'
+  numFmt?: string // ECMA-376 格式串（numfmt）；只影响显示，不改 raw
 }
 export interface Cell { raw: string; style?: CellStyle }
 export interface SheetConfig { rowCount: number; colCount: number }
