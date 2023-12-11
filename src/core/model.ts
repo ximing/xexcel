@@ -12,6 +12,10 @@ export interface CellStyle {
   bg?: string
   align?: 'left' | 'center' | 'right'
   numFmt?: string // ECMA-376 格式串（numfmt）；只影响显示，不改 raw
+  fontFamily?: string // CSS font-family 串
+  fontSize?: number // px，缺省 13
+  underline?: boolean
+  strikethrough?: boolean
 }
 export interface Cell { raw: string; style?: CellStyle }
 export interface SheetConfig { rowCount: number; colCount: number }

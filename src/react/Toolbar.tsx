@@ -102,6 +102,58 @@ export function Toolbar({ view }: Props) {
         </button>
       ))}
       <span className="tool-sep" />
+      <select
+        className="tool-select"
+        title="字号"
+        value={active.fontSize ?? 13}
+        onChange={(e) => {
+          patch({ fontSize: Number(e.target.value) })
+          view.focus()
+        }}
+      >
+        {[10, 11, 12, 13, 14, 16, 18, 24].map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
+      <select
+        className="tool-select"
+        title="字体"
+        value={active.fontFamily ?? ''}
+        onChange={(e) => {
+          patch({ fontFamily: e.target.value || undefined })
+          view.focus()
+        }}
+      >
+        <option value="">默认</option>
+        <option value="SimSun, serif">宋体</option>
+        <option value="SimHei, sans-serif">黑体</option>
+        <option value="monospace">等宽</option>
+      </select>
+      <button
+        className={'tool-btn' + (active.underline ? ' active' : '')}
+        title="下划线"
+        style={{ textDecoration: 'underline' }}
+        onClick={() => {
+          patch(active.underline ? { underline: undefined } : { underline: true })
+          view.focus()
+        }}
+      >
+        U
+      </button>
+      <button
+        className={'tool-btn' + (active.strikethrough ? ' active' : '')}
+        title="删除线"
+        style={{ textDecoration: 'line-through' }}
+        onClick={() => {
+          patch(active.strikethrough ? { strikethrough: undefined } : { strikethrough: true })
+          view.focus()
+        }}
+      >
+        S
+      </button>
+      <span className="tool-sep" />
       <button
         className="tool-btn"
         title="千分位"

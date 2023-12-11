@@ -69,4 +69,12 @@ describe('Workbook', () => {
     expect(back.sheet('s1').getCell(1, 1)).toEqual({ raw: 'q' })
     expect(back.active).toBe('s1')
   })
+  it('新样式字段 JSON 往返', () => {
+    const sheet = Workbook.create({ rowCount: 5, colCount: 5 }).activeSheet.setCell(1, 1, {
+      raw: 'x',
+      style: { numFmt: '0%', fontFamily: 'monospace', fontSize: 18, underline: true, strikethrough: true },
+    })
+    const back = SheetData.fromJSON(JSON.parse(JSON.stringify(sheet.toJSON())))
+    expect(back.getCell(1, 1)).toEqual(sheet.getCell(1, 1))
+  })
 })

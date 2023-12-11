@@ -232,9 +232,16 @@ function renderCellLayer(
           text,
           align,
           verticalAlign: 'middle',
-          fontSize: FONT_SIZE,
-          fontFamily: FONT_FAMILY,
+          fontSize: cell.style?.fontSize ?? FONT_SIZE,
+          fontFamily: cell.style?.fontFamily ?? FONT_FAMILY,
           fontStyle,
+          textDecoration: cell.style?.underline
+            ? cell.style?.strikethrough
+              ? 'underline line-through'
+              : 'underline'
+            : cell.style?.strikethrough
+              ? 'line-through'
+              : '',
           fill: cell.style?.color ?? COLOR_TEXT,
           wrap: 'none',
           ...noListen,

@@ -221,3 +221,18 @@ body {
   padding: 0 6px;
   font: inherit;
 }
+
+.tool-select {
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #202124;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.tool-select:hover {
+  background: #f1f3f4;
+}
