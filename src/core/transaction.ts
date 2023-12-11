@@ -1,7 +1,7 @@
 import { CellRange, normalizeRange } from './addr'
 import { Cell, CellStyle, SheetConfig, SheetData, SheetId, Workbook } from './model'
 import { Selection } from './selection'
-import { PatchStyleStep, ResizeStep, SetCellsStep, Step } from './steps'
+import { PatchStyleStep, ResizeStep, SetCellsStep, SetMergesStep, Step } from './steps'
 import { InsertSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
 import type { PluginKey } from './plugin'
 import type { SheetState } from './state'
@@ -82,6 +82,10 @@ export class Transaction {
   // 调用侧配 setMeta('addToHistory', false)；并自行 setSelection 防止选区越界
   setActiveSheet(id: SheetId): this {
     return this._pushStep(new SetActiveSheetStep(id))
+  }
+
+  setMerges(merges: CellRange[]): this {
+    return this._pushStep(new SetMergesStep(this.activeSheetId, merges))
   }
 
   setSelection(sel: Selection): this {

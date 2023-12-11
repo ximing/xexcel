@@ -309,6 +309,31 @@ export class SetActiveSheetStep extends Step {
   }
 }
 
+// 整体替换合并区数组（合并/拆分/结构操作共用）
+export class SetMergesStep extends Step {
+  constructor(readonly sheet: SheetId, readonly merges: CellRange[]) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    let data: SheetData
+    try {
+      data = doc.sheet(this.sheet)
+    } catch {
+      return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    }
+    return { ok: true, doc: doc.setSheet(this.sheet, data.setMerges(this.merges)) }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    return new SetMergesStep(this.sheet, [...beforeDoc.sheet(this.sheet).merges])
+  }
+
+  toJSON(): unknown {
+    return { type: 'setMerges', sheet: this.sheet, merges: this.merges }
+  }
+}
+
 export function stepFromJSON(json: any): Step {
   switch (json?.type) {
     case 'setCells':
@@ -327,6 +352,8 @@ export function stepFromJSON(json: any): Step {
       return new RenameSheetStep(json.sheet, json.name)
     case 'setActiveSheet':
       return new SetActiveSheetStep(json.sheet)
+    case 'setMerges':
+      return new SetMergesStep(json.sheet, json.merges)
     default:
       throw new Error(`unknown step type: ${json?.type}`)
   }

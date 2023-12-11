@@ -28,6 +28,11 @@ export function keymap(): Plugin {
             row: Math.max(0, Math.min(sel.focus.row + dr, sheet.rowCount - 1)),
             col: Math.max(0, Math.min(sel.focus.col + dc, sheet.colCount - 1)),
           }
+          const m = sheet.mergeAt(focus.row, focus.col)
+          if (m) {
+            focus.row = m.sr
+            focus.col = m.sc
+          }
           v.dispatch(
             state.tr
               .setSelection(extend ? { anchor: sel.anchor, focus } : singleCell(focus.row, focus.col))

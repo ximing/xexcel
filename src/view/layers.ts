@@ -2,7 +2,7 @@
 // 每次 updateState 后整层重建 visibleRange 内节点（M1 从简，1000 格/帧量级可接受；
 // 如需进一步优化可在此引入 nodePool 节点池复用 Konva 节点）。
 import Konva from 'konva'
-import { CellRange, colName } from '../core/addr'
+import { CellRange, colName, rangesIntersect } from '../core/addr'
 import { COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
 import { selectionRange } from '../core/selection'
 import type { SheetState } from '../core/state'
@@ -177,6 +177,7 @@ function renderCellLayer(
   const sheet = state.activeSheet
   const sheetId = state.doc.active
   const evaluator = evaluatorFor(state.doc)
+  const merges = sheet.merges.filter((m) => rangesIntersect(m, vr))
 
   const left = geom.colLeft(vr.sc)
   const right = geom.colLeft(vr.ec) + sheet.colWidth(vr.ec)
@@ -200,10 +201,66 @@ function renderCellLayer(
     const y = geom.rowTop(r)
     inner.add(new Konva.Line({ points: [left, y, right, y], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
   }
+  // 合并区：白底盖内部网格线 → 锚点 bg → 锚点文字（跨整区裁剪）
+  for (const m of merges) {
+    const rect = geom.rangeRect(m)
+    inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, fill: '#ffffff', ...noListen }))
+    const anchor = sheet.getCell(m.sr, m.sc)
+    if (anchor?.style?.bg) {
+      inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, fill: anchor.style.bg, ...noListen }))
+    }
+    // 外框网格线（与周围一致）
+    inner.add(
+      new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, stroke: COLOR_GRID, strokeWidth: 1, ...noListen }),
+    )
+    if (!anchor || anchor.raw === '') continue
+    const text = evaluator.displayText(sheetId, m.sr, m.sc)
+    if (text === '') continue
+    let align = anchor.style?.align
+    if (!align) {
+      const v = evaluator.get(sheetId, m.sr, m.sc)
+      align = typeof v === 'number' || typeof v === 'boolean' ? 'right' : 'left'
+    }
+    const fontStyle =
+      anchor.style?.bold && anchor.style?.italic
+        ? 'bold italic'
+        : anchor.style?.bold
+          ? 'bold'
+          : anchor.style?.italic
+            ? 'italic'
+            : 'normal'
+    const g = new Konva.Group({ clipX: rect.x, clipY: rect.y, clipWidth: rect.w, clipHeight: rect.h, ...noListen })
+    g.add(
+      new Konva.Text({
+        x: rect.x + CELL_PAD_X,
+        y: rect.y,
+        width: Math.max(0, rect.w - CELL_PAD_X * 2),
+        height: rect.h,
+        text,
+        align,
+        verticalAlign: 'middle',
+        fontSize: anchor.style?.fontSize ?? FONT_SIZE,
+        fontFamily: anchor.style?.fontFamily ?? FONT_FAMILY,
+        fontStyle,
+        textDecoration: anchor.style?.underline
+          ? anchor.style?.strikethrough
+            ? 'underline line-through'
+            : 'underline'
+          : anchor.style?.strikethrough
+            ? 'line-through'
+            : '',
+        fill: anchor.style?.color ?? COLOR_TEXT,
+        wrap: 'none',
+        ...noListen,
+      }),
+    )
+    inner.add(g)
+  }
   for (let r = vr.sr; r <= vr.er; r++) {
     for (let c = vr.sc; c <= vr.ec; c++) {
       const cell = sheet.getCell(r, c)
       if (!cell || cell.raw === '') continue
+      if (merges.some((m) => r >= m.sr && r <= m.er && c >= m.sc && c <= m.ec)) continue
       const text = evaluator.displayText(sheetId, r, c)
       if (text === '') continue
       const rect = geom.cellRect(r, c)

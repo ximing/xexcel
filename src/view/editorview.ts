@@ -293,7 +293,10 @@ export class EditorView implements EditorViewLike {
   private onDblClick = (e: MouseEvent): void => {
     const hit = this.hitTest(e.clientX, e.clientY)
     if (this.someProp('handleDoubleClick', (p) => p(this, e, hit))) return
-    if (hit.region === 'cell') openEditor(this, { row: hit.row, col: hit.col })
+    if (hit.region === 'cell') {
+      const m = this.state.activeSheet.mergeAt(hit.row, hit.col)
+      openEditor(this, m ? { row: m.sr, col: m.sc } : { row: hit.row, col: hit.col })
+    }
   }
 
   private onMouseMove = (e: MouseEvent): void => {

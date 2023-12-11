@@ -131,10 +131,17 @@ export function selection(): Plugin {
         const sheet = v.state.activeSheet
         switch (hit.region) {
           case 'cell': {
+            const m = sheet.mergeAt(hit.row, hit.col)
             if (e.shiftKey) {
               v.dispatch(
                 v.state.tr.setSelection({ anchor: v.state.selection.anchor, focus: { row: hit.row, col: hit.col } }),
               )
+            } else if (m) {
+              // 点击合并区任意位置 → 选中整个区
+              v.dispatch(
+                v.state.tr.setSelection({ anchor: { row: m.sr, col: m.sc }, focus: { row: m.er, col: m.ec } }),
+              )
+              startSelectDrag(v, e, 'cell')
             } else {
               v.dispatch(v.state.tr.setSelection(singleCell(hit.row, hit.col)))
               startSelectDrag(v, e, 'cell')

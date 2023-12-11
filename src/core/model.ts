@@ -115,6 +115,18 @@ export class SheetData {
     return SheetData.fromParts({ ...this._parts, colWidths })
   }
 
+  setMerges(merges: readonly CellRange[]): SheetData {
+    return SheetData.fromParts({ ...this._parts, merges: [...merges] })
+  }
+
+  // 命中合并区（含锚点）→ 返回该区域；未命中 → null
+  mergeAt(row: number, col: number): CellRange | null {
+    for (const m of this.merges) {
+      if (row >= m.sr && row <= m.er && col >= m.sc && col <= m.ec) return m
+    }
+    return null
+  }
+
   usedRange(): CellRange {
     let sr = Infinity, sc = Infinity, er = -1, ec = -1
     for (const [row, rowMap] of this._cells) {

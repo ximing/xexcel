@@ -1,5 +1,6 @@
 // 工具栏：撤销/重做 + 粗体/斜体/文字色/背景色/对齐。操作回走 view.dispatch(applyStylePatch)。
-import { applyStylePatch } from '../core/commands'
+import { applyStylePatch, mergeSelection, unmergeSelection } from '../core/commands'
+import { selectionRange } from '../core/selection'
 import { redo, redoDepth, undo, undoDepth } from '../core/history'
 import type { CellStyle } from '../core/model'
 import type { EditorView } from '../view/editorview'
@@ -203,6 +204,34 @@ export function Toolbar({ view }: Props) {
         }}
       >
         .0-
+      </button>
+      <span className="tool-sep" />
+      <button
+        className="tool-btn"
+        title="合并单元格"
+        onClick={() => {
+          const r = selectionRange(view.state.selection)
+          if (r.sr === r.er && r.sc === r.ec) return
+          let nonEmpty = 0
+          view.state.activeSheet.forEachInRange(r, (cell) => {
+            if (cell && cell.raw !== '') nonEmpty++
+          })
+          if (nonEmpty > 1 && !window.confirm('合并仅保留左上角的值，其余内容将被清除。继续？')) return
+          mergeSelection(view.state, (tr) => view.dispatch(tr))
+          view.focus()
+        }}
+      >
+        合
+      </button>
+      <button
+        className="tool-btn"
+        title="拆分单元格"
+        onClick={() => {
+          unmergeSelection(view.state, (tr) => view.dispatch(tr))
+          view.focus()
+        }}
+      >
+        拆
       </button>
     </div>
   )
