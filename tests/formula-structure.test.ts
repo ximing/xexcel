@@ -1,0 +1,40 @@
+import { describe, it, expect } from 'vitest'
+import { adjustFormulaForStructure, StructureSpec } from '../src/formula/transform'
+
+const ins = (index: number, count = 1): StructureSpec => ({ sheet: 'Sheet1', axis: 'row', index, count, mode: 'insert' })
+const del = (index: number, count = 1): StructureSpec => ({ sheet: 'Sheet1', axis: 'row', index, count, mode: 'delete' })
+const H = 'Sheet1' // 公式所在表
+
+describe('adjustFormulaForStructure', () => {
+  it('插入行：本表引用 ≥ index 平移，< index 不动', () => {
+    expect(adjustFormulaForStructure('=A5*2', ins(4), H)).toBe('=A6*2')
+    expect(adjustFormulaForStructure('=A4*2', ins(4), H)).toBe('=A4*2')
+    expect(adjustFormulaForStructure('=SUM(A1:A10)', ins(2, 3), H)).toBe('=SUM(A1:A13)')
+  })
+  it('插入列：列维度平移', () => {
+    const spec: StructureSpec = { sheet: 'Sheet1', axis: 'col', index: 1, count: 1, mode: 'insert' }
+    expect(adjustFormulaForStructure('=B2*2', spec, H)).toBe('=C2*2')
+    expect(adjustFormulaForStructure('=A2*2', spec, H)).toBe('=A2*2')
+  })
+  it('$ 锁定维度同样平移（Excel 同款）', () => {
+    expect(adjustFormulaForStructure('=$A$5*2', ins(4), H)).toBe('=$A$6*2')
+    expect(adjustFormulaForStructure('=A$5*2', ins(4), H)).toBe('=A$6*2')
+  })
+  it('删除行：删除区内 → #REF!，之后 → 前移', () => {
+    expect(adjustFormulaForStructure('=A5*2', del(4), H)).toBe('=#REF!*2')
+    expect(adjustFormulaForStructure('=A6*2', del(4), H)).toBe('=A5*2')
+    expect(adjustFormulaForStructure('=A4*2', del(4), H)).toBe('=A4*2')
+    expect(adjustFormulaForStructure('=SUM(A3:A6)', del(4, 2), H)).toBe('=#REF!')
+  })
+  it('跨表引用：指向被改表才调整（按表名，不区分大小写）', () => {
+    expect(adjustFormulaForStructure('=Sheet1!A5*2', ins(4), H)).toBe('=Sheet1!A6*2')
+    expect(adjustFormulaForStructure('=Other!A5*2', ins(4), H)).toBe('=Other!A5*2')
+    // 公式在别的表上，本表引用（无表名）不动
+    expect(adjustFormulaForStructure('=A5*2', ins(4), 'Other')).toBe('=A5*2')
+    expect(adjustFormulaForStructure('=sheet1!A5*2', ins(4), 'Other')).toBe('=sheet1!A6*2')
+  })
+  it('非公式与解析失败原文返回', () => {
+    expect(adjustFormulaForStructure('hello', ins(0), H)).toBe('hello')
+    expect(adjustFormulaForStructure('=A1+', ins(0), H)).toBe('=A1+')
+  })
+})

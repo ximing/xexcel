@@ -127,6 +127,87 @@ export class SheetData {
     return null
   }
 
+  insertRows(index: number, count: number): SheetData {
+    return this.remap('row', index, count, 'insert')
+  }
+
+  deleteRows(index: number, count: number): SheetData {
+    return this.remap('row', index, count, 'delete')
+  }
+
+  insertCols(index: number, count: number): SheetData {
+    return this.remap('col', index, count, 'insert')
+  }
+
+  deleteCols(index: number, count: number): SheetData {
+    return this.remap('col', index, count, 'delete')
+  }
+
+  // 物理重索引：cells/宽高/merges 按轴平移；delete 时删除区移除、其后前移。
+  private remap(axis: 'row' | 'col', index: number, count: number, mode: 'insert' | 'delete'): SheetData {
+    const mapIdx = (x: number): number => {
+      if (mode === 'insert') return x >= index ? x + count : x
+      if (x >= index && x < index + count) return -1 // 删除区
+      return x >= index + count ? x - count : x
+    }
+    const cells = new Map<number, Map<number, Cell>>()
+    for (const [row, rowMap] of this._cells) {
+      const nr = axis === 'row' ? mapIdx(row) : row
+      if (nr < 0) continue
+      const nm = new Map<number, Cell>()
+      for (const [col, cell] of rowMap) {
+        const nc = axis === 'col' ? mapIdx(col) : col
+        if (nc < 0) continue
+        nm.set(nc, cell)
+      }
+      if (nm.size) cells.set(nr, nm)
+    }
+    const remapSizes = (src: Map<number, number>): Map<number, number> => {
+      const out = new Map<number, number>()
+      for (const [k, v] of src) {
+        const nk = mapIdx(k)
+        if (nk >= 0) out.set(nk, v)
+      }
+      return out
+    }
+    const merges: CellRange[] = []
+    for (const m of this.merges) {
+      if (mode === 'insert') {
+        merges.push(
+          axis === 'row'
+            ? { sr: mapIdx(m.sr), sc: m.sc, er: mapIdx(m.er), ec: m.ec }
+            : { sr: m.sr, sc: mapIdx(m.sc), er: m.er, ec: mapIdx(m.ec) },
+        )
+        continue
+      }
+      // delete：裁剪；完全在删除区内 → 丢弃
+      if (axis === 'row') {
+        const a = mapIdx(m.sr)
+        const b = mapIdx(m.er)
+        if (a < 0 && b < 0) continue
+        const sr = a < 0 ? index : a
+        const er = b < 0 ? index - 1 : b
+        if (sr <= er) merges.push({ sr, sc: m.sc, er, ec: m.ec })
+      } else {
+        const a = mapIdx(m.sc)
+        const b = mapIdx(m.ec)
+        if (a < 0 && b < 0) continue
+        const sc = a < 0 ? index : a
+        const ec = b < 0 ? index - 1 : b
+        if (sc <= ec) merges.push({ sr: m.sr, sc, er: m.er, ec })
+      }
+    }
+    const delta = mode === 'insert' ? count : -count
+    return SheetData.fromParts({
+      rowCount: this.rowCount + (axis === 'row' ? delta : 0),
+      colCount: this.colCount + (axis === 'col' ? delta : 0),
+      cells,
+      rowHeights: axis === 'row' ? remapSizes(this._rowHeights) : new Map(this._rowHeights),
+      colWidths: axis === 'col' ? remapSizes(this._colWidths) : new Map(this._colWidths),
+      merges,
+    })
+  }
+
   usedRange(): CellRange {
     let sr = Infinity, sc = Infinity, er = -1, ec = -1
     for (const [row, rowMap] of this._cells) {

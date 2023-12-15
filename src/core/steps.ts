@@ -334,6 +334,163 @@ export class SetMergesStep extends Step {
   }
 }
 
+// 公式级联注入点：formula/transform 模块加载时注册（保持 core → formula 无依赖）。
+// 未注册时 StructureStep 只做结构部分（单测 core 层时可不注入）。
+export type StructureCascade = (raw: string, spec: StructureSpecName, hostSheet: string) => string
+export interface StructureSpecName {
+  sheet: string // 表名
+  axis: 'row' | 'col'
+  index: number
+  count: number
+  mode: 'insert' | 'delete'
+}
+let cascadeFn: StructureCascade | null = null
+export function registerStructureCascade(fn: StructureCascade): void {
+  cascadeFn = fn
+}
+
+export interface StructureStepSpec {
+  sheet: SheetId
+  axis: 'row' | 'col'
+  index: number
+  count: number
+  mode: 'insert' | 'delete'
+}
+
+export interface StructureRestoreEntry {
+  sheet: SheetId
+  row: number
+  col: number
+  cell: Cell | null
+}
+
+// 插入/删除行列：物理重索引 + 全簿公式级联（经注入的 cascade）。
+// restore 非 null = 逆操作实例：apply = 反向结构 + 公式原文恢复。
+export class StructureStep extends Step {
+  constructor(readonly spec: StructureStepSpec, readonly restore: StructureRestoreEntry[] | null = null) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    const spec = this.spec
+    if (spec.count < 1 || spec.index < 0) return { ok: false, failed: 'bad index/count' }
+    let data: SheetData
+    try {
+      data = doc.sheet(spec.sheet)
+    } catch {
+      return { ok: false, failed: `sheet not found: ${spec.sheet}` }
+    }
+    const limit = spec.axis === 'row' ? data.rowCount : data.colCount
+    const mode = this.restore ? (spec.mode === 'insert' ? 'delete' : 'insert') : spec.mode
+    // 校验按实际执行方向（逆操作时 mode 已翻转）
+    if (mode === 'insert') {
+      if (spec.index > limit) return { ok: false, failed: `index out of bounds: ${spec.index}` }
+    } else if (spec.index + spec.count > limit) {
+      return { ok: false, failed: `delete range out of bounds: ${spec.index}+${spec.count}` }
+    }
+    const shifted =
+      spec.axis === 'row'
+        ? mode === 'insert'
+          ? data.insertRows(spec.index, spec.count)
+          : data.deleteRows(spec.index, spec.count)
+        : mode === 'insert'
+          ? data.insertCols(spec.index, spec.count)
+          : data.deleteCols(spec.index, spec.count)
+    let out = doc.setSheet(spec.sheet, shifted)
+    if (this.restore) {
+      // 逆操作：恢复公式原文与删除区内容
+      for (const e of this.restore) {
+        out = out.setSheet(e.sheet, out.sheet(e.sheet).setCell(e.row, e.col, e.cell))
+      }
+      return { ok: true, doc: out }
+    }
+    // 正向：公式级联（未注入 cascade 时跳过）
+    if (cascadeFn) {
+      const nameSpec: StructureSpecName = {
+        sheet: doc.names.get(spec.sheet) ?? spec.sheet,
+        axis: spec.axis,
+        index: spec.index,
+        count: spec.count,
+        mode: spec.mode,
+      }
+      for (const [id, sheetData] of out.sheets) {
+        const host = out.names.get(id) ?? id
+        const changes: { row: number; col: number; cell: Cell | null }[] = []
+        collectFormulaChanges(sheetData, (row, col, cell) => {
+          const next = cascadeFn!(cell.raw, nameSpec, host)
+          if (next !== cell.raw) changes.push({ row, col, cell: { ...cell, raw: next } })
+        })
+        if (changes.length) {
+          let d = out.sheet(id)
+          for (const c of changes) d = d.setCell(c.row, c.col, c.cell)
+          out = out.setSheet(id, d)
+        }
+      }
+    }
+    return { ok: true, doc: out }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    if (this.restore) {
+      // 逆操作实例的 invert = 正向实例（cascade 确定性重放）
+      return new StructureStep(this.spec, null)
+    }
+    // 扫描 beforeDoc 全部公式格：级联后有变化 → 记录原文恢复项
+    const restore: StructureRestoreEntry[] = []
+    const seen = new Set<string>()
+    // delete 模式：删除区内的格物理丢失，原文全部入恢复项（级联只覆盖公式文本）
+    if (this.spec.mode === 'delete') {
+      const data = beforeDoc.sheet(this.spec.sheet)
+      const cross = this.spec.axis === 'row' ? data.colCount : data.rowCount
+      for (let i = this.spec.index; i < this.spec.index + this.spec.count; i++) {
+        for (let j = 0; j < cross; j++) {
+          const row = this.spec.axis === 'row' ? i : j
+          const col = this.spec.axis === 'row' ? j : i
+          const cell = data.getCell(row, col)
+          if (cell) {
+            restore.push({ sheet: this.spec.sheet, row, col, cell })
+            seen.add(`${this.spec.sheet}:${row}:${col}`)
+          }
+        }
+      }
+    }
+    if (cascadeFn) {
+      const nameSpec: StructureSpecName = {
+        sheet: beforeDoc.names.get(this.spec.sheet) ?? this.spec.sheet,
+        axis: this.spec.axis,
+        index: this.spec.index,
+        count: this.spec.count,
+        mode: this.spec.mode,
+      }
+      for (const [id, sheetData] of beforeDoc.sheets) {
+        const host = beforeDoc.names.get(id) ?? id
+        collectFormulaChanges(sheetData, (row, col, cell) => {
+          if (seen.has(`${id}:${row}:${col}`)) return
+          if (cascadeFn!(cell.raw, nameSpec, host) !== cell.raw) {
+            restore.push({ sheet: id, row, col, cell })
+          }
+        })
+      }
+    }
+    return new StructureStep(this.spec, restore)
+  }
+
+  toJSON(): unknown {
+    return { type: 'structure', spec: this.spec, restore: this.restore }
+  }
+}
+
+// 遍历表中所有公式格（raw 以 = 开头）
+function collectFormulaChanges(data: SheetData, cb: (row: number, col: number, cell: Cell) => void): void {
+  const r = data.usedRange()
+  for (let row = 0; row <= r.er; row++) {
+    for (let col = 0; col <= r.ec; col++) {
+      const cell = data.getCell(row, col)
+      if (cell && cell.raw.startsWith('=')) cb(row, col, cell)
+    }
+  }
+}
+
 export function stepFromJSON(json: any): Step {
   switch (json?.type) {
     case 'setCells':
@@ -354,6 +511,8 @@ export function stepFromJSON(json: any): Step {
       return new SetActiveSheetStep(json.sheet)
     case 'setMerges':
       return new SetMergesStep(json.sheet, json.merges)
+    case 'structure':
+      return new StructureStep(json.spec, json.restore ?? null)
     default:
       throw new Error(`unknown step type: ${json?.type}`)
   }

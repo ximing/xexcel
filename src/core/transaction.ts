@@ -1,7 +1,7 @@
 import { CellRange, normalizeRange } from './addr'
 import { Cell, CellStyle, SheetConfig, SheetData, SheetId, Workbook } from './model'
 import { Selection } from './selection'
-import { PatchStyleStep, ResizeStep, SetCellsStep, SetMergesStep, Step } from './steps'
+import { PatchStyleStep, ResizeStep, SetCellsStep, SetMergesStep, Step, StructureStep } from './steps'
 import { InsertSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
 import type { PluginKey } from './plugin'
 import type { SheetState } from './state'
@@ -86,6 +86,11 @@ export class Transaction {
 
   setMerges(merges: CellRange[]): this {
     return this._pushStep(new SetMergesStep(this.activeSheetId, merges))
+  }
+
+  // 插入/删除当前表的行列（公式级联由 StructureStep 内处理）
+  structure(axis: 'row' | 'col', index: number, count: number, mode: 'insert' | 'delete'): this {
+    return this._pushStep(new StructureStep({ sheet: this.activeSheetId, axis, index, count, mode }, null))
   }
 
   setSelection(sel: Selection): this {

@@ -3,6 +3,7 @@ import { applyStylePatch, mergeSelection, unmergeSelection } from '../core/comma
 import { selectionRange } from '../core/selection'
 import { redo, redoDepth, undo, undoDepth } from '../core/history'
 import type { CellStyle } from '../core/model'
+import type { SheetState } from '../core/state'
 import type { EditorView } from '../view/editorview'
 import { useSheetState } from './bridge'
 import { adjustDecimals } from '../formula/format'
@@ -233,6 +234,65 @@ export function Toolbar({ view }: Props) {
       >
         拆
       </button>
+      <span className="tool-sep" />
+      <button
+        className="tool-btn"
+        title="上方插入行（选中整行时按行数）"
+        disabled={!isFullRowSel(state)}
+        onClick={() => {
+          const r = selectionRange(view.state.selection)
+          view.dispatch(view.state.tr.structure('row', r.sr, r.er - r.sr + 1, 'insert'))
+          view.focus()
+        }}
+      >
+        +行
+      </button>
+      <button
+        className="tool-btn"
+        title="删除选中行"
+        disabled={!isFullRowSel(state)}
+        onClick={() => {
+          const r = selectionRange(view.state.selection)
+          view.dispatch(view.state.tr.structure('row', r.sr, r.er - r.sr + 1, 'delete'))
+          view.focus()
+        }}
+      >
+        -行
+      </button>
+      <button
+        className="tool-btn"
+        title="左侧插入列"
+        disabled={!isFullColSel(state)}
+        onClick={() => {
+          const r = selectionRange(view.state.selection)
+          view.dispatch(view.state.tr.structure('col', r.sc, r.ec - r.sc + 1, 'insert'))
+          view.focus()
+        }}
+      >
+        +列
+      </button>
+      <button
+        className="tool-btn"
+        title="删除选中列"
+        disabled={!isFullColSel(state)}
+        onClick={() => {
+          const r = selectionRange(view.state.selection)
+          view.dispatch(view.state.tr.structure('col', r.sc, r.ec - r.sc + 1, 'delete'))
+          view.focus()
+        }}
+      >
+        -列
+      </button>
     </div>
   )
+}
+
+function isFullRowSel(state: SheetState): boolean {
+  const r = selectionRange(state.selection)
+  return r.sc === 0 && r.ec === state.activeSheet.colCount - 1 && !(r.sr === 0 && r.er === state.activeSheet.rowCount - 1 && r.sc === 0 && r.ec === state.activeSheet.colCount - 1)
+}
+
+function isFullColSel(state: SheetState): boolean {
+  const r = selectionRange(state.selection)
+  return r.sr === 0 && r.er === state.activeSheet.rowCount - 1 && !(r.sr === 0 && r.er === state.activeSheet.rowCount - 1 && r.sc === 0 && r.ec === state.activeSheet.colCount - 1)
 }
