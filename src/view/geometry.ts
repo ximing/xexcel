@@ -1,5 +1,5 @@
 // 网格几何：行高列宽前缀和 + 二分反查。不 import konva，可在 node 环境单测。
-import { CellRange } from '../core/addr'
+import { CellAddr, CellRange } from '../core/addr'
 import { SheetData } from '../core/model'
 import { Rect } from './types'
 
@@ -21,7 +21,6 @@ function bsearch(tops: number[], v: number): number {
 export class GridGeometry {
   private rowTops: number[] // 长度 rowCount+1，rowTops[i]=第 i 行顶 y
   private colLefts: number[] // 长度 colCount+1
-  // 冻结窗格预留（M3 用，M1 恒 0）：渲染/hitTest 加偏移即可，此处零返工
   readonly frozenRows: number
   readonly frozenCols: number
 
@@ -75,5 +74,22 @@ export class GridGeometry {
       er: Math.max(this.rowAt(scrollY), this.rowAt(scrollY + viewH - 1)),
       ec: Math.max(this.colAt(scrollX), this.colAt(scrollX + viewW - 1)),
     }
+  }
+
+  get frozenWidth(): number {
+    return this.colLefts[this.frozenCols]
+  }
+
+  get frozenHeight(): number {
+    return this.rowTops[this.frozenRows]
+  }
+
+  // 内容区坐标（已减表头）→ 单元格；冻结区不吃 scroll。未 clamp（调用侧负责）
+  cellAtContent(cx: number, cy: number, scrollX: number, scrollY: number): CellAddr {
+    const col =
+      cx < this.frozenWidth ? this.colAt(cx) : this.colAt(this.frozenWidth + scrollX + (cx - this.frozenWidth))
+    const row =
+      cy < this.frozenHeight ? this.rowAt(cy) : this.rowAt(this.frozenHeight + scrollY + (cy - this.frozenHeight))
+    return { row, col }
   }
 }

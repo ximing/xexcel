@@ -7,7 +7,7 @@
 //   到新区域、清 preview
 // 全部经 dispatch transaction，不直接改 doc。拖拽态存插件闭包变量。
 import { CellRange, rangesEqual } from '../core/addr'
-import { Cell, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH, SheetData } from '../core/model'
+import { Cell, SheetData } from '../core/model'
 import { EditorViewLike, Plugin } from '../core/plugin'
 import { selectionRange } from '../core/selection'
 import type { Transaction } from '../core/transaction'
@@ -21,20 +21,12 @@ export function fillhandle(): Plugin {
   let source: CellRange | null = null
   let target: CellRange | null = null
 
-  // 指针位置 → 延伸后的目标 range（指针在源内 → null 不预览）
+  // 指针位置 → 延伸后的目标 range（指针在源内 → null 不预览；冻结感知走 view.pointerToCell）
   const targetAt = (view: EditorView, clientX: number, clientY: number): CellRange | null => {
     if (!source) return null
-    const rect = view.dom.getBoundingClientRect()
-    const geom = view.geometry()
-    const sheet = view.state.activeSheet
-    const row = Math.max(
-      0,
-      Math.min(geom.rowAt(clientY - rect.top - COL_HEADER_HEIGHT + view.scrollY), sheet.rowCount - 1),
-    )
-    const col = Math.max(
-      0,
-      Math.min(geom.colAt(clientX - rect.left - ROW_HEADER_WIDTH + view.scrollX), sheet.colCount - 1),
-    )
+    const a = view.pointerToCell(clientX, clientY)
+    const row = a.row
+    const col = a.col
     const src = source
     const dr = row < src.sr ? row - src.sr : row > src.er ? row - src.er : 0
     const dc = col < src.sc ? col - src.sc : col > src.ec ? col - src.ec : 0

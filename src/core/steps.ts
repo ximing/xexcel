@@ -514,6 +514,35 @@ function collectFormulaChanges(data: SheetData, cb: (row: number, col: number, c
   }
 }
 
+// 冻结行列（行/列数，0=不冻结）
+export class SetFreezeStep extends Step {
+  constructor(readonly sheet: SheetId, readonly rows: number, readonly cols: number) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    let data: SheetData
+    try {
+      data = doc.sheet(this.sheet)
+    } catch {
+      return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    }
+    if (this.rows < 0 || this.rows >= data.rowCount || this.cols < 0 || this.cols >= data.colCount) {
+      return { ok: false, failed: `freeze out of bounds: ${this.rows},${this.cols}` }
+    }
+    return { ok: true, doc: doc.setSheet(this.sheet, data.setFrozen(this.rows, this.cols)) }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    const d = beforeDoc.sheet(this.sheet)
+    return new SetFreezeStep(this.sheet, d.frozenRows, d.frozenCols)
+  }
+
+  toJSON(): unknown {
+    return { type: 'setFreeze', sheet: this.sheet, rows: this.rows, cols: this.cols }
+  }
+}
+
 export function stepFromJSON(json: any): Step {
   switch (json?.type) {
     case 'setCells':
@@ -536,6 +565,8 @@ export function stepFromJSON(json: any): Step {
       return new SetMergesStep(json.sheet, json.merges)
     case 'structure':
       return new StructureStep(json.spec, json.restore ?? null)
+    case 'setFreeze':
+      return new SetFreezeStep(json.sheet, json.rows, json.cols)
     default:
       throw new Error(`unknown step type: ${json?.type}`)
   }

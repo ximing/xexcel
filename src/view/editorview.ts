@@ -86,11 +86,11 @@ export class EditorView implements EditorViewLike {
     this.render()
   }
 
-  // 按 activeSheet 引用缓存几何对象（行高列宽变化会得到新 SheetData）
+  // 按 activeSheet 引用缓存几何对象（行高列宽/冻结变化会得到新 SheetData）
   geometry(): GridGeometry {
     const sheet = this.state.activeSheet
     if (this.geomCache?.sheet !== sheet) {
-      this.geomCache = { sheet, geom: new GridGeometry(sheet) }
+      this.geomCache = { sheet, geom: new GridGeometry(sheet, sheet.frozenRows, sheet.frozenCols) }
     }
     return this.geomCache.geom
   }
@@ -141,66 +141,104 @@ export class EditorView implements EditorViewLike {
       return { region: 'outside', row: -1, col: -1 }
     }
     const geom = this.geometry()
-    // 填充手柄：活动选区 rangeRect 右下角 6px 方块 ±2px 容差
+    // 填充手柄：活动选区右下角 6px 方块 ±2px 容差（用活动格的视口位置）
     const sel = this.state.selection
-    const rr = geom.rangeRect(selectionRange(sel))
-    const hx = ROW_HEADER_WIDTH + rr.x + rr.w - this.scrollX
-    const hy = COL_HEADER_HEIGHT + rr.y + rr.h - this.scrollY
+    const sRange = selectionRange(sel)
+    const br = this.cellViewportRect(sRange.er, sRange.ec)
+    const hx = br.x + br.w
+    const hy = br.y + br.h
     const half = FILL_HANDLE_SIZE / 2 + 2
     if (Math.abs(x - hx) <= half && Math.abs(y - hy) <= half) {
       return { region: 'fillhandle', row: sel.focus.row, col: sel.focus.col }
     }
     if (x < ROW_HEADER_WIDTH && y < COL_HEADER_HEIGHT) return { region: 'corner', row: -1, col: -1 }
     if (y < COL_HEADER_HEIGHT) {
-      const cx = x - ROW_HEADER_WIDTH + this.scrollX
-      const col = geom.colAt(cx)
-      // 列边界双侧 ±3px → 列调宽边界（bsearch 在边界返回下一列，故需补左缘判定）
-      if (Math.abs(cx - geom.colLeft(col + 1)) <= BORDER_TOLERANCE) {
-        return { region: 'colborder', row: -1, col }
-      }
-      if (col > 0 && Math.abs(cx - geom.colLeft(col)) <= BORDER_TOLERANCE) {
-        return { region: 'colborder', row: -1, col: col - 1 }
+      const cx = x - ROW_HEADER_WIDTH
+      const col =
+        cx < geom.frozenWidth
+          ? geom.colAt(cx)
+          : geom.colAt(geom.frozenWidth + this.scrollX + (cx - geom.frozenWidth))
+      const left = col < geom.frozenCols ? geom.colLeft(col) : geom.frozenWidth + (geom.colLeft(col) - geom.frozenWidth - this.scrollX)
+      const right = left + geom.sheet.colWidth(col)
+      // 边界双侧 ±3px → 列调宽边界
+      if (Math.abs(cx - right) <= BORDER_TOLERANCE) return { region: 'colborder', row: -1, col }
+      if (col > 0) {
+        const prevLeft =
+          col - 1 < geom.frozenCols
+            ? geom.colLeft(col - 1)
+            : geom.frozenWidth + (geom.colLeft(col - 1) - geom.frozenWidth - this.scrollX)
+        const prevRight = prevLeft + geom.sheet.colWidth(col - 1)
+        if (Math.abs(cx - prevRight) <= BORDER_TOLERANCE) return { region: 'colborder', row: -1, col: col - 1 }
       }
       return { region: 'colheader', row: -1, col }
     }
     if (x < ROW_HEADER_WIDTH) {
-      const cy = y - COL_HEADER_HEIGHT + this.scrollY
-      const row = geom.rowAt(cy)
-      // 行边界双侧 ±3px → 行调宽边界
-      if (Math.abs(cy - geom.rowTop(row + 1)) <= BORDER_TOLERANCE) {
-        return { region: 'rowborder', row, col: -1 }
-      }
-      if (row > 0 && Math.abs(cy - geom.rowTop(row)) <= BORDER_TOLERANCE) {
-        return { region: 'rowborder', row: row - 1, col: -1 }
+      const cy = y - COL_HEADER_HEIGHT
+      const row =
+        cy < geom.frozenHeight
+          ? geom.rowAt(cy)
+          : geom.rowAt(geom.frozenHeight + this.scrollY + (cy - geom.frozenHeight))
+      const top = row < geom.frozenRows ? geom.rowTop(row) : geom.frozenHeight + (geom.rowTop(row) - geom.frozenHeight - this.scrollY)
+      const bottom = top + geom.sheet.rowHeight(row)
+      if (Math.abs(cy - bottom) <= BORDER_TOLERANCE) return { region: 'rowborder', row, col: -1 }
+      if (row > 0) {
+        const prevTop =
+          row - 1 < geom.frozenRows
+            ? geom.rowTop(row - 1)
+            : geom.frozenHeight + (geom.rowTop(row - 1) - geom.frozenHeight - this.scrollY)
+        const prevBottom = prevTop + geom.sheet.rowHeight(row - 1)
+        if (Math.abs(cy - prevBottom) <= BORDER_TOLERANCE) return { region: 'rowborder', row: row - 1, col: -1 }
       }
       return { region: 'rowheader', row, col: -1 }
     }
+    const a = geom.cellAtContent(x - ROW_HEADER_WIDTH, y - COL_HEADER_HEIGHT, this.scrollX, this.scrollY)
+    return { region: 'cell', row: a.row, col: a.col }
+  }
+
+  // 指针 client 坐标 → 冻结感知 + clamp 到表内的单元格地址（供插件与 hitTest 共用）
+  pointerToCell(clientX: number, clientY: number): CellAddr {
+    const rect = this.dom.getBoundingClientRect()
+    const geom = this.geometry()
+    const sheet = this.state.activeSheet
+    const a = geom.cellAtContent(
+      clientX - rect.left - ROW_HEADER_WIDTH,
+      clientY - rect.top - COL_HEADER_HEIGHT,
+      this.scrollX,
+      this.scrollY,
+    )
     return {
-      region: 'cell',
-      row: geom.rowAt(y - COL_HEADER_HEIGHT + this.scrollY),
-      col: geom.colAt(x - ROW_HEADER_WIDTH + this.scrollX),
+      row: Math.max(0, Math.min(a.row, sheet.rowCount - 1)),
+      col: Math.max(0, Math.min(a.col, sheet.colCount - 1)),
     }
   }
 
   cellViewportRect(row: number, col: number): Rect {
-    const r = this.geometry().cellRect(row, col)
-    return {
-      x: ROW_HEADER_WIDTH + r.x - this.scrollX,
-      y: COL_HEADER_HEIGHT + r.y - this.scrollY,
-      w: r.w,
-      h: r.h,
-    }
+    const geom = this.geometry()
+    const r = geom.cellRect(row, col)
+    const sx = col < geom.frozenCols ? r.x : geom.frozenWidth + (r.x - geom.frozenWidth - this.scrollX)
+    const sy = row < geom.frozenRows ? r.y : geom.frozenHeight + (r.y - geom.frozenHeight - this.scrollY)
+    return { x: ROW_HEADER_WIDTH + sx, y: COL_HEADER_HEIGHT + sy, w: r.w, h: r.h }
   }
 
   ensureVisible(addr: CellAddr): void {
     const geom = this.geometry()
-    const r = geom.cellRect(addr.row, addr.col)
+    const sheet = this.state.activeSheet
     const viewW = this.stage.width() - ROW_HEADER_WIDTH
     const viewH = this.stage.height() - COL_HEADER_HEIGHT
-    if (r.x < this.scrollX) this.scrollX = r.x
-    else if (r.x + r.w > this.scrollX + viewW) this.scrollX = r.x + r.w - viewW
-    if (r.y < this.scrollY) this.scrollY = r.y
-    else if (r.y + r.h > this.scrollY + viewH) this.scrollY = r.y + r.h - viewH
+    if (addr.col >= geom.frozenCols) {
+      const left = geom.colLeft(addr.col) - geom.frozenWidth
+      const right = left + sheet.colWidth(addr.col)
+      const span = viewW - geom.frozenWidth
+      if (left < this.scrollX) this.scrollX = left
+      else if (right > this.scrollX + span) this.scrollX = right - span
+    }
+    if (addr.row >= geom.frozenRows) {
+      const top = geom.rowTop(addr.row) - geom.frozenHeight
+      const bottom = top + sheet.rowHeight(addr.row)
+      const span = viewH - geom.frozenHeight
+      if (top < this.scrollY) this.scrollY = top
+      else if (bottom > this.scrollY + span) this.scrollY = bottom - span
+    }
     this.clampScroll()
     this.render()
   }

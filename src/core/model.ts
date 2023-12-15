@@ -27,12 +27,16 @@ interface SheetParts {
   rowHeights: Map<number, number>
   colWidths: Map<number, number>
   merges: readonly CellRange[]
+  frozenRows: number
+  frozenCols: number
 }
 
 export class SheetData {
   readonly rowCount: number
   readonly colCount: number
   readonly merges: readonly CellRange[]
+  readonly frozenRows: number
+  readonly frozenCols: number
   private readonly _cells: Map<number, Map<number, Cell>>
   private readonly _rowHeights: Map<number, number>
   private readonly _colWidths: Map<number, number>
@@ -41,6 +45,8 @@ export class SheetData {
     this.rowCount = parts.rowCount
     this.colCount = parts.colCount
     this.merges = parts.merges
+    this.frozenRows = parts.frozenRows
+    this.frozenCols = parts.frozenCols
     this._cells = parts.cells
     this._rowHeights = parts.rowHeights
     this._colWidths = parts.colWidths
@@ -54,6 +60,8 @@ export class SheetData {
       rowHeights: this._rowHeights,
       colWidths: this._colWidths,
       merges: this.merges,
+      frozenRows: this.frozenRows,
+      frozenCols: this.frozenCols,
     }
   }
 
@@ -69,6 +77,8 @@ export class SheetData {
       rowHeights: new Map(),
       colWidths: new Map(),
       merges: [],
+      frozenRows: 0,
+      frozenCols: 0,
     })
   }
 
@@ -125,6 +135,10 @@ export class SheetData {
       if (row >= m.sr && row <= m.er && col >= m.sc && col <= m.ec) return m
     }
     return null
+  }
+
+  setFrozen(rows: number, cols: number): SheetData {
+    return SheetData.fromParts({ ...this._parts, frozenRows: rows, frozenCols: cols })
   }
 
   insertRows(index: number, count: number): SheetData {
@@ -205,6 +219,9 @@ export class SheetData {
       rowHeights: axis === 'row' ? remapSizes(this._rowHeights) : new Map(this._rowHeights),
       colWidths: axis === 'col' ? remapSizes(this._colWidths) : new Map(this._colWidths),
       merges,
+      // 结构操作不动冻结设置（M2b 既定行为）
+      frozenRows: this.frozenRows,
+      frozenCols: this.frozenCols,
     })
   }
 
@@ -245,6 +262,8 @@ export class SheetData {
       rowHeights: [...this._rowHeights.entries()],
       colWidths: [...this._colWidths.entries()],
       merges: this.merges,
+      frozenRows: this.frozenRows,
+      frozenCols: this.frozenCols,
     }
   }
 
@@ -256,6 +275,8 @@ export class SheetData {
       rowHeights?: [number, number][]
       colWidths?: [number, number][]
       merges?: CellRange[]
+      frozenRows?: number
+      frozenCols?: number
     }
     const cells = new Map<number, Map<number, Cell>>()
     for (const [row, cols] of Object.entries(j.cells ?? {})) {
@@ -270,6 +291,8 @@ export class SheetData {
       rowHeights: new Map(j.rowHeights ?? []),
       colWidths: new Map(j.colWidths ?? []),
       merges: j.merges ?? [],
+      frozenRows: j.frozenRows ?? 0,
+      frozenCols: j.frozenCols ?? 0,
     })
   }
 }

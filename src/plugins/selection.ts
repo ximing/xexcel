@@ -31,21 +31,9 @@ export function selection(): Plugin {
     rafId = 0
   }
 
-  // 指针 client 坐标 → clamp 到表内的单元格地址（越界钳到边缘行/列）
-  const addrAt = (view: EditorView, clientX: number, clientY: number): CellAddr => {
-    const rect = view.dom.getBoundingClientRect()
-    const geom = view.geometry()
-    const sheet = view.state.activeSheet
-    const row = Math.max(
-      0,
-      Math.min(geom.rowAt(clientY - rect.top - COL_HEADER_HEIGHT + view.scrollY), sheet.rowCount - 1),
-    )
-    const col = Math.max(
-      0,
-      Math.min(geom.colAt(clientX - rect.left - ROW_HEADER_WIDTH + view.scrollX), sheet.colCount - 1),
-    )
-    return { row, col }
-  }
+  // 指针 client 坐标 → clamp 到表内的单元格地址（越界钳到边缘行/列；冻结感知走 view.pointerToCell）
+  const addrAt = (view: EditorView, clientX: number, clientY: number): CellAddr =>
+    view.pointerToCell(clientX, clientY)
 
   // 按拖拽模式重算 focus 并 dispatch（focus 未变则仅重绘，避免空事务刷屏）
   const applyDragFocus = (view: EditorView): void => {

@@ -283,6 +283,49 @@ export function Toolbar({ view }: Props) {
       >
         -列
       </button>
+      <span className="tool-sep" />
+      <button
+        className={'tool-btn' + (state.activeSheet.frozenRows === 1 && state.activeSheet.frozenCols === 0 ? ' active' : '')}
+        title="冻结首行"
+        onClick={() => {
+          view.dispatch(view.state.tr.setFrozen(state.activeSheet.frozenRows === 1 && state.activeSheet.frozenCols === 0 ? 0 : 1, state.activeSheet.frozenCols))
+          view.focus()
+        }}
+      >
+        冻行
+      </button>
+      <button
+        className={'tool-btn' + (state.activeSheet.frozenCols === 1 && state.activeSheet.frozenRows === 0 ? ' active' : '')}
+        title="冻结首列"
+        onClick={() => {
+          view.dispatch(view.state.tr.setFrozen(state.activeSheet.frozenRows, state.activeSheet.frozenCols === 1 && state.activeSheet.frozenRows === 0 ? 0 : 1))
+          view.focus()
+        }}
+      >
+        冻列
+      </button>
+      <button
+        className="tool-btn"
+        title="冻结到当前选区（其上方与左侧）"
+        onClick={() => {
+          const { row, col } = view.state.selection.focus
+          view.dispatch(view.state.tr.setFrozen(row, col))
+          view.focus()
+        }}
+      >
+        冻至
+      </button>
+      <button
+        className="tool-btn"
+        title="取消冻结"
+        disabled={state.activeSheet.frozenRows === 0 && state.activeSheet.frozenCols === 0}
+        onClick={() => {
+          view.dispatch(view.state.tr.setFrozen(0, 0))
+          view.focus()
+        }}
+      >
+        解冻
+      </button>
     </div>
   )
 }
