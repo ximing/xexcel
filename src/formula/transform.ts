@@ -80,11 +80,9 @@ function adjustRefForStructure(r: RefTarget, spec: StructureSpec, hostSheet: str
   return spec.axis === 'row' ? { ...r, row: next } : { ...r, col: next }
 }
 
-// range 端点落入删除区 → 整个公式坍塌为 #REF!（Excel 语义），经 sentinel 向上传播。
-// 注意与单个 ref 不同：ref 落删除区只做局部替换（'=#REF!*2'）。
-const RANGE_DELETED: unique symbol = Symbol('rangeDeleted')
-
-function adjustNode(node: AST, spec: StructureSpec, hostSheet: string): AST | typeof RANGE_DELETED {
+// range 端点落入删除区 → 该 range 节点局部替换为 #REF!（与 M2a shiftRefs 同款语义，
+// 不外溢到整个公式：'=SUM(A3:A6)+B1' → '=SUM(#REF!)+B1'）。
+export function adjustForStructure(node: AST, spec: StructureSpec, hostSheet: string): AST {
   switch (node.type) {
     case 'ref': {
       const r = adjustRefForStructure(node.ref, spec, hostSheet)
@@ -93,49 +91,34 @@ function adjustNode(node: AST, spec: StructureSpec, hostSheet: string): AST | ty
     case 'range': {
       const a = adjustRefForStructure(node.a, spec, hostSheet)
       const b = adjustRefForStructure(node.b, spec, hostSheet)
-      if (a === null || b === null) return RANGE_DELETED
+      if (a === null || b === null) return REF_ERR
       return { type: 'range', a, b }
     }
-    case 'call': {
-      const args = node.args.map((x) => adjustNode(x, spec, hostSheet))
-      if (args.some((x) => x === RANGE_DELETED)) return RANGE_DELETED
-      return { type: 'call', name: node.name, args: args as AST[] }
-    }
-    case 'unary': {
-      const expr = adjustNode(node.expr, spec, hostSheet)
-      return expr === RANGE_DELETED ? RANGE_DELETED : { type: 'unary', op: node.op, expr }
-    }
-    case 'binary': {
-      const left = adjustNode(node.left, spec, hostSheet)
-      if (left === RANGE_DELETED) return RANGE_DELETED
-      const right = adjustNode(node.right, spec, hostSheet)
-      if (right === RANGE_DELETED) return RANGE_DELETED
-      return { type: 'binary', op: node.op, left, right }
-    }
-    case 'percent': {
-      const expr = adjustNode(node.expr, spec, hostSheet)
-      return expr === RANGE_DELETED ? RANGE_DELETED : { type: 'percent', expr }
-    }
-    case 'paren': {
-      const expr = adjustNode(node.expr, spec, hostSheet)
-      return expr === RANGE_DELETED ? RANGE_DELETED : { type: 'paren', expr }
-    }
+    case 'call':
+      return { type: 'call', name: node.name, args: node.args.map((x) => adjustForStructure(x, spec, hostSheet)) }
+    case 'unary':
+      return { type: 'unary', op: node.op, expr: adjustForStructure(node.expr, spec, hostSheet) }
+    case 'binary':
+      return {
+        type: 'binary',
+        op: node.op,
+        left: adjustForStructure(node.left, spec, hostSheet),
+        right: adjustForStructure(node.right, spec, hostSheet),
+      }
+    case 'percent':
+      return { type: 'percent', expr: adjustForStructure(node.expr, spec, hostSheet) }
+    case 'paren':
+      return { type: 'paren', expr: adjustForStructure(node.expr, spec, hostSheet) }
     default:
       return node
   }
-}
-
-export function adjustForStructure(node: AST, spec: StructureSpec, hostSheet: string): AST {
-  const r = adjustNode(node, spec, hostSheet)
-  return r === RANGE_DELETED ? REF_ERR : r
 }
 
 // raw 文本级入口：公式 → 级联后新文本；非公式/解析失败 → 原文返回
 export function adjustFormulaForStructure(raw: string, spec: StructureSpec, hostSheet: string): string {
   if (!raw.startsWith('=')) return raw
   try {
-    const r = adjustNode(parseFormula(raw.slice(1)), spec, hostSheet)
-    return r === RANGE_DELETED ? '=#REF!' : '=' + serialize(r)
+    return '=' + serialize(adjustForStructure(parseFormula(raw.slice(1)), spec, hostSheet))
   } catch {
     return raw
   }

@@ -364,10 +364,18 @@ export interface StructureRestoreEntry {
   cell: Cell | null
 }
 
+// 逆操作实例的恢复负载：被改公式的原文 + 删除区内的自定义行高/列宽 +
+// delete 前目标表的完整 merges（裁剪后的幸存者无法逐一识别，整体恢复才能保证 undo 恒等）。
+export interface StructureRestore {
+  cells: StructureRestoreEntry[]
+  sizes: [number, number][] // axis 维度：删除区内 index → 自定义 size
+  merges: CellRange[] // delete 模式：目标表完整 merges 原文；insert 模式：空（remap 自身可逆）
+}
+
 // 插入/删除行列：物理重索引 + 全簿公式级联（经注入的 cascade）。
-// restore 非 null = 逆操作实例：apply = 反向结构 + 公式原文恢复。
+// restore 非 null = 逆操作实例：apply = 反向结构 + 公式原文/行高列宽/合并区恢复。
 export class StructureStep extends Step {
-  constructor(readonly spec: StructureStepSpec, readonly restore: StructureRestoreEntry[] | null = null) {
+  constructor(readonly spec: StructureStepSpec, readonly restore: StructureRestore | null = null) {
     super()
   }
 
@@ -399,9 +407,17 @@ export class StructureStep extends Step {
     let out = doc.setSheet(spec.sheet, shifted)
     if (this.restore) {
       // 逆操作：恢复公式原文与删除区内容
-      for (const e of this.restore) {
+      for (const e of this.restore.cells) {
         out = out.setSheet(e.sheet, out.sheet(e.sheet).setCell(e.row, e.col, e.cell))
       }
+      // 恢复删除区内的自定义行高/列宽
+      let d = out.sheet(spec.sheet)
+      for (const [i, size] of this.restore.sizes) {
+        d = spec.axis === 'row' ? d.setRowHeight(i, size) : d.setColWidth(i, size)
+      }
+      // delete 的 undo：整体恢复 merges（裁剪幸存者可能与原文不等，见 StructureRestore 注释）
+      if (spec.mode === 'delete') d = d.setMerges(this.restore.merges)
+      out = out.setSheet(spec.sheet, d)
       return { ok: true, doc: out }
     }
     // 正向：公式级联（未注入 cascade 时跳过）
@@ -436,23 +452,30 @@ export class StructureStep extends Step {
       return new StructureStep(this.spec, null)
     }
     // 扫描 beforeDoc 全部公式格：级联后有变化 → 记录原文恢复项
-    const restore: StructureRestoreEntry[] = []
+    const cells: StructureRestoreEntry[] = []
     const seen = new Set<string>()
-    // delete 模式：删除区内的格物理丢失，原文全部入恢复项（级联只覆盖公式文本）
+    let sizes: [number, number][] = []
+    let merges: CellRange[] = []
+    // delete 模式：删除区内的格/行高列宽物理丢失，原文全部入恢复项（级联只覆盖公式文本）；
+    // merges 记录目标表完整原文（undo 整体恢复）
     if (this.spec.mode === 'delete') {
       const data = beforeDoc.sheet(this.spec.sheet)
       const cross = this.spec.axis === 'row' ? data.colCount : data.rowCount
+      const customSizes = this.spec.axis === 'row' ? data.customRowHeights : data.customColWidths
       for (let i = this.spec.index; i < this.spec.index + this.spec.count; i++) {
+        const size = customSizes.get(i)
+        if (size !== undefined) sizes.push([i, size])
         for (let j = 0; j < cross; j++) {
           const row = this.spec.axis === 'row' ? i : j
           const col = this.spec.axis === 'row' ? j : i
           const cell = data.getCell(row, col)
           if (cell) {
-            restore.push({ sheet: this.spec.sheet, row, col, cell })
+            cells.push({ sheet: this.spec.sheet, row, col, cell })
             seen.add(`${this.spec.sheet}:${row}:${col}`)
           }
         }
       }
+      merges = [...data.merges]
     }
     if (cascadeFn) {
       const nameSpec: StructureSpecName = {
@@ -467,12 +490,12 @@ export class StructureStep extends Step {
         collectFormulaChanges(sheetData, (row, col, cell) => {
           if (seen.has(`${id}:${row}:${col}`)) return
           if (cascadeFn!(cell.raw, nameSpec, host) !== cell.raw) {
-            restore.push({ sheet: id, row, col, cell })
+            cells.push({ sheet: id, row, col, cell })
           }
         })
       }
     }
-    return new StructureStep(this.spec, restore)
+    return new StructureStep(this.spec, { cells, sizes, merges })
   }
 
   toJSON(): unknown {

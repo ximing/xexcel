@@ -74,6 +74,59 @@ describe('StructureStep', () => {
     expect(r2.doc!.activeSheet.getCell(1, 0)?.raw).toBe('=$A$5+1')
     expect(r2.doc!.activeSheet.getCell(4, 0)?.raw).toBe('50')
   })
+  it('删除行的 undo：恢复删除区行高与合并区（含完全在删除区内的 merge）', () => {
+    let wb = Workbook.create({ rowCount: 10, colCount: 5 })
+    let s = wb.activeSheet
+    s = s.setCell(4, 0, { raw: 'x' })
+    s = s.setRowHeight(4, 40)
+    s = s.setRowHeight(5, 30)
+    s = s.setMerges([
+      { sr: 4, sc: 1, er: 5, ec: 1 }, // 完全在删除区 [4,6) 内
+      { sr: 3, sc: 2, er: 5, ec: 2 }, // 部分重叠（尾部入删除区）
+      { sr: 0, sc: 3, er: 1, ec: 3 }, // 不受影响
+    ])
+    wb = wb.setSheet('s1', s)
+    const step = new StructureStep({ sheet: 's1', axis: 'row', index: 4, count: 2, mode: 'delete' }, null)
+    const r = step.apply(wb)
+    expect(r.ok).toBe(true)
+    // 正向：删除区行高丢失、merge 裁剪/移除
+    expect(r.doc!.activeSheet.customRowHeights.has(4)).toBe(false)
+    expect(r.doc!.activeSheet.merges).toEqual([
+      { sr: 3, sc: 2, er: 3, ec: 2 },
+      { sr: 0, sc: 3, er: 1, ec: 3 },
+    ])
+    const r2 = step.invert(wb).apply(r.doc!)
+    const d = r2.doc!.activeSheet
+    expect(d.rowCount).toBe(10)
+    expect(d.getCell(4, 0)?.raw).toBe('x')
+    expect(d.customRowHeights.get(4)).toBe(40)
+    expect(d.customRowHeights.get(5)).toBe(30)
+    expect(d.merges).toEqual([
+      { sr: 4, sc: 1, er: 5, ec: 1 },
+      { sr: 3, sc: 2, er: 5, ec: 2 },
+      { sr: 0, sc: 3, er: 1, ec: 3 },
+    ])
+  })
+  it('stepFromJSON 往返：含 sizes/merges 恢复负载的逆操作实例', () => {
+    let wb = Workbook.create({ rowCount: 10, colCount: 5 })
+    let s = wb.activeSheet
+    s = s.setCell(4, 0, { raw: 'x' })
+    s = s.setCell(0, 0, { raw: '=A5*2' })
+    s = s.setRowHeight(4, 40)
+    s = s.setMerges([{ sr: 4, sc: 1, er: 5, ec: 1 }])
+    wb = wb.setSheet('s1', s)
+    const step = new StructureStep({ sheet: 's1', axis: 'row', index: 4, count: 2, mode: 'delete' }, null)
+    const inv = step.invert(wb)
+    const back = stepFromJSON(JSON.parse(JSON.stringify(inv.toJSON())))
+    expect(back.toJSON()).toEqual(inv.toJSON())
+    // 反序列化实例 apply 行为一致：行高/合并区/公式原文全部恢复
+    const r = step.apply(wb)
+    const d = back.apply(r.doc!).doc!.activeSheet
+    expect(d.customRowHeights.get(4)).toBe(40)
+    expect(d.merges).toEqual([{ sr: 4, sc: 1, er: 5, ec: 1 }])
+    expect(d.getCell(0, 0)?.raw).toBe('=A5*2')
+    expect(d.getCell(4, 0)?.raw).toBe('x')
+  })
   it('逆操作实例再 invert → 正向实例（redo 对称）', () => {
     const d0 = mk()
     const step = new StructureStep({ sheet: 's1', axis: 'row', index: 4, count: 1, mode: 'delete' }, null)

@@ -24,7 +24,10 @@ describe('adjustFormulaForStructure', () => {
     expect(adjustFormulaForStructure('=A5*2', del(4), H)).toBe('=#REF!*2')
     expect(adjustFormulaForStructure('=A6*2', del(4), H)).toBe('=A5*2')
     expect(adjustFormulaForStructure('=A4*2', del(4), H)).toBe('=A4*2')
-    expect(adjustFormulaForStructure('=SUM(A3:A6)', del(4, 2), H)).toBe('=#REF!')
+    expect(adjustFormulaForStructure('=SUM(A3:A6)', del(4, 2), H)).toBe('=SUM(#REF!)')
+  })
+  it('range 坍塌为局部 #REF!（不外溢到整个公式）', () => {
+    expect(adjustFormulaForStructure('=SUM(A3:A6)+B1', del(4, 2), H)).toBe('=SUM(#REF!)+B1')
   })
   it('跨表引用：指向被改表才调整（按表名，不区分大小写）', () => {
     expect(adjustFormulaForStructure('=Sheet1!A5*2', ins(4), H)).toBe('=Sheet1!A6*2')
