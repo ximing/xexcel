@@ -5,12 +5,37 @@
 // - F2 → openEditor；可打印单字符（无 Ctrl/Cmd/Alt）→ 清 proxy 后 openEditor(focus, key)
 // 命中的按键一律 preventDefault 并返回 true；未命中返回 false（不拦截 copy/paste 等）。
 // 移动类 dispatch 带 scrollIntoView()。
+import { CellAddr, CellRange } from '../core/addr'
 import { clearSelection, selectAll } from '../core/commands'
 import { redo, undo } from '../core/history'
 import { EditorViewLike, Plugin } from '../core/plugin'
 import { singleCell } from '../core/selection'
 import { isEditing, openEditor } from '../view/editbox'
 import type { EditorView } from '../view/editorview'
+
+// 导航落点修正（导出供单测）：目标在合并区内时——
+// 当前 focus 已是该合并区锚点（继续向外移动）→ 跳过整个合并区到远侧之外；
+// 否则（从外部进入）→ 落在锚点。
+export function navigateFocus(
+  sheet: { mergeAt(row: number, col: number): CellRange | null; rowCount: number; colCount: number },
+  current: CellAddr,
+  dr: number,
+  dc: number,
+): CellAddr {
+  const clamp = (v: number, max: number): number => Math.max(0, Math.min(v, max))
+  const target: CellAddr = {
+    row: clamp(current.row + dr, sheet.rowCount - 1),
+    col: clamp(current.col + dc, sheet.colCount - 1),
+  }
+  const m = sheet.mergeAt(target.row, target.col)
+  if (!m) return target
+  const atAnchor = current.row === m.sr && current.col === m.sc
+  if (!atAnchor) return { row: m.sr, col: m.sc }
+  return {
+    row: clamp(dr > 0 ? m.er + 1 : dr < 0 ? m.sr - 1 : target.row, sheet.rowCount - 1),
+    col: clamp(dc > 0 ? m.ec + 1 : dc < 0 ? m.sc - 1 : target.col, sheet.colCount - 1),
+  }
+}
 
 export function keymap(): Plugin {
   return new Plugin({
@@ -24,15 +49,7 @@ export function keymap(): Plugin {
         const mod = e.ctrlKey || e.metaKey
 
         const move = (dr: number, dc: number, extend: boolean): void => {
-          const focus = {
-            row: Math.max(0, Math.min(sel.focus.row + dr, sheet.rowCount - 1)),
-            col: Math.max(0, Math.min(sel.focus.col + dc, sheet.colCount - 1)),
-          }
-          const m = sheet.mergeAt(focus.row, focus.col)
-          if (m) {
-            focus.row = m.sr
-            focus.col = m.sc
-          }
+          const focus = navigateFocus(sheet, sel.focus, dr, dc)
           v.dispatch(
             state.tr
               .setSelection(extend ? { anchor: sel.anchor, focus } : singleCell(focus.row, focus.col))
