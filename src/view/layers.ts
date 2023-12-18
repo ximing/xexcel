@@ -12,6 +12,7 @@ import type { CellEvaluator } from '../formula/engine'
 import { evaluatorFor } from '../formula/engine'
 import { GridGeometry } from './geometry'
 import { CELL_PAD_X } from './measure'
+import { hScrollbar, vScrollbar } from './scrollbar'
 import { fillPreviewKey, ResizeGuide, resizeGuideKey } from './types'
 
 const COLOR_GRID = '#d9dce1'
@@ -125,6 +126,7 @@ export function renderAll(
   renderCellLayer(cellLayer, state, geom, scrollX, scrollY, viewW, viewH)
   renderGridLayer(gridLayer, state, geom, scrollX, scrollY, viewW, viewH)
   renderOverlayLayer(overlayLayer, state, geom, scrollX, scrollY, viewW, viewH)
+  renderScrollbars(overlayLayer, geom, scrollX, scrollY, viewW, viewH)
   gridLayer.batchDraw()
   cellLayer.batchDraw()
   overlayLayer.batchDraw()
@@ -449,5 +451,32 @@ function renderOverlayLayer(
       inner.add(new Konva.Line({ points, stroke: COLOR_SELECT_BORDER, strokeWidth: 1, dash: [4, 3], ...noListen }))
     }
     layer.add(clip)
+  }
+}
+
+// 滚动条：overlay 层屏幕坐标绘制（不进象限 clip）
+function renderScrollbars(
+  layer: Konva.Layer,
+  geom: GridGeometry,
+  scrollX: number,
+  scrollY: number,
+  viewW: number,
+  viewH: number,
+): void {
+  const bars = [hScrollbar(geom.contentWidth, scrollX, viewW, viewH), vScrollbar(geom.contentHeight, scrollY, viewW, viewH)]
+  for (const b of bars) {
+    if (!b) continue
+    layer.add(new Konva.Rect({ x: b.track.x, y: b.track.y, width: b.track.w, height: b.track.h, fill: '#f1f3f4', ...noListen }))
+    layer.add(
+      new Konva.Rect({
+        x: b.thumb.x + 2,
+        y: b.thumb.y + 2,
+        width: Math.max(0, b.thumb.w - 4),
+        height: Math.max(0, b.thumb.h - 4),
+        fill: '#c1c7cd',
+        cornerRadius: 4,
+        ...noListen,
+      }),
+    )
   }
 }

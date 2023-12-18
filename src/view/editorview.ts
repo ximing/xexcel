@@ -10,6 +10,7 @@ import type { Transaction } from '../core/transaction'
 import { openEditor } from './editbox'
 import { GridGeometry } from './geometry'
 import { FILL_HANDLE_SIZE, renderAll } from './layers'
+import { hScrollbar, thumbHit, vScrollbar } from './scrollbar'
 import { HitResult, Rect } from './types'
 
 export interface DirectEditorProps {
@@ -34,6 +35,7 @@ export class EditorView implements EditorViewLike {
   private readonly resizeObserver: ResizeObserver
   private geomCache: { sheet: SheetData; geom: GridGeometry } | null = null
   private rafId = 0
+  private sbDrag: { axis: 'h' | 'v'; startScroll: number; startPos: number; ratio: number } | null = null
 
   constructor(mount: HTMLElement, props: DirectEditorProps) {
     this.state = props.state
@@ -139,6 +141,16 @@ export class EditorView implements EditorViewLike {
     const y = clientY - rect.top
     if (x < 0 || y < 0 || x > this.stage.width() || y > this.stage.height()) {
       return { region: 'outside', row: -1, col: -1 }
+    }
+    // 滚动条区域优先于其他命中
+    const geom0 = this.geometry()
+    const vg = vScrollbar(geom0.contentHeight, this.scrollY, this.stage.width(), this.stage.height())
+    if (vg && x >= vg.track.x && y >= vg.track.y && y <= vg.track.y + vg.track.h) {
+      return { region: 'vscrollbar', row: -1, col: -1 }
+    }
+    const hg = hScrollbar(geom0.contentWidth, this.scrollX, this.stage.width(), this.stage.height())
+    if (hg && y >= hg.track.y && x >= hg.track.x && x <= hg.track.x + hg.track.w) {
+      return { region: 'hscrollbar', row: -1, col: -1 }
     }
     const geom = this.geometry()
     // 填充手柄：活动选区右下角 6px 方块 ±2px 容差（用活动格的视口位置）
@@ -320,6 +332,31 @@ export class EditorView implements EditorViewLike {
 
   private onMouseDown = (e: MouseEvent): void => {
     const hit = this.hitTest(e.clientX, e.clientY)
+    if (hit.region === 'hscrollbar' || hit.region === 'vscrollbar') {
+      const geom = this.geometry()
+      const g =
+        hit.region === 'vscrollbar'
+          ? vScrollbar(geom.contentHeight, this.scrollY, this.stage.width(), this.stage.height())
+          : hScrollbar(geom.contentWidth, this.scrollX, this.stage.width(), this.stage.height())
+      if (!g) return
+      const rect = this.dom.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      const axis = hit.region === 'vscrollbar' ? 'v' : 'h'
+      if (thumbHit(g, x, y)) {
+        this.sbDrag = { axis, startScroll: axis === 'v' ? this.scrollY : this.scrollX, startPos: axis === 'v' ? y : x, ratio: g.ratio }
+      } else {
+        // 点轨道翻页（向点击方向滚一个视口）
+        const page = axis === 'v' ? this.stage.height() - COL_HEADER_HEIGHT : this.stage.width() - ROW_HEADER_WIDTH
+        const onThumbSide = axis === 'v' ? y > g.thumb.y + g.thumb.h : x > g.thumb.x + g.thumb.w
+        if (axis === 'v') this.scrollY += onThumbSide ? page : -page
+        else this.scrollX += onThumbSide ? page : -page
+        this.clampScroll()
+        this.render()
+      }
+      this.focus()
+      return
+    }
     if (this.someProp('handleMouseDown', (p) => p(this, e, hit))) return
     // 默认行为：点击单元格 → 单格选区
     if (hit.region === 'cell') {
@@ -338,11 +375,25 @@ export class EditorView implements EditorViewLike {
   }
 
   private onMouseMove = (e: MouseEvent): void => {
+    if (this.sbDrag) {
+      const rect = this.dom.getBoundingClientRect()
+      const pos = this.sbDrag.axis === 'v' ? e.clientY - rect.top : e.clientX - rect.left
+      const next = this.sbDrag.startScroll + (pos - this.sbDrag.startPos) * this.sbDrag.ratio
+      if (this.sbDrag.axis === 'v') this.scrollY = next
+      else this.scrollX = next
+      this.clampScroll()
+      this.render()
+      return
+    }
     const hit = this.hitTest(e.clientX, e.clientY)
     this.someProp('handleMouseMove', (p) => p(this, e, hit))
   }
 
   private onMouseUp = (e: MouseEvent): void => {
+    if (this.sbDrag) {
+      this.sbDrag = null
+      return
+    }
     const hit = this.hitTest(e.clientX, e.clientY)
     this.someProp('handleMouseUp', (p) => p(this, e, hit))
   }
