@@ -34,4 +34,17 @@ describe('freeze geometry', () => {
     expect(g.cellAtContent(100, 50, 0, 0)).toEqual({ row: 2, col: 1 })
     expect(g.cellAtContent(100, 50, 96, 24)).toEqual({ row: 3, col: 2 })
   })
+  it('冻结数越界（陈旧数据）→ getter 钳位，不出 NaN', () => {
+    // 模拟 delete 前的旧数据：4 行的表带着 frozenRows=9
+    const sheet4 = Workbook.create({ rowCount: 4, colCount: 3 }).activeSheet
+    const g = new GridGeometry(sheet4, 9, 5)
+    expect(g.frozenHeight).toBe(g.rowTop(4))
+    expect(g.frozenWidth).toBe(g.colLeft(3))
+    const a = g.cellAtContent(10, 10, 0, 0)
+    expect(Number.isFinite(a.row)).toBe(true)
+    expect(Number.isFinite(a.col)).toBe(true)
+    const b = g.cellAtContent(500, 500, 100, 100)
+    expect(Number.isFinite(b.row)).toBe(true)
+    expect(Number.isFinite(b.col)).toBe(true)
+  })
 })

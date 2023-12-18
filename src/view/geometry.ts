@@ -76,12 +76,13 @@ export class GridGeometry {
     }
   }
 
+  // 防御性钳位：冻结数超出表尺寸（陈旧数据）时不越界读前缀和，避免 NaN 渲染
   get frozenWidth(): number {
-    return this.colLefts[this.frozenCols]
+    return this.colLefts[Math.min(this.frozenCols, this.colLefts.length - 1)]
   }
 
   get frozenHeight(): number {
-    return this.rowTops[this.frozenRows]
+    return this.rowTops[Math.min(this.frozenRows, this.rowTops.length - 1)]
   }
 
   // 内容区坐标（已减表头）→ 单元格；冻结区不吃 scroll。未 clamp（调用侧负责）

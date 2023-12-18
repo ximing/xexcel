@@ -219,9 +219,9 @@ export class SheetData {
       rowHeights: axis === 'row' ? remapSizes(this._rowHeights) : new Map(this._rowHeights),
       colWidths: axis === 'col' ? remapSizes(this._colWidths) : new Map(this._colWidths),
       merges,
-      // 结构操作不动冻结设置（M2b 既定行为）
-      frozenRows: this.frozenRows,
-      frozenCols: this.frozenCols,
+      // 冻结设置：delete 时钳到新尺寸（冻结超出表无意义，且防几何越界 NaN）；insert 与另一轴不动
+      frozenRows: axis === 'row' && mode === 'delete' ? Math.min(this.frozenRows, this.rowCount - count) : this.frozenRows,
+      frozenCols: axis === 'col' && mode === 'delete' ? Math.min(this.frozenCols, this.colCount - count) : this.frozenCols,
     })
   }
 
