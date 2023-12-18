@@ -30,10 +30,13 @@ export function SheetTabBar({ view }: Props) {
   }
 
   const addSheet = (): void => {
-    const id = nextSheetId(state.doc)
-    const name = nextSheetName(state.doc)
-    const config = { rowCount: state.activeSheet.rowCount, colCount: state.activeSheet.colCount }
-    view.dispatch(state.tr.insertSheet(id, name, config).setSelection(singleCell(0, 0)))
+    // 用 view.state（始终最新）而非渲染快照：快速连点时 hook 快照可能过期，
+    // 过期快照会算出重复 id 导致插入变 no-op（e2e 观察 a）
+    const st = view.state
+    const id = nextSheetId(st.doc)
+    const name = nextSheetName(st.doc)
+    const config = { rowCount: st.activeSheet.rowCount, colCount: st.activeSheet.colCount }
+    view.dispatch(st.tr.insertSheet(id, name, config).setSelection(singleCell(0, 0)))
     view.focus()
   }
 

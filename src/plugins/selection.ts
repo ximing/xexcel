@@ -91,10 +91,18 @@ export function selection(): Plugin {
     if (!drag || drag.kind !== 'resize') return
     const rect = view.dom.getBoundingClientRect()
     const geom = view.geometry()
+    // 冻结感知：滚动区内容坐标 = 屏幕坐标 + scroll（frozenWidth 抵消），
+    // 冻结区内容坐标 = 屏幕坐标（不含 scroll），否则拖冻结行列边框时尺寸跳变
     const pos =
       drag.axis === 'col'
-        ? lastClient.x - rect.left - ROW_HEADER_WIDTH + view.scrollX
-        : lastClient.y - rect.top - COL_HEADER_HEIGHT + view.scrollY
+        ? (() => {
+            const cx = lastClient.x - rect.left - ROW_HEADER_WIDTH
+            return cx < geom.frozenWidth ? cx : cx + view.scrollX
+          })()
+        : (() => {
+            const cy = lastClient.y - rect.top - COL_HEADER_HEIGHT
+            return cy < geom.frozenHeight ? cy : cy + view.scrollY
+          })()
     const left = drag.axis === 'col' ? geom.colLeft(drag.index) : geom.rowTop(drag.index)
     drag.size = Math.max(MIN_SIZE, Math.round(pos - left))
     const guide: ResizeGuide = { axis: drag.axis, pos: left + drag.size }
