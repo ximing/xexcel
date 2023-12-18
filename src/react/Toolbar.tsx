@@ -326,6 +326,27 @@ export function Toolbar({ view }: Props) {
       >
         解冻
       </button>
+      <span className="tool-sep" />
+      <button
+        className="tool-btn"
+        title="重置选中行/列尺寸为默认"
+        onClick={() => {
+          const r = selectionRange(view.state.selection)
+          const sheet = view.state.activeSheet
+          const tr = view.state.tr
+          if (r.sc === 0 && r.ec === sheet.colCount - 1) {
+            for (let row = r.sr; row <= r.er; row++) tr.resize('row', row, null)
+          } else if (r.sr === 0 && r.er === sheet.rowCount - 1) {
+            for (let col = r.sc; col <= r.ec; col++) tr.resize('col', col, null)
+          } else {
+            return
+          }
+          view.dispatch(tr)
+          view.focus()
+        }}
+      >
+        重置
+      </button>
     </div>
   )
 }

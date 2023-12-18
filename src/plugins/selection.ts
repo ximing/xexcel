@@ -3,14 +3,17 @@
 // - 行头 mousedown → 选整行（可拖多行）；列头同理；corner → selectAll
 // - 拖拽指针距视口边缘 <24px 时 rAF 自动滚动并重算 focus，mouseup 停止
 // - 列头右缘/行头下缘（colborder/rowborder）拖拽调宽：参考线存 resizeGuideKey state field
-//   （layers 读取画虚线），mouseup dispatch tr.resize（最小 20px）；双击边框恢复默认尺寸
+//   （layers 读取画虚线），mouseup dispatch tr.resize（最小 20px）；双击边框自适应内容尺寸
+//   （整行/整列选区包含目标时批量；空行/列经 resize null 恢复默认）
 // 全部经 props 拦截 + dispatch transaction，不直接改 doc。拖拽态存插件闭包变量。
 import { CellAddr } from '../core/addr'
 import { selectAll } from '../core/commands'
-import { COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
+import { CellStyle, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
 import { EditorViewLike, HitResult, Plugin } from '../core/plugin'
-import { singleCell } from '../core/selection'
+import { selectionRange, singleCell } from '../core/selection'
+import { evaluatorFor } from '../formula/engine'
 import type { EditorView } from '../view/editorview'
+import { measureTextWidth, optimalColWidth, optimalRowHeight } from '../view/measure'
 import { ResizeGuide, resizeGuideKey } from '../view/types'
 
 const EDGE = 24 // 距视口边缘不足 24px 触发自动滚动
@@ -206,8 +209,42 @@ export function selection(): Plugin {
       handleDoubleClick(view: EditorViewLike, _e: MouseEvent, hit: HitResult): boolean {
         if (hit.region !== 'colborder' && hit.region !== 'rowborder') return false
         const v = view as EditorView
+        const state = v.state
+        const sheet = state.activeSheet
+        const sheetId = state.doc.active
+        const ev = evaluatorFor(state.doc)
         const axis = hit.region === 'colborder' ? 'col' : 'row'
-        v.dispatch(v.state.tr.resize(axis, axis === 'col' ? hit.col : hit.row, null))
+        const index = axis === 'col' ? hit.col : hit.row
+        // 选区覆盖整列/行且包含双击目标 → 批量；否则只作用目标
+        const sel = selectionRange(state.selection)
+        let indices = [index]
+        if (axis === 'col' && sel.sr === 0 && sel.er === sheet.rowCount - 1 && index >= sel.sc && index <= sel.ec) {
+          indices = []
+          for (let c = sel.sc; c <= sel.ec; c++) indices.push(c)
+        }
+        if (axis === 'row' && sel.sc === 0 && sel.ec === sheet.colCount - 1 && index >= sel.sr && index <= sel.er) {
+          indices = []
+          for (let r = sel.sr; r <= sel.er; r++) indices.push(r)
+        }
+        const tr = state.tr
+        for (const i of indices) {
+          if (axis === 'col') {
+            const items: { text: string; style?: CellStyle }[] = []
+            for (let r = 0; r < sheet.rowCount; r++) {
+              const cell = sheet.getCell(r, i)
+              if (cell && cell.raw !== '') items.push({ text: ev.displayText(sheetId, r, i), style: cell.style })
+            }
+            tr.resize('col', i, optimalColWidth(items, measureTextWidth))
+          } else {
+            const items: { style?: CellStyle }[] = []
+            for (let c = 0; c < sheet.colCount; c++) {
+              const cell = sheet.getCell(i, c)
+              if (cell && cell.raw !== '') items.push({ style: cell.style })
+            }
+            tr.resize('row', i, optimalRowHeight(items))
+          }
+        }
+        v.dispatch(tr)
         return true
       },
     },

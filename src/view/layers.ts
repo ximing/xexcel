@@ -11,6 +11,7 @@ import type { SheetState } from '../core/state'
 import type { CellEvaluator } from '../formula/engine'
 import { evaluatorFor } from '../formula/engine'
 import { GridGeometry } from './geometry'
+import { CELL_PAD_X } from './measure'
 import { fillPreviewKey, ResizeGuide, resizeGuideKey } from './types'
 
 const COLOR_GRID = '#d9dce1'
@@ -25,7 +26,6 @@ const COLOR_TEXT = '#202124'
 const FONT_SIZE = 13
 const FONT_FAMILY =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-const CELL_PAD_X = 6
 export const FILL_HANDLE_SIZE = 6
 
 const noListen = { listening: false }
