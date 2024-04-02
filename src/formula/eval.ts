@@ -2,6 +2,8 @@
 // 错误沿调用链传播（第一个错误胜出）；区域在标量位置按隐式交集求值。
 import { normalizeRange } from '../core/addr'
 import { SheetId } from '../core/model'
+import { matchCriteria } from './criteria'
+import { dateSerialLenient, nowSerial, serialToDate, todaySerial } from './date'
 import { AST } from './parser'
 
 export type FormulaValue = number | string | boolean | FormulaError
@@ -219,6 +221,114 @@ function aggregateArgs(args: AST[], ctx: EvalCtx): number[] | FormulaError {
   return nums
 }
 
+// 逐值迭代（函数参数可为值或区域）；cb 返回 FormulaError 即中断传播
+function eachValue(args: AST[], ctx: EvalCtx, cb: (v: V) => FormulaError | null | void): FormulaError | null {
+  for (const arg of args) {
+    if (arg.type === 'range') {
+      const sid = arg.a.sheet !== undefined ? ctx.resolveSheet(arg.a.sheet) : ctx.sheet
+      if (sid === null) return err('#REF!')
+      const r = normalizeRange({ sr: arg.a.row, sc: arg.a.col, er: arg.b.row, ec: arg.b.col })
+      for (let row = r.sr; row <= r.er; row++) {
+        for (let col = r.sc; col <= r.ec; col++) {
+          const cv = ctx.get(sid, row, col)
+          // 区域中的空单元格映射为 BLANK，与 ref 求值路径同语义（AND/OR 据此跳过）
+          const e = cb(cv === '' ? BLANK : cv)
+          if (e) return e
+        }
+      }
+    } else {
+      const e = cb(evalNode(arg, ctx))
+      if (e) return e
+    }
+  }
+  return null
+}
+
+// 单参数文本函数辅助
+function oneTextArg(nameArgs: AST[], ctx: EvalCtx): string | FormulaError {
+  if (nameArgs.length !== 1) return err('#VALUE!')
+  const v = evalNode(nameArgs[0], ctx)
+  if (isError(v)) return v
+  return toText(v)
+}
+
+// 条件聚合的区域参数：ref 视为 1×1；其余 → #VALUE!
+function critRangeOf(arg: AST, ctx: EvalCtx): { sid: SheetId; sr: number; sc: number; er: number; ec: number } | FormulaError {
+  if (arg.type === 'ref') {
+    const sid = arg.ref.sheet !== undefined ? ctx.resolveSheet(arg.ref.sheet) : ctx.sheet
+    if (sid === null) return err('#REF!')
+    return { sid, sr: arg.ref.row, sc: arg.ref.col, er: arg.ref.row, ec: arg.ref.col }
+  }
+  if (arg.type === 'range') {
+    const sid = arg.a.sheet !== undefined ? ctx.resolveSheet(arg.a.sheet) : ctx.sheet
+    if (sid === null) return err('#REF!')
+    const r = normalizeRange({ sr: arg.a.row, sc: arg.a.col, er: arg.b.row, ec: arg.b.col })
+    return { sid, ...r }
+  }
+  return err('#VALUE!')
+}
+
+// 条件聚合公共实现：mode='sum'|'count'|'average'
+function condAggregate(mode: 'sum' | 'count' | 'average', args: AST[], ctx: EvalCtx): V {
+  if (args.length < 2 || args.length > 3) return err('#VALUE!')
+  if (mode === 'count' && args.length !== 2) return err('#VALUE!')
+  const target = critRangeOf(args[0], ctx)
+  if (isError(target)) return target
+  const crit = evalNode(args[1], ctx)
+  if (isError(crit)) return crit
+  const critVal: number | string | boolean = isBlank(crit) ? '' : crit
+  let sumZone = target
+  if (args.length === 3) {
+    const sz = critRangeOf(args[2], ctx)
+    if (isError(sz)) return sz
+    sumZone = sz
+  }
+  let sum = 0
+  let count = 0
+  for (let row = target.sr; row <= target.er; row++) {
+    for (let col = target.sc; col <= target.ec; col++) {
+      if (!matchCriteria(critVal, ctx.get(target.sid, row, col))) continue
+      count++
+      if (mode === 'count') continue
+      // 求和域按条件域尺寸锚定其左上角（Excel 语义）；非数值按 0
+      const v = ctx.get(sumZone.sid, sumZone.sr + (row - target.sr), sumZone.sc + (col - target.sc))
+      if (isError(v)) return v
+      if (typeof v === 'number') sum += v
+    }
+  }
+  if (mode === 'count') return count
+  if (mode === 'sum') return sum
+  return count === 0 ? err('#DIV/0!') : sum / count
+}
+
+function leftRight(side: 'left' | 'right', args: AST[], ctx: EvalCtx): V {
+  if (args.length < 1 || args.length > 2) return err('#VALUE!')
+  const t = oneTextArg([args[0]], ctx)
+  if (isError(t)) return t
+  let n = 1
+  if (args.length === 2) {
+    const nn = numArg(args[1], ctx)
+    if (isError(nn)) return nn
+    n = Math.floor(nn)
+    if (n < 0) return err('#VALUE!')
+  }
+  return side === 'left' ? t.slice(0, n) : n === 0 ? '' : t.slice(-n)
+}
+
+function numArg(arg: AST, ctx: EvalCtx): number | FormulaError {
+  const v = evalNode(arg, ctx)
+  if (isError(v)) return v
+  return toNum(v)
+}
+
+function datePart(part: 'y' | 'm' | 'd', args: AST[], ctx: EvalCtx): V {
+  if (args.length !== 1) return err('#VALUE!')
+  const n = numArg(args[0], ctx)
+  if (isError(n)) return n
+  if (n < 0) return err('#VALUE!') // Excel 为 #NUM!，本引擎无该错误码
+  return serialToDate(n)[part]
+}
+
 const AGGREGATES: Record<string, (nums: number[]) => FormulaValue> = {
   SUM: (ns) => ns.reduce((a, b) => a + b, 0),
   AVERAGE: (ns) => (ns.length === 0 ? err('#DIV/0!') : ns.reduce((a, b) => a + b, 0) / ns.length),
@@ -260,6 +370,103 @@ const FUNCTIONS: Record<string, Fn> = {
     const cond = toBool(c)
     if (isError(cond)) return cond
     return evalNode(cond ? args[1] : args[2], ctx)
+  },
+  // ---- 逻辑 ----
+  AND: (args, ctx) => {
+    let seen = false
+    let result = true
+    const e = eachValue(args, ctx, (v) => {
+      if (isBlank(v)) return // 区域中的空格跳过
+      const b = toBool(v)
+      if (isError(b)) return b
+      seen = true
+      if (!b) result = false
+    })
+    if (e) return e
+    return seen ? result : err('#VALUE!')
+  },
+  OR: (args, ctx) => {
+    let seen = false
+    let result = false
+    const e = eachValue(args, ctx, (v) => {
+      if (isBlank(v)) return
+      const b = toBool(v)
+      if (isError(b)) return b
+      seen = true
+      if (b) result = true
+    })
+    if (e) return e
+    return seen ? result : err('#VALUE!')
+  },
+  NOT: (args, ctx) => {
+    if (args.length !== 1) return err('#VALUE!')
+    const v = evalNode(args[0], ctx)
+    if (isError(v)) return v
+    const b = toBool(v)
+    return isError(b) ? b : !b
+  },
+  IFERROR: (args, ctx) => {
+    if (args.length !== 2) return err('#VALUE!')
+    const v = evalNode(args[0], ctx)
+    return isError(v) ? evalNode(args[1], ctx) : v
+  },
+  // ---- 文本 ----
+  LEN: (args, ctx) => {
+    const t = oneTextArg(args, ctx)
+    return isError(t) ? t : t.length
+  },
+  LEFT: (args, ctx) => leftRight('left', args, ctx),
+  RIGHT: (args, ctx) => leftRight('right', args, ctx),
+  MID: (args, ctx) => {
+    if (args.length !== 3) return err('#VALUE!')
+    const t = oneTextArg([args[0]], ctx)
+    if (isError(t)) return t
+    const s = numArg(args[1], ctx)
+    if (isError(s)) return s
+    const n = numArg(args[2], ctx)
+    if (isError(n)) return n
+    if (s < 1 || n < 0) return err('#VALUE!')
+    return t.slice(Math.floor(s) - 1, Math.floor(s) - 1 + Math.floor(n))
+  },
+  UPPER: (args, ctx) => {
+    const t = oneTextArg(args, ctx)
+    return isError(t) ? t : t.toUpperCase()
+  },
+  LOWER: (args, ctx) => {
+    const t = oneTextArg(args, ctx)
+    return isError(t) ? t : t.toLowerCase()
+  },
+  TRIM: (args, ctx) => {
+    const t = oneTextArg(args, ctx)
+    return isError(t) ? t : t.trim().replace(/ +/g, ' ') // Excel TRIM 只处理 ASCII 空格
+  },
+  CONCAT: (args, ctx) => {
+    let out = ''
+    const e = eachValue(args, ctx, (v) => {
+      if (isError(v)) return v
+      out += toText(v)
+    })
+    return e ?? out
+  },
+  // ---- 条件聚合 ----
+  SUMIF: (args, ctx) => condAggregate('sum', args, ctx),
+  COUNTIF: (args, ctx) => condAggregate('count', args, ctx),
+  AVERAGEIF: (args, ctx) => condAggregate('average', args, ctx),
+  // ---- 日期 ----
+  TODAY: (args) => (args.length !== 0 ? err('#VALUE!') : todaySerial()),
+  NOW: (args) => (args.length !== 0 ? err('#VALUE!') : nowSerial()),
+  YEAR: (args, ctx) => datePart('y', args, ctx),
+  MONTH: (args, ctx) => datePart('m', args, ctx),
+  DAY: (args, ctx) => datePart('d', args, ctx),
+  DATE: (args, ctx) => {
+    if (args.length !== 3) return err('#VALUE!')
+    const y = numArg(args[0], ctx)
+    if (isError(y)) return y
+    const m = numArg(args[1], ctx)
+    if (isError(m)) return m
+    const d = numArg(args[2], ctx)
+    if (isError(d)) return d
+    return dateSerialLenient(Math.trunc(y), Math.trunc(m), Math.trunc(d))
   },
 }
 
