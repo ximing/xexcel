@@ -1,5 +1,5 @@
 // 公式求值：对 AST 递归求值，产出 FormulaValue。
-// 错误沿调用链传播（第一个错误胜出）；区域只允许出现在函数参数位置。
+// 错误沿调用链传播（第一个错误胜出）；区域在标量位置按隐式交集求值。
 import { normalizeRange } from '../core/addr'
 import { SheetId } from '../core/model'
 import { AST } from './parser'
@@ -15,6 +15,8 @@ export function isError(v: unknown): v is FormulaError {
 
 export interface EvalCtx {
   sheet: SheetId // 当前公式所在表
+  row: number // 公式所在行（隐式交集用）
+  col: number // 公式所在列
   get(sheet: SheetId, row: number, col: number): FormulaValue
   resolveSheet(name: string): SheetId | null // 表名（不区分大小写）→ SheetId；未知 → null
 }
@@ -50,9 +52,24 @@ export function evalNode(node: AST, ctx: EvalCtx): V {
       const v = ctx.get(sid, node.ref.row, node.ref.col)
       return v === '' ? BLANK : v
     }
-    case 'range':
-      // 区域只在函数参数位置合法（evalCall 特判）；其他位置 → #VALUE!
-      return err('#VALUE!')
+    case 'range': {
+      // 隐式交集：单列区域按公式行、单行区域按公式列、二维区域需行列均在区域内；
+      // 无交集 → #VALUE!（聚合函数参数不走这里，由 evalCall 特判）
+      const sid = node.a.sheet !== undefined ? ctx.resolveSheet(node.a.sheet) : ctx.sheet
+      if (sid === null) return err('#REF!')
+      const r = normalizeRange({ sr: node.a.row, sc: node.a.col, er: node.b.row, ec: node.b.col })
+      let hit: { row: number; col: number } | null = null
+      if (r.sc === r.ec) {
+        if (ctx.row >= r.sr && ctx.row <= r.er) hit = { row: ctx.row, col: r.sc }
+      } else if (r.sr === r.er) {
+        if (ctx.col >= r.sc && ctx.col <= r.ec) hit = { row: r.sr, col: ctx.col }
+      } else if (ctx.row >= r.sr && ctx.row <= r.er && ctx.col >= r.sc && ctx.col <= r.ec) {
+        hit = { row: ctx.row, col: ctx.col }
+      }
+      if (!hit) return err('#VALUE!')
+      const v = ctx.get(sid, hit.row, hit.col)
+      return v === '' ? BLANK : v
+    }
     case 'paren':
       return evalNode(node.expr, ctx)
     case 'unary': {

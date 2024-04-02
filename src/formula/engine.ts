@@ -57,7 +57,7 @@ export class CellEvaluator {
     if (isFormula(raw)) {
       this.visiting.add(key)
       try {
-        value = this.evalFormula(raw, sheet)
+        value = this.evalFormula(raw, sheet, row, col)
       } finally {
         this.visiting.delete(key)
       }
@@ -83,9 +83,11 @@ export class CellEvaluator {
     return v
   }
 
-  private evalFormula(raw: string, sheet: SheetId): FormulaValue {
+  private evalFormula(raw: string, sheet: SheetId, row: number, col: number): FormulaValue {
     const ctx: EvalCtx = {
       sheet,
+      row,
+      col,
       get: (s, r, c) => this.get(s, r, c),
       resolveSheet: (name) => {
         const lower = name.toLowerCase()
