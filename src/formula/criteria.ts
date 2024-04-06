@@ -5,10 +5,9 @@ import { FormulaValue, isError } from './eval'
 
 const PREFIX_RE = /^(>=|<=|<>|=|>|<)(.*)$/
 
-// 通配匹配：模式串先转小写、值保持原样（故小写模式不匹配大写值，反之可——按既定用例语义）
 function wildcardToRegExp(s: string): RegExp {
-  const esc = s.toLowerCase().replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')
-  return new RegExp('^' + esc + '$')
+  const esc = s.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')
+  return new RegExp('^' + esc + '$', 'i')
 }
 
 function compareOp(op: string, cmp: number): boolean {

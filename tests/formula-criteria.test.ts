@@ -32,8 +32,8 @@ describe('matchCriteria', () => {
 
   it('通配符 * 与 ?', () => {
     expect(matchCriteria('a*', 'abc')).toBe(true)
-    expect(matchCriteria('a*', 'ABC')).toBe(false)
-    expect(matchCriteria('A*', 'abc')).toBe(true) // 不区分大小写
+    expect(matchCriteria('a*', 'ABC')).toBe(true) // 不区分大小写
+    expect(matchCriteria('A*', 'abc')).toBe(true)
     expect(matchCriteria('a?c', 'abc')).toBe(true)
     expect(matchCriteria('a?c', 'ac')).toBe(false)
     expect(matchCriteria('a*c', 'abbbc')).toBe(true)

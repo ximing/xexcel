@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { Workbook } from '../src/core/model'
+import { evaluatorFor } from '../src/formula/engine'
+import { parseFormula } from '../src/formula/parser'
 import { adjustFormulaForStructure, StructureSpec } from '../src/formula/transform'
 
 const ins = (index: number, count = 1): StructureSpec => ({ sheet: 'Sheet1', axis: 'row', index, count, mode: 'insert' })
@@ -39,5 +42,17 @@ describe('adjustFormulaForStructure', () => {
   it('非公式与解析失败原文返回', () => {
     expect(adjustFormulaForStructure('hello', ins(0), H)).toBe('hello')
     expect(adjustFormulaForStructure('=A1+', ins(0), H)).toBe('=A1+')
+  })
+  it('含未知裸名（#NAME? err 节点）：改写后可再 parse 且语义不变', () => {
+    const out = adjustFormulaForStructure('=IFERROR(NOPE,A5)', ins(4), H)
+    expect(out).toBe('=IFERROR(#NAME?,A6)')
+    expect(() => parseFormula(out.slice(1))).not.toThrow()
+    // 语义不变：求值取平移后的 A6
+    let wb = Workbook.create({ rowCount: 10, colCount: 3 })
+    let data = wb.activeSheet
+    data = data.setCell(5, 0, { raw: '7' })
+    data = data.setCell(0, 1, { raw: out })
+    wb = wb.setSheet(wb.active, data)
+    expect(evaluatorFor(wb).get(wb.active, 0, 1)).toBe(7)
   })
 })
