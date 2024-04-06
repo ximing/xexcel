@@ -365,11 +365,14 @@ export interface StructureRestoreEntry {
 }
 
 // 逆操作实例的恢复负载：被改公式的原文 + 删除区内的自定义行高/列宽 +
-// delete 前目标表的完整 merges（裁剪后的幸存者无法逐一识别，整体恢复才能保证 undo 恒等）。
+// delete 前目标表的完整 merges 与隐藏行列数组（裁剪后的幸存者无法逐一识别，
+// 整体恢复才能保证 undo 恒等；隐藏标记物理丢失，与 merges 同款 wholesale 语义）。
 export interface StructureRestore {
   cells: StructureRestoreEntry[]
   sizes: [number, number][] // axis 维度：删除区内 index → 自定义 size
   merges: CellRange[] // delete 模式：目标表完整 merges 原文；insert 模式：空（remap 自身可逆）
+  hiddenRows: number[] // delete 模式：目标表完整 hiddenRows 原文；insert 模式：空
+  hiddenCols: number[] // 同上
 }
 
 // 插入/删除行列：物理重索引 + 全簿公式级联（经注入的 cascade）。
@@ -415,8 +418,11 @@ export class StructureStep extends Step {
       for (const [i, size] of this.restore.sizes) {
         d = spec.axis === 'row' ? d.setRowHeight(i, size) : d.setColWidth(i, size)
       }
-      // delete 的 undo：整体恢复 merges（裁剪幸存者可能与原文不等，见 StructureRestore 注释）
-      if (spec.mode === 'delete') d = d.setMerges(this.restore.merges)
+      // delete 的 undo：整体恢复 merges 与隐藏行列（裁剪幸存者可能与原文不等，见 StructureRestore 注释）
+      if (spec.mode === 'delete') {
+        d = d.setMerges(this.restore.merges)
+        d = d.withHidden(this.restore.hiddenRows, this.restore.hiddenCols)
+      }
       out = out.setSheet(spec.sheet, d)
       return { ok: true, doc: out }
     }
@@ -456,8 +462,10 @@ export class StructureStep extends Step {
     const seen = new Set<string>()
     let sizes: [number, number][] = []
     let merges: CellRange[] = []
-    // delete 模式：删除区内的格/行高列宽物理丢失，原文全部入恢复项（级联只覆盖公式文本）；
-    // merges 记录目标表完整原文（undo 整体恢复）
+    let hiddenRows: number[] = []
+    let hiddenCols: number[] = []
+    // delete 模式：删除区内的格/行高列宽/隐藏标记物理丢失，原文全部入恢复项（级联只覆盖公式文本）；
+    // merges 与隐藏数组记录目标表完整原文（undo 整体恢复）
     if (this.spec.mode === 'delete') {
       const data = beforeDoc.sheet(this.spec.sheet)
       const cross = this.spec.axis === 'row' ? data.colCount : data.rowCount
@@ -476,6 +484,8 @@ export class StructureStep extends Step {
         }
       }
       merges = [...data.merges]
+      hiddenRows = [...data.hiddenRows]
+      hiddenCols = [...data.hiddenCols]
     }
     if (cascadeFn) {
       const nameSpec: StructureSpecName = {
@@ -495,7 +505,7 @@ export class StructureStep extends Step {
         })
       }
     }
-    return new StructureStep(this.spec, { cells, sizes, merges })
+    return new StructureStep(this.spec, { cells, sizes, merges, hiddenRows, hiddenCols })
   }
 
   toJSON(): unknown {

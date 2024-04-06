@@ -143,6 +143,11 @@ export class SheetData {
     return SheetData.fromParts({ ...this._parts, merges: [...merges] })
   }
 
+  // 整体替换隐藏行列数组（结构操作 undo 的 wholesale 恢复用；Set 由构造器从数组重建）
+  withHidden(hiddenRows: number[], hiddenCols: number[]): SheetData {
+    return SheetData.fromParts({ ...this._parts, hiddenRows, hiddenCols })
+  }
+
   // 命中合并区（含锚点）→ 返回该区域；未命中 → null
   mergeAt(row: number, col: number): CellRange | null {
     for (const m of this.merges) {

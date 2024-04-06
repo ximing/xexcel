@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { SheetData, Workbook } from '../src/core/model'
 import { SetHiddenStep } from '../src/core/steps'
 import { stepFromJSON } from '../src/core/steps'
+import { StructureStep } from '../src/core/steps'
 import { GridGeometry } from '../src/view/geometry'
 
 function wb(): Workbook {
@@ -49,7 +50,27 @@ describe('SheetData 隐藏行列', () => {
     let d = wb().activeSheet.setFrozen(1, 1).setHidden('row', [3], true)
     d = d.deleteRows(0, 1)
     expect(d.hiddenRows).toEqual([2])
-    expect(d.frozenRows).toBe(0) // 冻结钳位沿用 M2b 语义
+    expect(d.frozenRows).toBe(0) // 冻结边界随内容走：删除区内的冻结行被裁掉
+  })
+
+  it('delete rows 的 undo 整体恢复隐藏标记（wholesale）', () => {
+    // 隐藏行 1（删除区外）与 5（删除区内）：delete 后 5 物理丢失，undo 须完整恢复
+    const doc0 = wb().setSheet('s1', wb().activeSheet.setHidden('row', [1, 5], true))
+    const step = new StructureStep({ sheet: 's1', axis: 'row', index: 4, count: 2, mode: 'delete' }, null)
+    const r = step.apply(doc0)
+    expect(r.doc!.sheet('s1').hiddenRows).toEqual([1])
+    const back = step.invert(doc0).apply(r.doc!)
+    expect(back.ok).toBe(true)
+    expect(back.doc!.sheet('s1').hiddenRows).toEqual([1, 5])
+  })
+
+  it('insert rows 的 undo 不受影响（remap 自身可逆）', () => {
+    const doc0 = wb().setSheet('s1', wb().activeSheet.setHidden('row', [1, 5], true))
+    const step = new StructureStep({ sheet: 's1', axis: 'row', index: 2, count: 2, mode: 'insert' }, null)
+    const r = step.apply(doc0)
+    expect(r.doc!.sheet('s1').hiddenRows).toEqual([1, 7])
+    const back = step.invert(doc0).apply(r.doc!)
+    expect(back.doc!.sheet('s1').hiddenRows).toEqual([1, 5])
   })
 })
 
