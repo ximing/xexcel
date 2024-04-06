@@ -49,6 +49,14 @@ export class GridGeometry {
     return this.colLefts[col]
   }
 
+  rowHeight(row: number): number {
+    return this.rowTops[row + 1] - this.rowTops[row]
+  }
+
+  colWidth(col: number): number {
+    return this.colLefts[col + 1] - this.colLefts[col]
+  }
+
   rowAt(y: number): number {
     return bsearch(this.rowTops, y)
   }

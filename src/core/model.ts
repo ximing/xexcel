@@ -29,6 +29,8 @@ interface SheetParts {
   merges: readonly CellRange[]
   frozenRows: number
   frozenCols: number
+  hiddenRows: number[]
+  hiddenCols: number[]
 }
 
 export class SheetData {
@@ -37,6 +39,10 @@ export class SheetData {
   readonly merges: readonly CellRange[]
   readonly frozenRows: number
   readonly frozenCols: number
+  readonly hiddenRows: number[]
+  readonly hiddenCols: number[]
+  private readonly _hiddenRowSet: Set<number>
+  private readonly _hiddenColSet: Set<number>
   private readonly _cells: Map<number, Map<number, Cell>>
   private readonly _rowHeights: Map<number, number>
   private readonly _colWidths: Map<number, number>
@@ -47,6 +53,10 @@ export class SheetData {
     this.merges = parts.merges
     this.frozenRows = parts.frozenRows
     this.frozenCols = parts.frozenCols
+    this.hiddenRows = parts.hiddenRows
+    this.hiddenCols = parts.hiddenCols
+    this._hiddenRowSet = new Set(parts.hiddenRows)
+    this._hiddenColSet = new Set(parts.hiddenCols)
     this._cells = parts.cells
     this._rowHeights = parts.rowHeights
     this._colWidths = parts.colWidths
@@ -62,6 +72,8 @@ export class SheetData {
       merges: this.merges,
       frozenRows: this.frozenRows,
       frozenCols: this.frozenCols,
+      hiddenRows: this.hiddenRows,
+      hiddenCols: this.hiddenCols,
     }
   }
 
@@ -79,6 +91,8 @@ export class SheetData {
       merges: [],
       frozenRows: 0,
       frozenCols: 0,
+      hiddenRows: [],
+      hiddenCols: [],
     })
   }
 
@@ -87,11 +101,11 @@ export class SheetData {
   }
 
   rowHeight(row: number): number {
-    return this._rowHeights.get(row) ?? DEFAULT_ROW_HEIGHT
+    return this._hiddenRowSet.has(row) ? 0 : this._rowHeights.get(row) ?? DEFAULT_ROW_HEIGHT
   }
 
   colWidth(col: number): number {
-    return this._colWidths.get(col) ?? DEFAULT_COL_WIDTH
+    return this._hiddenColSet.has(col) ? 0 : this._colWidths.get(col) ?? DEFAULT_COL_WIDTH
   }
 
   get customRowHeights(): ReadonlyMap<number, number> {
@@ -139,6 +153,18 @@ export class SheetData {
 
   setFrozen(rows: number, cols: number): SheetData {
     return SheetData.fromParts({ ...this._parts, frozenRows: rows, frozenCols: cols })
+  }
+
+  // 手动隐藏（有序去重）；筛选隐藏不入模型（由 filter 状态实时推导）
+  setHidden(axis: 'row' | 'col', indices: number[], hidden: boolean): SheetData {
+    const cur = new Set(axis === 'row' ? this.hiddenRows : this.hiddenCols)
+    for (const i of indices) {
+      if (hidden) cur.add(i); else cur.delete(i)
+    }
+    const sorted = [...cur].sort((a, b) => a - b)
+    return SheetData.fromParts(
+      axis === 'row' ? { ...this._parts, hiddenRows: sorted } : { ...this._parts, hiddenCols: sorted },
+    )
   }
 
   insertRows(index: number, count: number): SheetData {
@@ -212,6 +238,14 @@ export class SheetData {
       }
     }
     const delta = mode === 'insert' ? count : -count
+    const remapIndices = (src: number[]): number[] => {
+      const out = new Set<number>()
+      for (const i of src) {
+        const ni = mapIdx(i)
+        if (ni >= 0) out.add(ni)
+      }
+      return [...out].sort((a, b) => a - b)
+    }
     return SheetData.fromParts({
       rowCount: this.rowCount + (axis === 'row' ? delta : 0),
       colCount: this.colCount + (axis === 'col' ? delta : 0),
@@ -219,9 +253,17 @@ export class SheetData {
       rowHeights: axis === 'row' ? remapSizes(this._rowHeights) : new Map(this._rowHeights),
       colWidths: axis === 'col' ? remapSizes(this._colWidths) : new Map(this._colWidths),
       merges,
-      // 冻结设置：delete 时钳到新尺寸（冻结超出表无意义，且防几何越界 NaN）；insert 与另一轴不动
-      frozenRows: axis === 'row' && mode === 'delete' ? Math.min(this.frozenRows, this.rowCount - count) : this.frozenRows,
-      frozenCols: axis === 'col' && mode === 'delete' ? Math.min(this.frozenCols, this.colCount - count) : this.frozenCols,
+      hiddenRows: axis === 'row' ? remapIndices(this.hiddenRows) : [...this.hiddenRows],
+      hiddenCols: axis === 'col' ? remapIndices(this.hiddenCols) : [...this.hiddenCols],
+      // 冻结设置：delete 时裁掉落在删除区内的冻结行/列（冻结边界随内容走），insert 与另一轴不动
+      frozenRows:
+        axis === 'row' && mode === 'delete'
+          ? Math.max(0, this.frozenRows - Math.max(0, Math.min(this.frozenRows, index + count) - index))
+          : this.frozenRows,
+      frozenCols:
+        axis === 'col' && mode === 'delete'
+          ? Math.max(0, this.frozenCols - Math.max(0, Math.min(this.frozenCols, index + count) - index))
+          : this.frozenCols,
     })
   }
 
@@ -264,6 +306,8 @@ export class SheetData {
       merges: this.merges,
       frozenRows: this.frozenRows,
       frozenCols: this.frozenCols,
+      hiddenRows: this.hiddenRows,
+      hiddenCols: this.hiddenCols,
     }
   }
 
@@ -277,6 +321,8 @@ export class SheetData {
       merges?: CellRange[]
       frozenRows?: number
       frozenCols?: number
+      hiddenRows?: number[]
+      hiddenCols?: number[]
     }
     const cells = new Map<number, Map<number, Cell>>()
     for (const [row, cols] of Object.entries(j.cells ?? {})) {
@@ -293,6 +339,8 @@ export class SheetData {
       merges: j.merges ?? [],
       frozenRows: j.frozenRows ?? 0,
       frozenCols: j.frozenCols ?? 0,
+      hiddenRows: j.hiddenRows ?? [],
+      hiddenCols: j.hiddenCols ?? [],
     })
   }
 }

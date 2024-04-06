@@ -21,6 +21,7 @@ export function navigateFocus(
   current: CellAddr,
   dr: number,
   dc: number,
+  isHidden: (row: number, col: number) => boolean = () => false,
 ): CellAddr {
   const clamp = (v: number, max: number): number => Math.max(0, Math.min(v, max))
   const target: CellAddr = {
@@ -28,13 +29,29 @@ export function navigateFocus(
     col: clamp(current.col + dc, sheet.colCount - 1),
   }
   const m = sheet.mergeAt(target.row, target.col)
-  if (!m) return target
-  const atAnchor = current.row === m.sr && current.col === m.sc
-  if (!atAnchor) return { row: m.sr, col: m.sc }
-  return {
-    row: clamp(dr > 0 ? m.er + 1 : dr < 0 ? m.sr - 1 : target.row, sheet.rowCount - 1),
-    col: clamp(dc > 0 ? m.ec + 1 : dc < 0 ? m.sc - 1 : target.col, sheet.colCount - 1),
+  let landed = target
+  if (m) {
+    const atAnchor = current.row === m.sr && current.col === m.sc
+    landed = atAnchor
+      ? {
+          row: clamp(dr > 0 ? m.er + 1 : dr < 0 ? m.sr - 1 : target.row, sheet.rowCount - 1),
+          col: clamp(dc > 0 ? m.ec + 1 : dc < 0 ? m.sc - 1 : target.col, sheet.colCount - 1),
+        }
+      : { row: m.sr, col: m.sc }
   }
+  // 隐藏行列跳过：沿移动方向继续步进，直到可见格或边界（guard 防全隐藏死循环）
+  let guard = 0
+  const limit = Math.max(sheet.rowCount, sheet.colCount) + 1
+  while (isHidden(landed.row, landed.col) && guard++ < limit) {
+    const nr = clamp(landed.row + Math.sign(dr), sheet.rowCount - 1)
+    const nc = clamp(landed.col + Math.sign(dc), sheet.colCount - 1)
+    if (nr === landed.row && nc === landed.col) break // 已到边界（边界格本身隐藏则停留）
+    landed = { row: nr, col: nc }
+  }
+  // 跳跃后落入合并区 → 锚点
+  const m2 = sheet.mergeAt(landed.row, landed.col)
+  if (m2) landed = { row: m2.sr, col: m2.sc }
+  return landed
 }
 
 export function keymap(): Plugin {
@@ -49,7 +66,9 @@ export function keymap(): Plugin {
         const mod = e.ctrlKey || e.metaKey
 
         const move = (dr: number, dc: number, extend: boolean): void => {
-          const focus = navigateFocus(sheet, sel.focus, dr, dc)
+          const geom = v.geometry()
+          const isHidden = (r: number, c: number): boolean => geom.rowHeight(r) === 0 || geom.colWidth(c) === 0
+          const focus = navigateFocus(sheet, sel.focus, dr, dc, isHidden)
           v.dispatch(
             state.tr
               .setSelection(extend ? { anchor: sel.anchor, focus } : singleCell(focus.row, focus.col))

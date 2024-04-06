@@ -32,3 +32,37 @@ describe('navigateFocus', () => {
     expect(navigateFocus(sheet, { row: 9, col: 9 }, 1, 1)).toEqual({ row: 9, col: 9 })
   })
 })
+
+describe('navigateFocus 隐藏行列', () => {
+  const hiddenSheet = (hiddenRows: number[], hiddenCols: number[]) => ({
+    mergeAt: () => null,
+    rowCount: 10,
+    colCount: 10,
+    hiddenRows,
+    hiddenCols,
+  })
+  const isHiddenOf = (s: { hiddenRows: number[]; hiddenCols: number[] }) => (r: number, c: number) =>
+    s.hiddenRows.includes(r) || s.hiddenCols.includes(c)
+
+  it('下移跳过隐藏行', () => {
+    const s = hiddenSheet([2], [])
+    expect(navigateFocus(s, { row: 1, col: 0 }, 1, 0, isHiddenOf(s))).toEqual({ row: 3, col: 0 })
+  })
+
+  it('上移跳过连续隐藏行', () => {
+    const s = hiddenSheet([2, 3], [])
+    expect(navigateFocus(s, { row: 4, col: 0 }, -1, 0, isHiddenOf(s))).toEqual({ row: 1, col: 0 })
+  })
+
+  it('右移跳过隐藏列；边界处停止', () => {
+    const s = hiddenSheet([], [1, 2])
+    expect(navigateFocus(s, { row: 0, col: 0 }, 0, 1, isHiddenOf(s))).toEqual({ row: 0, col: 3 })
+    const edge = hiddenSheet([], [9])
+    expect(navigateFocus(edge, { row: 0, col: 8 }, 0, 1, isHiddenOf(edge))).toEqual({ row: 0, col: 9 })
+  })
+
+  it('默认谓词（不传）行为不变', () => {
+    const s = hiddenSheet([2], [])
+    expect(navigateFocus(s, { row: 1, col: 0 }, 1, 0)).toEqual({ row: 2, col: 0 })
+  })
+})

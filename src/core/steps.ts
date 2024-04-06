@@ -543,6 +543,58 @@ export class SetFreezeStep extends Step {
   }
 }
 
+// 手动隐藏行列。restore 非 null = 逆操作实例：indices 先全部取消隐藏，再精确恢复 restore 子集，
+// 保证 undo 不改动 indices 范围外的状态、且混合前置状态恒等。
+export class SetHiddenStep extends Step {
+  constructor(
+    readonly sheet: SheetId,
+    readonly axis: 'row' | 'col',
+    readonly indices: number[],
+    readonly hidden: boolean,
+    readonly restore: number[] | null = null,
+  ) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    let data: SheetData
+    try {
+      data = doc.sheet(this.sheet)
+    } catch {
+      return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    }
+    const limit = this.axis === 'row' ? data.rowCount : data.colCount
+    for (const i of this.indices) {
+      if (i < 0 || i >= limit) return { ok: false, failed: `${this.axis} index out of bounds: ${i}` }
+    }
+    if (this.restore) {
+      data = data.setHidden(this.axis, this.indices, false)
+      data = data.setHidden(this.axis, this.restore, true)
+    } else {
+      data = data.setHidden(this.axis, this.indices, this.hidden)
+    }
+    return { ok: true, doc: doc.setSheet(this.sheet, data) }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    if (this.restore) return new SetHiddenStep(this.sheet, this.axis, this.indices, this.hidden)
+    const data = beforeDoc.sheet(this.sheet)
+    const prior = this.axis === 'row' ? data.hiddenRows : data.hiddenCols
+    const priorSet = new Set(prior)
+    return new SetHiddenStep(
+      this.sheet,
+      this.axis,
+      this.indices,
+      this.hidden,
+      this.indices.filter((i) => priorSet.has(i)),
+    )
+  }
+
+  toJSON(): unknown {
+    return { type: 'setHidden', sheet: this.sheet, axis: this.axis, indices: this.indices, hidden: this.hidden, restore: this.restore }
+  }
+}
+
 export function stepFromJSON(json: any): Step {
   switch (json?.type) {
     case 'setCells':
@@ -567,6 +619,8 @@ export function stepFromJSON(json: any): Step {
       return new StructureStep(json.spec, json.restore ?? null)
     case 'setFreeze':
       return new SetFreezeStep(json.sheet, json.rows, json.cols)
+    case 'setHidden':
+      return new SetHiddenStep(json.sheet, json.axis, json.indices, json.hidden, json.restore ?? null)
     default:
       throw new Error(`unknown step type: ${json?.type}`)
   }

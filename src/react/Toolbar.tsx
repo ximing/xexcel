@@ -329,6 +329,53 @@ export function Toolbar({ view }: Props) {
       <span className="tool-sep" />
       <button
         className="tool-btn"
+        title="隐藏选中行"
+        disabled={!isFullRowSel(state)}
+        onClick={() => {
+          const r = selectionRange(view.state.selection)
+          const indices: number[] = []
+          for (let row = r.sr; row <= r.er; row++) indices.push(row)
+          view.dispatch(view.state.tr.setHidden('row', indices, true))
+          view.focus()
+        }}
+      >
+        隐行
+      </button>
+      <button
+        className="tool-btn"
+        title="隐藏选中列"
+        disabled={!isFullColSel(state)}
+        onClick={() => {
+          const r = selectionRange(view.state.selection)
+          const indices: number[] = []
+          for (let col = r.sc; col <= r.ec; col++) indices.push(col)
+          view.dispatch(view.state.tr.setHidden('col', indices, true))
+          view.focus()
+        }}
+      >
+        隐列
+      </button>
+      <button
+        className="tool-btn"
+        title="取消隐藏（选区范围内的隐藏行列）"
+        disabled={!hasHiddenInSel(state)}
+        onClick={() => {
+          const r = selectionRange(view.state.selection)
+          const sheet = view.state.activeSheet
+          const rows = sheet.hiddenRows.filter((i) => i >= r.sr && i <= r.er)
+          const cols = sheet.hiddenCols.filter((i) => i >= r.sc && i <= r.ec)
+          const tr = view.state.tr
+          if (rows.length) tr.setHidden('row', rows, false)
+          if (cols.length) tr.setHidden('col', cols, false)
+          view.dispatch(tr)
+          view.focus()
+        }}
+      >
+        取消隐
+      </button>
+      <span className="tool-sep" />
+      <button
+        className="tool-btn"
         title="重置选中行/列尺寸为默认"
         onClick={() => {
           const r = selectionRange(view.state.selection)
@@ -359,4 +406,13 @@ function isFullRowSel(state: SheetState): boolean {
 function isFullColSel(state: SheetState): boolean {
   const r = selectionRange(state.selection)
   return r.sr === 0 && r.er === state.activeSheet.rowCount - 1 && !(r.sr === 0 && r.er === state.activeSheet.rowCount - 1 && r.sc === 0 && r.ec === state.activeSheet.colCount - 1)
+}
+
+function hasHiddenInSel(state: SheetState): boolean {
+  const r = selectionRange(state.selection)
+  const sheet = state.activeSheet
+  return (
+    sheet.hiddenRows.some((i) => i >= r.sr && i <= r.er) ||
+    sheet.hiddenCols.some((i) => i >= r.sc && i <= r.ec)
+  )
 }

@@ -223,6 +223,31 @@ function renderGridLayer(
     const y = COL_HEADER_HEIGHT + fh
     layer.add(new Konva.Line({ points: [0, y, viewW, y], stroke: COLOR_FROZEN_LINE, strokeWidth: 2, ...noListen }))
   }
+  // 隐藏行列提示：隐藏区塌缩处的表头画双线（按屏幕坐标去重，一段连续隐藏只画一次）
+  const rowMarks = new Set<number>()
+  for (const r of sheet.hiddenRows) {
+    const y =
+      r < geom.frozenRows
+        ? COL_HEADER_HEIGHT + geom.rowTop(r)
+        : COL_HEADER_HEIGHT + fh + (geom.rowTop(r) - fh - scrollY)
+    if (y > COL_HEADER_HEIGHT && y < viewH) rowMarks.add(Math.round(y))
+  }
+  for (const y of rowMarks) {
+    layer.add(new Konva.Line({ points: [0, y - 2, ROW_HEADER_WIDTH, y - 2], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+    layer.add(new Konva.Line({ points: [0, y + 2, ROW_HEADER_WIDTH, y + 2], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+  }
+  const colMarks = new Set<number>()
+  for (const c of sheet.hiddenCols) {
+    const x =
+      c < geom.frozenCols
+        ? ROW_HEADER_WIDTH + geom.colLeft(c)
+        : ROW_HEADER_WIDTH + fw + (geom.colLeft(c) - fw - scrollX)
+    if (x > ROW_HEADER_WIDTH && x < viewW) colMarks.add(Math.round(x))
+  }
+  for (const x of colMarks) {
+    layer.add(new Konva.Line({ points: [x - 2, 0, x - 2, COL_HEADER_HEIGHT], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+    layer.add(new Konva.Line({ points: [x + 2, 0, x + 2, COL_HEADER_HEIGHT], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+  }
 }
 
 // 与 drawColHeader/drawRowHeader 同逻辑，绘制到指定容器（供 clip strip 用）
