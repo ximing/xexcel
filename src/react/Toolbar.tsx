@@ -1,4 +1,5 @@
 // 工具栏：撤销/重做 + 粗体/斜体/文字色/背景色/对齐。操作回走 view.dispatch(applyStylePatch)。
+import { useState } from 'react'
 import { applyStylePatch, mergeSelection, unmergeSelection } from '../core/commands'
 import { selectionRange } from '../core/selection'
 import { redo, redoDepth, undo, undoDepth } from '../core/history'
@@ -7,6 +8,9 @@ import type { SheetState } from '../core/state'
 import type { EditorView } from '../view/editorview'
 import { useSheetState } from './bridge'
 import { adjustDecimals } from '../formula/format'
+import { evaluatorFor } from '../formula/engine'
+import { computeSortEntries, sortBlockedByMerges } from '../formula/sort'
+import { SortDialog } from './SortDialog'
 
 interface Props {
   view: EditorView
@@ -16,6 +20,20 @@ export function Toolbar({ view }: Props) {
   const state = useSheetState(view)
   const { row, col } = state.selection.focus
   const active: CellStyle = state.activeSheet.getCell(row, col)?.style ?? {}
+  const [showSort, setShowSort] = useState(false)
+
+  const quickSort = (asc: boolean): void => {
+    const r = selectionRange(view.state.selection)
+    if (r.sr === r.er) return
+    const sheet = view.state.activeSheet
+    if (sortBlockedByMerges(sheet, r)) {
+      window.alert('排序区域包含合并单元格，无法排序')
+      return
+    }
+    const entries = computeSortEntries(sheet, view.state.doc.active, evaluatorFor(view.state.doc), r, [{ col: r.sc, asc }], false)
+    view.dispatch(view.state.tr.setCells(view.state.doc.active, entries))
+    view.focus()
+  }
 
   const patch = (p: Partial<CellStyle>): void => {
     applyStylePatch(p)(view.state, (tr) => view.dispatch(tr))
@@ -374,6 +392,16 @@ export function Toolbar({ view }: Props) {
         取消隐
       </button>
       <span className="tool-sep" />
+      <button className="tool-btn" title="按选区首列升序" disabled={!canSort(state)} onClick={() => quickSort(true)}>
+        A↓
+      </button>
+      <button className="tool-btn" title="按选区首列降序" disabled={!canSort(state)} onClick={() => quickSort(false)}>
+        Z↓
+      </button>
+      <button className="tool-btn" title="自定义排序" disabled={!canSort(state)} onClick={() => setShowSort(true)}>
+        排序
+      </button>
+      {showSort && <SortDialog view={view} range={selectionRange(view.state.selection)} onClose={() => setShowSort(false)} />}
       <button
         className="tool-btn"
         title="重置选中行/列尺寸为默认"
@@ -415,4 +443,9 @@ function hasHiddenInSel(state: SheetState): boolean {
     sheet.hiddenRows.some((i) => i >= r.sr && i <= r.er) ||
     sheet.hiddenCols.some((i) => i >= r.sc && i <= r.ec)
   )
+}
+
+function canSort(state: SheetState): boolean {
+  const r = selectionRange(state.selection)
+  return r.er > r.sr
 }

@@ -236,3 +236,37 @@ body {
 .tool-select:hover {
   background: #f1f3f4;
 }
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dialog {
+  background: #fff;
+  border: 1px solid #d9dce1;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 320px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+.dialog-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.dialog-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
