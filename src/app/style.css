@@ -307,3 +307,20 @@ body {
   gap: 6px;
   align-items: center;
 }
+
+.find-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid #d9dce1;
+  background: #f7f8fa;
+  font-size: 13px;
+}
+.find-input {
+  width: 180px;
+}
+.find-count {
+  min-width: 40px;
+  color: #5f6368;
+}

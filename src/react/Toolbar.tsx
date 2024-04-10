@@ -6,6 +6,7 @@ import { redo, redoDepth, undo, undoDepth } from '../core/history'
 import type { CellStyle } from '../core/model'
 import type { SheetState } from '../core/state'
 import type { EditorView } from '../view/editorview'
+import { findBarKey } from '../view/types'
 import { useSheetState } from './bridge'
 import { adjustDecimals } from '../formula/format'
 import { evaluatorFor } from '../formula/engine'
@@ -422,6 +423,15 @@ export function Toolbar({ view }: Props) {
         }}
       >
         筛
+      </button>
+      <button
+        className="tool-btn"
+        title="查找/替换（Ctrl+F）"
+        onClick={() => {
+          view.dispatch(view.state.tr.setMeta(findBarKey, true).setMeta('addToHistory', false))
+        }}
+      >
+        查
       </button>
       <button
         className="tool-btn"

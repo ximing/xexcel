@@ -35,3 +35,6 @@ export interface FilterDropdownOpen {
   y: number
 }
 export const filterDropdownKey = new PluginKey('filterDropdown')
+
+// 查找栏开关（true=显示）
+export const findBarKey = new PluginKey('findBar')

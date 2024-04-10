@@ -1,7 +1,7 @@
 // 内建交互插件组装。builtinPlugins() 顺序：selection → fillhandle → clipboard → keymap；
 // 返回数组不含 history——由调用方插入最前（如 [history(), ...builtinPlugins()]）。
 import { Plugin } from '../core/plugin'
-import { filterDropdownKey } from '../view/types'
+import { filterDropdownKey, findBarKey } from '../view/types'
 import { clipboard } from './clipboard'
 import { fillhandle } from './fillhandle'
 import { keymap } from './keymap'
@@ -17,5 +17,13 @@ export { fillPreviewKey, filterDropdownKey } from '../view/types'
 export { filterui, metaField } from './uistate'
 
 export function builtinPlugins(): Plugin[] {
-  return [selection(), fillhandle(), clipboard(), keymap(), metaField(filterDropdownKey, null), filterui()]
+  return [
+    selection(),
+    fillhandle(),
+    clipboard(),
+    keymap(),
+    metaField(filterDropdownKey, null),
+    metaField(findBarKey, false),
+    filterui(),
+  ]
 }

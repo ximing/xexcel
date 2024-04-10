@@ -1,6 +1,6 @@
 // 键盘映射插件（handleKeyDown 来自 proxy textarea）。职责：
 // - Arrow 移动 focus 并塌缩单格；Shift+Arrow 扩展 focus；Tab/Shift+Tab 右/左；Enter/Shift+Enter 下/上
-// - Ctrl/Cmd+A → selectAll；Delete/Backspace → clearSelection
+// - Ctrl/Cmd+A → selectAll；Ctrl/Cmd+F → 打开查找栏；Delete/Backspace → clearSelection
 // - Ctrl/Cmd+Z → undo；Ctrl/Cmd+Shift+Z 或 Ctrl+Y → redo
 // - F2 → openEditor；可打印单字符（无 Ctrl/Cmd/Alt）→ 清 proxy 后 openEditor(focus, key)
 // 命中的按键一律 preventDefault 并返回 true；未命中返回 false（不拦截 copy/paste 等）。
@@ -12,6 +12,7 @@ import { EditorViewLike, Plugin } from '../core/plugin'
 import { singleCell } from '../core/selection'
 import { isEditing, openEditor } from '../view/editbox'
 import type { EditorView } from '../view/editorview'
+import { findBarKey } from '../view/types'
 
 // 导航落点修正（导出供单测）：目标在合并区内时——
 // 当前 focus 已是该合并区锚点（继续向外移动）→ 跳过整个合并区到远侧之外；
@@ -104,7 +105,9 @@ export function keymap(): Plugin {
             break
           default: {
             const k = e.key.toLowerCase()
-            if (mod && k === 'a') {
+            if (mod && k === 'f') {
+              v.dispatch(state.tr.setMeta(findBarKey, true).setMeta('addToHistory', false))
+            } else if (mod && k === 'a') {
               selectAll(state, (tr) => v.dispatch(tr))
             } else if (mod && k === 'z' && !e.shiftKey) {
               undo(state, (tr) => v.dispatch(tr))

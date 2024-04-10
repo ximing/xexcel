@@ -2,6 +2,7 @@
 // EditorView 在 useEffect 内一次性创建，unmount 时 destroy。
 import { useEffect, useRef, useState } from 'react'
 import { FilterDropdown } from '../react/FilterDropdown'
+import { FindBar } from '../react/FindBar'
 import { FormulaBar } from '../react/FormulaBar'
 import { SheetTabBar } from '../react/SheetTabBar'
 import { StatusBar } from '../react/StatusBar'
@@ -30,6 +31,7 @@ export function App() {
     <div className="app-shell">
       {view ? <Toolbar view={view} /> : null}
       {view ? <FormulaBar view={view} /> : null}
+      {view ? <FindBar view={view} /> : null}
       <div className="grid-container" ref={mountRef} />
       {view ? <SheetTabBar view={view} /> : null}
       {view ? <StatusBar view={view} /> : null}
