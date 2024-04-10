@@ -20,6 +20,27 @@ export interface CellStyle {
 export interface Cell { raw: string; style?: CellStyle }
 export interface SheetConfig { rowCount: number; colCount: number }
 
+// ---- 自动筛选 ----
+export type FilterOp =
+  | 'contains' | 'notContains' | 'startsWith' | 'endsWith' // 文本
+  | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between' // 数值（eq/neq 两域通用）
+export interface FilterValuesCriteria {
+  type: 'values'
+  excluded: string[] // 被排除的显示文本（存排除集：新值默认可见）
+}
+export interface FilterConditionCriteria {
+  type: 'condition'
+  field: 'text' | 'num'
+  op: FilterOp
+  v1: string
+  v2?: string // between 上界
+}
+export type FilterCriteria = FilterValuesCriteria | FilterConditionCriteria
+export interface FilterState {
+  range: CellRange // 含表头行（sr 行）
+  criteria: Record<number, FilterCriteria> // key = 绝对列号
+}
+
 interface SheetParts {
   rowCount: number
   colCount: number
@@ -31,6 +52,7 @@ interface SheetParts {
   frozenCols: number
   hiddenRows: number[]
   hiddenCols: number[]
+  filter?: FilterState
 }
 
 export class SheetData {
@@ -41,6 +63,7 @@ export class SheetData {
   readonly frozenCols: number
   readonly hiddenRows: number[]
   readonly hiddenCols: number[]
+  readonly filter?: FilterState
   private readonly _hiddenRowSet: Set<number>
   private readonly _hiddenColSet: Set<number>
   private readonly _cells: Map<number, Map<number, Cell>>
@@ -55,6 +78,7 @@ export class SheetData {
     this.frozenCols = parts.frozenCols
     this.hiddenRows = parts.hiddenRows
     this.hiddenCols = parts.hiddenCols
+    this.filter = parts.filter
     this._hiddenRowSet = new Set(parts.hiddenRows)
     this._hiddenColSet = new Set(parts.hiddenCols)
     this._cells = parts.cells
@@ -74,6 +98,7 @@ export class SheetData {
       frozenCols: this.frozenCols,
       hiddenRows: this.hiddenRows,
       hiddenCols: this.hiddenCols,
+      filter: this.filter,
     }
   }
 
@@ -172,6 +197,11 @@ export class SheetData {
     )
   }
 
+  // 自动筛选设置/清除（undefined = 清除）
+  setFilter(filter: FilterState | undefined): SheetData {
+    return SheetData.fromParts({ ...this._parts, filter })
+  }
+
   insertRows(index: number, count: number): SheetData {
     return this.remap('row', index, count, 'insert')
   }
@@ -251,6 +281,28 @@ export class SheetData {
       }
       return [...out].sort((a, b) => a - b)
     }
+    // 筛选重映射：行轴平移/裁剪 range（表头行被删则整体移除）；列轴另重映射 criteria 键
+    const remapFilter = (f: FilterState | undefined): FilterState | undefined => {
+      if (!f) return f
+      if (axis === 'row') {
+        const sr = mapIdx(f.range.sr)
+        if (sr < 0) return undefined // 表头行被删 → 筛选整体移除
+        const er0 = mapIdx(f.range.er)
+        const er = er0 < 0 ? index - 1 : er0 // 删除区下缘裁剪
+        if (er < sr) return undefined // 数据区删空
+        return { range: { sr, sc: f.range.sc, er, ec: f.range.ec }, criteria: f.criteria }
+      }
+      const sc = mapIdx(f.range.sc)
+      const ec0 = mapIdx(f.range.ec)
+      const ec = ec0 < 0 ? index - 1 : ec0
+      if (sc < 0 || ec < sc) return undefined
+      const criteria: Record<number, FilterCriteria> = {}
+      for (const [k, c] of Object.entries(f.criteria)) {
+        const nk = mapIdx(Number(k))
+        if (nk >= 0) criteria[nk] = c
+      }
+      return { range: { sr: f.range.sr, sc, er: f.range.er, ec }, criteria }
+    }
     return SheetData.fromParts({
       rowCount: this.rowCount + (axis === 'row' ? delta : 0),
       colCount: this.colCount + (axis === 'col' ? delta : 0),
@@ -260,6 +312,7 @@ export class SheetData {
       merges,
       hiddenRows: axis === 'row' ? remapIndices(this.hiddenRows) : [...this.hiddenRows],
       hiddenCols: axis === 'col' ? remapIndices(this.hiddenCols) : [...this.hiddenCols],
+      filter: remapFilter(this.filter),
       // 冻结设置：delete 时裁掉落在删除区内的冻结行/列（冻结边界随内容走），insert 与另一轴不动
       frozenRows:
         axis === 'row' && mode === 'delete'
@@ -313,6 +366,7 @@ export class SheetData {
       frozenCols: this.frozenCols,
       hiddenRows: this.hiddenRows,
       hiddenCols: this.hiddenCols,
+      filter: this.filter,
     }
   }
 
@@ -328,6 +382,7 @@ export class SheetData {
       frozenCols?: number
       hiddenRows?: number[]
       hiddenCols?: number[]
+      filter?: FilterState
     }
     const cells = new Map<number, Map<number, Cell>>()
     for (const [row, cols] of Object.entries(j.cells ?? {})) {
@@ -346,6 +401,7 @@ export class SheetData {
       frozenCols: j.frozenCols ?? 0,
       hiddenRows: j.hiddenRows ?? [],
       hiddenCols: j.hiddenCols ?? [],
+      filter: j.filter,
     })
   }
 }

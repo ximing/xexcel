@@ -1,5 +1,5 @@
 import { CellRange, normalizeRange, toA1 } from './addr'
-import { Cell, CellStyle, SheetData, SheetId, Workbook } from './model'
+import { Cell, CellStyle, FilterState, SheetData, SheetId, Workbook } from './model'
 
 export interface StepResult { ok: boolean; doc?: Workbook; failed?: string }
 
@@ -605,6 +605,31 @@ export class SetHiddenStep extends Step {
   }
 }
 
+// 设置/清除自动筛选（filter undefined = 清除）
+export class SetFilterStep extends Step {
+  constructor(readonly sheet: SheetId, readonly filter: FilterState | undefined) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    let data: SheetData
+    try {
+      data = doc.sheet(this.sheet)
+    } catch {
+      return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    }
+    return { ok: true, doc: doc.setSheet(this.sheet, data.setFilter(this.filter)) }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    return new SetFilterStep(this.sheet, beforeDoc.sheet(this.sheet).filter)
+  }
+
+  toJSON(): unknown {
+    return { type: 'setFilter', sheet: this.sheet, filter: this.filter }
+  }
+}
+
 export function stepFromJSON(json: any): Step {
   switch (json?.type) {
     case 'setCells':
@@ -631,6 +656,8 @@ export function stepFromJSON(json: any): Step {
       return new SetFreezeStep(json.sheet, json.rows, json.cols)
     case 'setHidden':
       return new SetHiddenStep(json.sheet, json.axis, json.indices, json.hidden, json.restore ?? null)
+    case 'setFilter':
+      return new SetFilterStep(json.sheet, json.filter)
     default:
       throw new Error(`unknown step type: ${json?.type}`)
   }

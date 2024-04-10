@@ -33,3 +33,14 @@ describe('GridGeometry', () => {
     expect(g.colAt(1e9)).toBe(25)
   })
 })
+
+describe('extraHiddenRows（筛选隐藏注入）', () => {
+  it('额外隐藏行高度折叠为 0 且不可命中', () => {
+    const sheet = SheetData.create({ rowCount: 5, colCount: 5 })
+    const g = new GridGeometry(sheet, 0, 0, new Set([1, 3]))
+    expect(g.rowHeight(1)).toBe(0)
+    expect(g.rowHeight(3)).toBe(0)
+    expect(g.rowAt(24)).toBe(2) // 行 1 被跳过
+    expect(g.rowAt(48)).toBe(4) // 行 3 被跳过
+  })
+})

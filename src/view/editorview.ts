@@ -7,6 +7,8 @@ import { EditorViewLike, PluginProps, PluginView } from '../core/plugin'
 import { selectionRange, singleCell } from '../core/selection'
 import type { SheetState } from '../core/state'
 import type { Transaction } from '../core/transaction'
+import { evaluatorFor } from '../formula/engine'
+import { filterHiddenRows } from '../formula/filter'
 import { openEditor } from './editbox'
 import { GridGeometry } from './geometry'
 import { FILL_HANDLE_SIZE, renderAll } from './layers'
@@ -88,11 +90,14 @@ export class EditorView implements EditorViewLike {
     this.render()
   }
 
-  // 按 activeSheet 引用缓存几何对象（行高列宽/冻结变化会得到新 SheetData）
+  // 按 activeSheet 引用缓存几何对象（行高列宽/冻结/筛选/隐藏变化都会得到新 SheetData）
   geometry(): GridGeometry {
     const sheet = this.state.activeSheet
     if (this.geomCache?.sheet !== sheet) {
-      this.geomCache = { sheet, geom: new GridGeometry(sheet, sheet.frozenRows, sheet.frozenCols) }
+      const extra = sheet.filter
+        ? filterHiddenRows(this.state.doc.active, sheet, evaluatorFor(this.state.doc))
+        : undefined
+      this.geomCache = { sheet, geom: new GridGeometry(sheet, sheet.frozenRows, sheet.frozenCols, extra) }
     }
     return this.geomCache.geom
   }
@@ -204,6 +209,12 @@ export class EditorView implements EditorViewLike {
       return { region: 'rowheader', row, col: -1 }
     }
     const a = geom.cellAtContent(x - ROW_HEADER_WIDTH, y - COL_HEADER_HEIGHT, this.scrollX, this.scrollY)
+    // 筛选箭头：表头行单元格右缘 18px 区域
+    const f = this.state.activeSheet.filter
+    if (f && a.row === f.range.sr && a.col >= f.range.sc && a.col <= f.range.ec) {
+      const rect = this.cellViewportRect(a.row, a.col)
+      if (x >= rect.x + rect.w - 18) return { region: 'filter', row: a.row, col: a.col }
+    }
     return { region: 'cell', row: a.row, col: a.col }
   }
 

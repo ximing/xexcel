@@ -372,6 +372,25 @@ function renderCellsInto(
       drawCellText(inner, evaluator, sheetId, r, c, cell, geom.cellRect(r, c))
     }
   }
+  // 筛选箭头：筛选区域表头行各列右缘小三角；有生效 criteria 的列高亮
+  const f = sheet.filter
+  if (f && f.range.sr >= q.sr && f.range.sr <= q.er) {
+    for (let c = Math.max(f.range.sc, q.sc); c <= Math.min(f.range.ec, q.ec); c++) {
+      const rect = geom.cellRect(f.range.sr, c)
+      const cx = rect.x + rect.w - 13
+      const cy = rect.y + rect.h / 2
+      const crit = f.criteria[c]
+      const on = crit !== undefined && (crit.type !== 'values' || crit.excluded.length > 0)
+      inner.add(
+        new Konva.Line({
+          points: [cx - 4, cy - 3, cx + 4, cy - 3, cx, cy + 3],
+          closed: true,
+          fill: on ? '#1a73e8' : '#9aa0a6',
+          ...noListen,
+        }),
+      )
+    }
+  }
 }
 
 function drawCellText(

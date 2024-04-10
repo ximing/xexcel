@@ -403,6 +403,27 @@ export function Toolbar({ view }: Props) {
       </button>
       {showSort && <SortDialog view={view} range={selectionRange(view.state.selection)} onClose={() => setShowSort(false)} />}
       <button
+        className={'tool-btn' + (state.activeSheet.filter ? ' active' : '')}
+        title="自动筛选（对选区启用/清除全表筛选）"
+        onClick={() => {
+          const sheet = view.state.activeSheet
+          if (sheet.filter) {
+            view.dispatch(view.state.tr.setFilter(undefined))
+          } else {
+            const r = selectionRange(view.state.selection)
+            const range = r.sr === r.er && r.sc === r.ec ? sheet.usedRange() : r
+            if (range.er <= range.sr) {
+              window.alert('筛选区域至少需要两行（表头 + 数据）')
+              return
+            }
+            view.dispatch(view.state.tr.setFilter({ range, criteria: {} }))
+          }
+          view.focus()
+        }}
+      >
+        筛
+      </button>
+      <button
         className="tool-btn"
         title="重置选中行/列尺寸为默认"
         onClick={() => {

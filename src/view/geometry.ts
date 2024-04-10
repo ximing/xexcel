@@ -24,11 +24,13 @@ export class GridGeometry {
   readonly frozenRows: number
   readonly frozenCols: number
 
-  constructor(readonly sheet: SheetData, frozenRows = 0, frozenCols = 0) {
+  constructor(readonly sheet: SheetData, frozenRows = 0, frozenCols = 0, extraHiddenRows?: ReadonlySet<number>) {
     this.frozenRows = frozenRows
     this.frozenCols = frozenCols
     this.rowTops = [0]
-    for (let r = 0; r < sheet.rowCount; r++) this.rowTops.push(this.rowTops[r] + sheet.rowHeight(r))
+    for (let r = 0; r < sheet.rowCount; r++) {
+      this.rowTops.push(this.rowTops[r] + (extraHiddenRows?.has(r) ? 0 : sheet.rowHeight(r)))
+    }
     this.colLefts = [0]
     for (let c = 0; c < sheet.colCount; c++) this.colLefts.push(this.colLefts[c] + sheet.colWidth(c))
   }
