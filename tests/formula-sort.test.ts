@@ -73,7 +73,8 @@ describe('computeSortEntries', () => {
     const entries = computeSortEntries(data, wb.active, evaluatorFor(wb), range, [{ col: 0, asc: false }], false)
     let next = data
     for (const e of entries) next = next.setCell(e.row, e.col, e.cell)
-    expect(next.getCell(0, 1)).toBeUndefined() // B 列顶行来自 B4（原本为空）→ 清空
+    expect(next.getCell(1, 1)).toBeUndefined() // B2 的 'x' 被 B3 来源（空）覆盖 → 清空
+    expect(next.getCell(2, 1)?.raw).toBe('x') // 'x' 随 A2 行移动到新位置
   })
 })
 
