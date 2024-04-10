@@ -1,9 +1,7 @@
 // 查找/替换的纯扫描：匹配显示文本（经 evaluator）与公式原文 raw；每格至多一条匹配。
 // 替换只作用于 raw（显示值命中但 raw 不含查询串的格由调用侧跳过）。
-import { fromA1 } from '../core/addr'
 import { SheetId, Workbook } from '../core/model'
 import { CellEvaluator, isFormula } from './engine'
-import { shiftFormula } from './transform'
 
 export interface FindQuery {
   text: string
@@ -52,15 +50,6 @@ function escapeRegExp(s: string): string {
 export function replaceInRaw(raw: string, q: FindQuery, replacement: string): string | null {
   if (q.text === '') return null
   if (q.wholeCell) return matches(raw, q) ? replacement : null
-  // 公式 + 双方均为单元格引用（A1→B1）：按位移平移全部引用（=SUM(A1:A3) → =SUM(B1:B3)）
-  if (isFormula(raw)) {
-    const from = fromA1(q.text)
-    const to = fromA1(replacement)
-    if (from && to) {
-      const shifted = shiftFormula(raw, to.row - from.row, to.col - from.col)
-      return shifted === raw ? null : shifted
-    }
-  }
   if (q.caseSensitive) return raw.includes(q.text) ? raw.split(q.text).join(replacement) : null
   const re = new RegExp(escapeRegExp(q.text), 'gi')
   return re.test(raw) ? raw.replace(re, replacement) : null

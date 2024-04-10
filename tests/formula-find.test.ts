@@ -86,8 +86,8 @@ describe('replaceInRaw', () => {
     expect(replaceInRaw('hello world', q('hello', { wholeCell: true }), 'x')).toBeNull()
   })
 
-  it('公式原文替换', () => {
-    expect(replaceInRaw('=SUM(A1:A3)', q('A1'), 'B1')).toBe('=SUM(B1:B3)')
+  it('公式原文按文本片段替换（区域端点未归一由 eval 归一）', () => {
+    expect(replaceInRaw('=SUM(A1:A3)', q('A1'), 'B1')).toBe('=SUM(B1:A3)')
   })
 
   it('无匹配 → null', () => {
