@@ -373,6 +373,7 @@ export interface StructureRestore {
   merges: CellRange[] // delete 模式：目标表完整 merges 原文；insert 模式：空（remap 自身可逆）
   hiddenRows: number[] // delete 模式：目标表完整 hiddenRows 原文；insert 模式：空
   hiddenCols: number[] // 同上
+  filter: FilterState | undefined // delete 模式：目标表完整 filter 原文（SheetData 不可变，浅引用即可）
 }
 
 // 插入/删除行列：物理重索引 + 全簿公式级联（经注入的 cascade）。
@@ -422,6 +423,7 @@ export class StructureStep extends Step {
       if (spec.mode === 'delete') {
         d = d.setMerges(this.restore.merges)
         d = d.withHidden(this.restore.hiddenRows, this.restore.hiddenCols)
+        d = d.setFilter(this.restore.filter)
       }
       out = out.setSheet(spec.sheet, d)
       return { ok: true, doc: out }
@@ -464,6 +466,7 @@ export class StructureStep extends Step {
     let merges: CellRange[] = []
     let hiddenRows: number[] = []
     let hiddenCols: number[] = []
+    let filter: FilterState | undefined
     // delete 模式：删除区内的格/行高列宽/隐藏标记物理丢失，原文全部入恢复项（级联只覆盖公式文本）；
     // merges 与隐藏数组记录目标表完整原文（undo 整体恢复）
     if (this.spec.mode === 'delete') {
@@ -486,6 +489,7 @@ export class StructureStep extends Step {
       merges = [...data.merges]
       hiddenRows = [...data.hiddenRows]
       hiddenCols = [...data.hiddenCols]
+      filter = data.filter
     }
     if (cascadeFn) {
       const nameSpec: StructureSpecName = {
@@ -505,7 +509,7 @@ export class StructureStep extends Step {
         })
       }
     }
-    return new StructureStep(this.spec, { cells, sizes, merges, hiddenRows, hiddenCols })
+    return new StructureStep(this.spec, { cells, sizes, merges, hiddenRows, hiddenCols, filter })
   }
 
   toJSON(): unknown {
