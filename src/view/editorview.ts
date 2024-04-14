@@ -176,7 +176,7 @@ export class EditorView implements EditorViewLike {
           ? geom.colAt(cx)
           : geom.colAt(geom.frozenWidth + this.scrollX + (cx - geom.frozenWidth))
       const left = col < geom.frozenCols ? geom.colLeft(col) : geom.frozenWidth + (geom.colLeft(col) - geom.frozenWidth - this.scrollX)
-      const right = left + geom.sheet.colWidth(col)
+      const right = left + geom.colWidth(col)
       // 边界双侧 ±3px → 列调宽边界
       if (Math.abs(cx - right) <= BORDER_TOLERANCE) return { region: 'colborder', row: -1, col }
       if (col > 0) {
@@ -184,7 +184,7 @@ export class EditorView implements EditorViewLike {
           col - 1 < geom.frozenCols
             ? geom.colLeft(col - 1)
             : geom.frozenWidth + (geom.colLeft(col - 1) - geom.frozenWidth - this.scrollX)
-        const prevRight = prevLeft + geom.sheet.colWidth(col - 1)
+        const prevRight = prevLeft + geom.colWidth(col - 1)
         if (Math.abs(cx - prevRight) <= BORDER_TOLERANCE) return { region: 'colborder', row: -1, col: col - 1 }
       }
       return { region: 'colheader', row: -1, col }
@@ -196,14 +196,14 @@ export class EditorView implements EditorViewLike {
           ? geom.rowAt(cy)
           : geom.rowAt(geom.frozenHeight + this.scrollY + (cy - geom.frozenHeight))
       const top = row < geom.frozenRows ? geom.rowTop(row) : geom.frozenHeight + (geom.rowTop(row) - geom.frozenHeight - this.scrollY)
-      const bottom = top + geom.sheet.rowHeight(row)
+      const bottom = top + geom.rowHeight(row)
       if (Math.abs(cy - bottom) <= BORDER_TOLERANCE) return { region: 'rowborder', row, col: -1 }
       if (row > 0) {
         const prevTop =
           row - 1 < geom.frozenRows
             ? geom.rowTop(row - 1)
             : geom.frozenHeight + (geom.rowTop(row - 1) - geom.frozenHeight - this.scrollY)
-        const prevBottom = prevTop + geom.sheet.rowHeight(row - 1)
+        const prevBottom = prevTop + geom.rowHeight(row - 1)
         if (Math.abs(cy - prevBottom) <= BORDER_TOLERANCE) return { region: 'rowborder', row: row - 1, col: -1 }
       }
       return { region: 'rowheader', row, col: -1 }
@@ -245,7 +245,6 @@ export class EditorView implements EditorViewLike {
 
   ensureVisible(addr: CellAddr): void {
     const geom = this.geometry()
-    const sheet = this.state.activeSheet
     const vp = contentViewport(
       geom.contentWidth,
       geom.contentHeight,
@@ -256,14 +255,14 @@ export class EditorView implements EditorViewLike {
     const viewH = vp.h
     if (addr.col >= geom.frozenCols) {
       const left = geom.colLeft(addr.col) - geom.frozenWidth
-      const right = left + sheet.colWidth(addr.col)
+      const right = left + geom.colWidth(addr.col)
       const span = viewW - geom.frozenWidth
       if (left < this.scrollX) this.scrollX = left
       else if (right > this.scrollX + span) this.scrollX = right - span
     }
     if (addr.row >= geom.frozenRows) {
       const top = geom.rowTop(addr.row) - geom.frozenHeight
-      const bottom = top + sheet.rowHeight(addr.row)
+      const bottom = top + geom.rowHeight(addr.row)
       const span = viewH - geom.frozenHeight
       if (top < this.scrollY) this.scrollY = top
       else if (bottom > this.scrollY + span) this.scrollY = bottom - span

@@ -153,7 +153,7 @@ function renderGridLayer(
 
   // 列头：冻结段（不滚）+ 可滚段（clip 到冻结线右侧）
   const drawColHeader = (c: number, x: number): void => {
-    const w = sheet.colWidth(c)
+    const w = geom.colWidth(c)
     const active = c >= sel.sc && c <= sel.ec
     if (active) {
       layer.add(new Konva.Rect({ x, y: 0, width: w, height: COL_HEADER_HEIGHT, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -177,13 +177,13 @@ function renderGridLayer(
     ...noListen,
   })
   for (let c = main.sc; c <= main.ec; c++) {
-    drawColHeaderInto(colStrip, c, ROW_HEADER_WIDTH + fw + (geom.colLeft(c) - fw - scrollX), sheet, sel)
+    drawColHeaderInto(colStrip, c, ROW_HEADER_WIDTH + fw + (geom.colLeft(c) - fw - scrollX), geom, sel)
   }
   layer.add(colStrip)
 
   // 行头：冻结段 + 可滚段（clip 到冻结线下侧）
   const drawRowHeader = (r: number, y: number): void => {
-    const h = sheet.rowHeight(r)
+    const h = geom.rowHeight(r)
     const active = r >= sel.sr && r <= sel.er
     if (active) {
       layer.add(new Konva.Rect({ x: 0, y, width: ROW_HEADER_WIDTH, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -207,7 +207,7 @@ function renderGridLayer(
     ...noListen,
   })
   for (let r = main.sr; r <= main.er; r++) {
-    drawRowHeaderInto(rowStrip, r, COL_HEADER_HEIGHT + fh + (geom.rowTop(r) - fh - scrollY), sheet, sel)
+    drawRowHeaderInto(rowStrip, r, COL_HEADER_HEIGHT + fh + (geom.rowTop(r) - fh - scrollY), geom, sel)
   }
   layer.add(rowStrip)
 
@@ -255,10 +255,10 @@ function drawColHeaderInto(
   g: Konva.Group | Konva.Layer,
   c: number,
   x: number,
-  sheet: GridGeometry['sheet'],
+  geom: GridGeometry,
   sel: CellRange,
 ): void {
-  const w = sheet.colWidth(c)
+  const w = geom.colWidth(c)
   const active = c >= sel.sc && c <= sel.ec
   if (active) {
     g.add(new Konva.Rect({ x, y: 0, width: w, height: COL_HEADER_HEIGHT, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -279,10 +279,10 @@ function drawRowHeaderInto(
   g: Konva.Group | Konva.Layer,
   r: number,
   y: number,
-  sheet: GridGeometry['sheet'],
+  geom: GridGeometry,
   sel: CellRange,
 ): void {
-  const h = sheet.rowHeight(r)
+  const h = geom.rowHeight(r)
   const active = r >= sel.sr && r <= sel.er
   if (active) {
     g.add(new Konva.Rect({ x: 0, y, width: ROW_HEADER_WIDTH, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -329,9 +329,9 @@ function renderCellsInto(
   const merges = sheet.merges.filter((m) => rangesIntersect(m, q))
 
   const left = geom.colLeft(q.sc)
-  const right = geom.colLeft(q.ec) + sheet.colWidth(q.ec)
+  const right = geom.colLeft(q.ec) + geom.colWidth(q.ec)
   const top = geom.rowTop(q.sr)
-  const bottom = geom.rowTop(q.er) + sheet.rowHeight(q.er)
+  const bottom = geom.rowTop(q.er) + geom.rowHeight(q.er)
 
   // bg（合并区内的格跳过，由合并区统一画）
   for (let r = q.sr; r <= q.er; r++) {

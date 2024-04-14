@@ -67,8 +67,9 @@ export class GridGeometry {
     return bsearch(this.colLefts, x)
   }
 
+  // 宽高用前缀和差值：筛选隐藏（extraHiddenRows）塌缩的行/列返回 0，而非模型层的原始尺寸
   cellRect(row: number, col: number): Rect {
-    return { x: this.colLefts[col], y: this.rowTops[row], w: this.sheet.colWidth(col), h: this.sheet.rowHeight(row) }
+    return { x: this.colLefts[col], y: this.rowTops[row], w: this.colWidth(col), h: this.rowHeight(row) }
   }
 
   rangeRect(r: CellRange): Rect {
