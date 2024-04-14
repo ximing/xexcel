@@ -12,7 +12,7 @@ import { filterHiddenRows } from '../formula/filter'
 import { openEditor } from './editbox'
 import { GridGeometry } from './geometry'
 import { FILL_HANDLE_SIZE, renderAll } from './layers'
-import { hScrollbar, thumbHit, vScrollbar } from './scrollbar'
+import { contentViewport, hScrollbar, thumbHit, vScrollbar } from './scrollbar'
 import { HitResult, Rect } from './types'
 
 export interface DirectEditorProps {
@@ -246,8 +246,14 @@ export class EditorView implements EditorViewLike {
   ensureVisible(addr: CellAddr): void {
     const geom = this.geometry()
     const sheet = this.state.activeSheet
-    const viewW = this.stage.width() - ROW_HEADER_WIDTH
-    const viewH = this.stage.height() - COL_HEADER_HEIGHT
+    const vp = contentViewport(
+      geom.contentWidth,
+      geom.contentHeight,
+      this.stage.width() - ROW_HEADER_WIDTH,
+      this.stage.height() - COL_HEADER_HEIGHT,
+    )
+    const viewW = vp.w
+    const viewH = vp.h
     if (addr.col >= geom.frozenCols) {
       const left = geom.colLeft(addr.col) - geom.frozenWidth
       const right = left + sheet.colWidth(addr.col)
@@ -315,11 +321,23 @@ export class EditorView implements EditorViewLike {
   }
 
   private maxScrollX(): number {
-    return Math.max(0, this.geometry().contentWidth - (this.stage.width() - ROW_HEADER_WIDTH))
+    const vp = contentViewport(
+      this.geometry().contentWidth,
+      this.geometry().contentHeight,
+      this.stage.width() - ROW_HEADER_WIDTH,
+      this.stage.height() - COL_HEADER_HEIGHT,
+    )
+    return Math.max(0, this.geometry().contentWidth - vp.w)
   }
 
   private maxScrollY(): number {
-    return Math.max(0, this.geometry().contentHeight - (this.stage.height() - COL_HEADER_HEIGHT))
+    const vp = contentViewport(
+      this.geometry().contentWidth,
+      this.geometry().contentHeight,
+      this.stage.width() - ROW_HEADER_WIDTH,
+      this.stage.height() - COL_HEADER_HEIGHT,
+    )
+    return Math.max(0, this.geometry().contentHeight - vp.h)
   }
 
   // 插件（selection 边缘自动滚动）也需要钳位，故公开

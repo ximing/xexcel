@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hScrollbar, SB_SIZE, thumbHit, vScrollbar } from '../src/view/scrollbar'
+import { contentViewport, hScrollbar, SB_SIZE, thumbHit, vScrollbar } from '../src/view/scrollbar'
 
 // 视口 800×600，表头 48/26，内容 2400（100 行 × 24）高、2496（26 列 × 96）宽
 describe('scrollbar geom', () => {
@@ -30,5 +30,31 @@ describe('scrollbar geom', () => {
     const g = vScrollbar(2400, 0, 800, 600)!
     expect(thumbHit(g, 795, 30)).toBe(true)
     expect(thumbHit(g, 795, 500)).toBe(false)
+  })
+})
+
+describe('contentViewport', () => {
+  const W = 800
+  const H = 600
+
+  it('内容不足一屏：无滚动条扣减', () => {
+    expect(contentViewport(500, 400, W, H)).toEqual({ w: 800, h: 600 })
+  })
+
+  it('仅需横条：高度扣 SB_SIZE', () => {
+    expect(contentViewport(1000, 400, W, H)).toEqual({ w: 800, h: 600 - SB_SIZE })
+  })
+
+  it('仅需纵条：宽度扣 SB_SIZE', () => {
+    expect(contentViewport(500, 1000, W, H)).toEqual({ w: 800 - SB_SIZE, h: 600 })
+  })
+
+  it('横条引发纵条（级联）：双向扣减', () => {
+    // 内容高 595 < 600 本不需纵条，但横条占了 12px 后 595 > 588 → 需要纵条
+    expect(contentViewport(1000, 595, W, H)).toEqual({ w: 800 - SB_SIZE, h: 600 - SB_SIZE })
+  })
+
+  it('边界：恰好等于视口不出条', () => {
+    expect(contentViewport(800, 600, W, H)).toEqual({ w: 800, h: 600 })
   })
 })
