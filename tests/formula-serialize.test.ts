@@ -27,6 +27,16 @@ describe('serialize', () => {
   it('err 节点', () => {
     expect(serialize(parseFormula('#REF!'))).toBe('#REF!')
   })
+  it('err 节点全套字面量：serialize 文本可被 parser 读回同一节点', () => {
+    for (const e of ['#REF!', '#NAME?', '#VALUE!', '#DIV/0!', '#CYCLE!', '#N/A', '#NUM!', '#NULL!']) {
+      expect(parseFormula(serialize(parseFormula(e)))).toEqual({ type: 'err', error: e })
+    }
+  })
+  it('未知裸名 → #NAME? err 节点，序列化后可读回（round-trip 无损）', () => {
+    const ast = parseFormula('IFERROR(NOPE,"x")')
+    expect(serialize(ast)).toBe('IFERROR(#NAME?,"x")')
+    expect(parseFormula(serialize(ast))).toEqual(ast)
+  })
   it('serializeSheetName：安全名不引号，其余引号并转义', () => {
     expect(serializeSheetName('Sheet2')).toBe('Sheet2')
     expect(serializeSheetName('My Sheet')).toBe("'My Sheet'")
@@ -45,6 +55,8 @@ describe('serialize', () => {
       '2^3^2',
       'A1<=B2',
       '#REF!',
+      '#NAME?',
+      '#DIV/0!+#N/A',
     ]) {
       rt(x)
     }

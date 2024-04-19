@@ -20,7 +20,7 @@ export type AST =
   | { type: 'num'; value: number }
   | { type: 'str'; value: string }
   | { type: 'bool'; value: boolean }
-  | { type: 'err'; error: string } // 目前仅 '#REF!'（shiftRefs 越界产物或用户原文）
+  | { type: 'err'; error: string } // '#REF!'（shiftRefs 越界/用户原文）或 '#NAME?'（未知裸名）
   | { type: 'ref'; ref: RefTarget }
   | { type: 'range'; a: RefTarget; b: RefTarget }
   | { type: 'call'; name: string; args: AST[] }
@@ -197,7 +197,8 @@ class Parser {
         }
         if (upper === 'TRUE') return { type: 'bool', value: true }
         if (upper === 'FALSE') return { type: 'bool', value: false }
-        throw new ParseError(`unknown name: ${t.value}`)
+        // 未知裸名（如 NOPE）→ 错误节点而非语法错误：求值期产 #NAME?，可被 IFERROR 兜住
+        return { type: 'err', error: '#NAME?' }
       }
       case 'cellref': {
         const a = parseCellRefText(t.value)

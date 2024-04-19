@@ -27,3 +27,14 @@ export interface ResizeGuide {
   pos: number // axis='col' → 竖线 x；axis='row' → 横线 y
 }
 export const resizeGuideKey = new PluginKey('resizeGuide')
+
+// 筛选下拉面板开启态：点击箭头时的列号与 client 坐标（React 浮层定位）；null=关闭
+export interface FilterDropdownOpen {
+  col: number
+  x: number
+  y: number
+}
+export const filterDropdownKey = new PluginKey('filterDropdown')
+
+// 查找栏开关（true=显示）
+export const findBarKey = new PluginKey('findBar')

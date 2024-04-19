@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import '../src/formula/transform' // 触发 cascade 注入（registerStructureCascade）
-import { Workbook } from '../src/core/model'
+import { FilterState, Workbook } from '../src/core/model'
 import { StructureStep, stepFromJSON } from '../src/core/steps'
 
 const mk = () => {
@@ -150,5 +150,43 @@ describe('StructureStep', () => {
       const back = stepFromJSON(JSON.parse(JSON.stringify(s.toJSON())))
       expect(back.toJSON()).toEqual(s.toJSON())
     }
+  })
+
+  describe('delete 的 undo 恢复 filter', () => {
+    const filter: FilterState = {
+      range: { sr: 0, sc: 0, er: 9, ec: 3 },
+      criteria: {
+        1: { type: 'values', excluded: ['x'] },
+        3: { type: 'condition', field: 'num', op: 'gt', v1: '5' },
+      },
+    }
+    const mkFilter = () => {
+      const wb = Workbook.create({ rowCount: 10, colCount: 5 })
+      return wb.setSheet('s1', wb.activeSheet.setFilter(filter))
+    }
+    it('删数据行（range 被裁剪）→ undo → filter.range 完整恢复', () => {
+      const wb = mkFilter()
+      const step = new StructureStep({ sheet: 's1', axis: 'row', index: 8, count: 2, mode: 'delete' }, null)
+      const r = step.apply(wb)
+      expect(r.doc!.activeSheet.filter!.range.er).toBe(7) // 正向：下缘裁剪
+      const r2 = step.invert(wb).apply(r.doc!)
+      expect(r2.doc!.activeSheet.filter).toEqual(filter)
+    })
+    it('删表头行（filter 被移除）→ undo → filter 完整恢复（含 criteria）', () => {
+      const wb = mkFilter()
+      const step = new StructureStep({ sheet: 's1', axis: 'row', index: 0, count: 1, mode: 'delete' }, null)
+      const r = step.apply(wb)
+      expect(r.doc!.activeSheet.filter).toBeUndefined() // 正向：整体移除
+      const r2 = step.invert(wb).apply(r.doc!)
+      expect(r2.doc!.activeSheet.filter).toEqual(filter)
+    })
+    it('删 criteria 所在列（键被重映射）→ undo → 键与值完整恢复', () => {
+      const wb = mkFilter()
+      const step = new StructureStep({ sheet: 's1', axis: 'col', index: 1, count: 1, mode: 'delete' }, null)
+      const r = step.apply(wb)
+      expect(Object.keys(r.doc!.activeSheet.filter!.criteria)).toEqual(['2']) // 正向：1 被删，3 → 2
+      const r2 = step.invert(wb).apply(r.doc!)
+      expect(r2.doc!.activeSheet.filter).toEqual(filter)
+    })
   })
 })

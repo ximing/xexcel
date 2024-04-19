@@ -1,7 +1,7 @@
 import { CellRange, normalizeRange } from './addr'
-import { Cell, CellStyle, SheetConfig, SheetData, SheetId, Workbook } from './model'
+import { Cell, CellStyle, FilterState, SheetConfig, SheetData, SheetId, Workbook } from './model'
 import { Selection } from './selection'
-import { PatchStyleStep, ResizeStep, SetCellsStep, SetFreezeStep, SetMergesStep, Step, StructureStep } from './steps'
+import { PatchStyleStep, ResizeStep, SetCellsStep, SetFilterStep, SetFreezeStep, SetHiddenStep, SetMergesStep, Step, StructureStep } from './steps'
 import { InsertSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
 import type { PluginKey } from './plugin'
 import type { SheetState } from './state'
@@ -90,6 +90,15 @@ export class Transaction {
 
   setFrozen(rows: number, cols: number): this {
     return this._pushStep(new SetFreezeStep(this.activeSheetId, rows, cols))
+  }
+
+  setHidden(axis: 'row' | 'col', indices: number[], hidden: boolean): this {
+    return this._pushStep(new SetHiddenStep(this.activeSheetId, axis, indices, hidden))
+  }
+
+  // 设置/清除自动筛选（undefined = 清除）
+  setFilter(filter: FilterState | undefined): this {
+    return this._pushStep(new SetFilterStep(this.activeSheetId, filter))
   }
 
   // 插入/删除当前表的行列（公式级联由 StructureStep 内处理）

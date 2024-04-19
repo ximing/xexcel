@@ -153,7 +153,7 @@ function renderGridLayer(
 
   // 列头：冻结段（不滚）+ 可滚段（clip 到冻结线右侧）
   const drawColHeader = (c: number, x: number): void => {
-    const w = sheet.colWidth(c)
+    const w = geom.colWidth(c)
     const active = c >= sel.sc && c <= sel.ec
     if (active) {
       layer.add(new Konva.Rect({ x, y: 0, width: w, height: COL_HEADER_HEIGHT, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -177,13 +177,13 @@ function renderGridLayer(
     ...noListen,
   })
   for (let c = main.sc; c <= main.ec; c++) {
-    drawColHeaderInto(colStrip, c, ROW_HEADER_WIDTH + fw + (geom.colLeft(c) - fw - scrollX), sheet, sel)
+    drawColHeaderInto(colStrip, c, ROW_HEADER_WIDTH + fw + (geom.colLeft(c) - fw - scrollX), geom, sel)
   }
   layer.add(colStrip)
 
   // 行头：冻结段 + 可滚段（clip 到冻结线下侧）
   const drawRowHeader = (r: number, y: number): void => {
-    const h = sheet.rowHeight(r)
+    const h = geom.rowHeight(r)
     const active = r >= sel.sr && r <= sel.er
     if (active) {
       layer.add(new Konva.Rect({ x: 0, y, width: ROW_HEADER_WIDTH, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -207,7 +207,7 @@ function renderGridLayer(
     ...noListen,
   })
   for (let r = main.sr; r <= main.er; r++) {
-    drawRowHeaderInto(rowStrip, r, COL_HEADER_HEIGHT + fh + (geom.rowTop(r) - fh - scrollY), sheet, sel)
+    drawRowHeaderInto(rowStrip, r, COL_HEADER_HEIGHT + fh + (geom.rowTop(r) - fh - scrollY), geom, sel)
   }
   layer.add(rowStrip)
 
@@ -223,6 +223,31 @@ function renderGridLayer(
     const y = COL_HEADER_HEIGHT + fh
     layer.add(new Konva.Line({ points: [0, y, viewW, y], stroke: COLOR_FROZEN_LINE, strokeWidth: 2, ...noListen }))
   }
+  // 隐藏行列提示：隐藏区塌缩处的表头画双线（按屏幕坐标去重，一段连续隐藏只画一次）
+  const rowMarks = new Set<number>()
+  for (const r of sheet.hiddenRows) {
+    const y =
+      r < geom.frozenRows
+        ? COL_HEADER_HEIGHT + geom.rowTop(r)
+        : COL_HEADER_HEIGHT + fh + (geom.rowTop(r) - fh - scrollY)
+    if (y > COL_HEADER_HEIGHT && y < viewH) rowMarks.add(Math.round(y))
+  }
+  for (const y of rowMarks) {
+    layer.add(new Konva.Line({ points: [0, y - 2, ROW_HEADER_WIDTH, y - 2], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+    layer.add(new Konva.Line({ points: [0, y + 2, ROW_HEADER_WIDTH, y + 2], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+  }
+  const colMarks = new Set<number>()
+  for (const c of sheet.hiddenCols) {
+    const x =
+      c < geom.frozenCols
+        ? ROW_HEADER_WIDTH + geom.colLeft(c)
+        : ROW_HEADER_WIDTH + fw + (geom.colLeft(c) - fw - scrollX)
+    if (x > ROW_HEADER_WIDTH && x < viewW) colMarks.add(Math.round(x))
+  }
+  for (const x of colMarks) {
+    layer.add(new Konva.Line({ points: [x - 2, 0, x - 2, COL_HEADER_HEIGHT], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+    layer.add(new Konva.Line({ points: [x + 2, 0, x + 2, COL_HEADER_HEIGHT], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+  }
 }
 
 // 与 drawColHeader/drawRowHeader 同逻辑，绘制到指定容器（供 clip strip 用）
@@ -230,10 +255,10 @@ function drawColHeaderInto(
   g: Konva.Group | Konva.Layer,
   c: number,
   x: number,
-  sheet: GridGeometry['sheet'],
+  geom: GridGeometry,
   sel: CellRange,
 ): void {
-  const w = sheet.colWidth(c)
+  const w = geom.colWidth(c)
   const active = c >= sel.sc && c <= sel.ec
   if (active) {
     g.add(new Konva.Rect({ x, y: 0, width: w, height: COL_HEADER_HEIGHT, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -254,10 +279,10 @@ function drawRowHeaderInto(
   g: Konva.Group | Konva.Layer,
   r: number,
   y: number,
-  sheet: GridGeometry['sheet'],
+  geom: GridGeometry,
   sel: CellRange,
 ): void {
-  const h = sheet.rowHeight(r)
+  const h = geom.rowHeight(r)
   const active = r >= sel.sr && r <= sel.er
   if (active) {
     g.add(new Konva.Rect({ x: 0, y, width: ROW_HEADER_WIDTH, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -304,9 +329,9 @@ function renderCellsInto(
   const merges = sheet.merges.filter((m) => rangesIntersect(m, q))
 
   const left = geom.colLeft(q.sc)
-  const right = geom.colLeft(q.ec) + sheet.colWidth(q.ec)
+  const right = geom.colLeft(q.ec) + geom.colWidth(q.ec)
   const top = geom.rowTop(q.sr)
-  const bottom = geom.rowTop(q.er) + sheet.rowHeight(q.er)
+  const bottom = geom.rowTop(q.er) + geom.rowHeight(q.er)
 
   // bg（合并区内的格跳过，由合并区统一画）
   for (let r = q.sr; r <= q.er; r++) {
@@ -345,6 +370,25 @@ function renderCellsInto(
       const cell = sheet.getCell(r, c)
       if (!cell || cell.raw === '') continue
       drawCellText(inner, evaluator, sheetId, r, c, cell, geom.cellRect(r, c))
+    }
+  }
+  // 筛选箭头：筛选区域表头行各列右缘小三角；有生效 criteria 的列高亮
+  const f = sheet.filter
+  if (f && f.range.sr >= q.sr && f.range.sr <= q.er) {
+    for (let c = Math.max(f.range.sc, q.sc); c <= Math.min(f.range.ec, q.ec); c++) {
+      const rect = geom.cellRect(f.range.sr, c)
+      const cx = rect.x + rect.w - 13
+      const cy = rect.y + rect.h / 2
+      const crit = f.criteria[c]
+      const on = crit !== undefined && (crit.type !== 'values' || crit.excluded.length > 0)
+      inner.add(
+        new Konva.Line({
+          points: [cx - 4, cy - 3, cx + 4, cy - 3, cx, cy + 3],
+          closed: true,
+          fill: on ? '#1a73e8' : '#9aa0a6',
+          ...noListen,
+        }),
+      )
     }
   }
 }

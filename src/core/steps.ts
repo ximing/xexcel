@@ -1,5 +1,5 @@
 import { CellRange, normalizeRange, toA1 } from './addr'
-import { Cell, CellStyle, SheetData, SheetId, Workbook } from './model'
+import { Cell, CellStyle, FilterState, SheetData, SheetId, Workbook } from './model'
 
 export interface StepResult { ok: boolean; doc?: Workbook; failed?: string }
 
@@ -365,11 +365,15 @@ export interface StructureRestoreEntry {
 }
 
 // 逆操作实例的恢复负载：被改公式的原文 + 删除区内的自定义行高/列宽 +
-// delete 前目标表的完整 merges（裁剪后的幸存者无法逐一识别，整体恢复才能保证 undo 恒等）。
+// delete 前目标表的完整 merges 与隐藏行列数组（裁剪后的幸存者无法逐一识别，
+// 整体恢复才能保证 undo 恒等；隐藏标记物理丢失，与 merges 同款 wholesale 语义）。
 export interface StructureRestore {
   cells: StructureRestoreEntry[]
   sizes: [number, number][] // axis 维度：删除区内 index → 自定义 size
   merges: CellRange[] // delete 模式：目标表完整 merges 原文；insert 模式：空（remap 自身可逆）
+  hiddenRows: number[] // delete 模式：目标表完整 hiddenRows 原文；insert 模式：空
+  hiddenCols: number[] // 同上
+  filter: FilterState | undefined // delete 模式：目标表完整 filter 原文（SheetData 不可变，浅引用即可）
 }
 
 // 插入/删除行列：物理重索引 + 全簿公式级联（经注入的 cascade）。
@@ -415,8 +419,12 @@ export class StructureStep extends Step {
       for (const [i, size] of this.restore.sizes) {
         d = spec.axis === 'row' ? d.setRowHeight(i, size) : d.setColWidth(i, size)
       }
-      // delete 的 undo：整体恢复 merges（裁剪幸存者可能与原文不等，见 StructureRestore 注释）
-      if (spec.mode === 'delete') d = d.setMerges(this.restore.merges)
+      // delete 的 undo：整体恢复 merges 与隐藏行列（裁剪幸存者可能与原文不等，见 StructureRestore 注释）
+      if (spec.mode === 'delete') {
+        d = d.setMerges(this.restore.merges)
+        d = d.withHidden(this.restore.hiddenRows, this.restore.hiddenCols)
+        d = d.setFilter(this.restore.filter)
+      }
       out = out.setSheet(spec.sheet, d)
       return { ok: true, doc: out }
     }
@@ -456,8 +464,11 @@ export class StructureStep extends Step {
     const seen = new Set<string>()
     let sizes: [number, number][] = []
     let merges: CellRange[] = []
-    // delete 模式：删除区内的格/行高列宽物理丢失，原文全部入恢复项（级联只覆盖公式文本）；
-    // merges 记录目标表完整原文（undo 整体恢复）
+    let hiddenRows: number[] = []
+    let hiddenCols: number[] = []
+    let filter: FilterState | undefined
+    // delete 模式：删除区内的格/行高列宽/隐藏标记物理丢失，原文全部入恢复项（级联只覆盖公式文本）；
+    // merges 与隐藏数组记录目标表完整原文（undo 整体恢复）
     if (this.spec.mode === 'delete') {
       const data = beforeDoc.sheet(this.spec.sheet)
       const cross = this.spec.axis === 'row' ? data.colCount : data.rowCount
@@ -476,6 +487,9 @@ export class StructureStep extends Step {
         }
       }
       merges = [...data.merges]
+      hiddenRows = [...data.hiddenRows]
+      hiddenCols = [...data.hiddenCols]
+      filter = data.filter
     }
     if (cascadeFn) {
       const nameSpec: StructureSpecName = {
@@ -495,7 +509,7 @@ export class StructureStep extends Step {
         })
       }
     }
-    return new StructureStep(this.spec, { cells, sizes, merges })
+    return new StructureStep(this.spec, { cells, sizes, merges, hiddenRows, hiddenCols, filter })
   }
 
   toJSON(): unknown {
@@ -543,6 +557,83 @@ export class SetFreezeStep extends Step {
   }
 }
 
+// 手动隐藏行列。restore 非 null = 逆操作实例：indices 先全部取消隐藏，再精确恢复 restore 子集，
+// 保证 undo 不改动 indices 范围外的状态、且混合前置状态恒等。
+export class SetHiddenStep extends Step {
+  constructor(
+    readonly sheet: SheetId,
+    readonly axis: 'row' | 'col',
+    readonly indices: number[],
+    readonly hidden: boolean,
+    readonly restore: number[] | null = null,
+  ) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    let data: SheetData
+    try {
+      data = doc.sheet(this.sheet)
+    } catch {
+      return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    }
+    const limit = this.axis === 'row' ? data.rowCount : data.colCount
+    for (const i of this.indices) {
+      if (i < 0 || i >= limit) return { ok: false, failed: `${this.axis} index out of bounds: ${i}` }
+    }
+    if (this.restore) {
+      data = data.setHidden(this.axis, this.indices, false)
+      data = data.setHidden(this.axis, this.restore, true)
+    } else {
+      data = data.setHidden(this.axis, this.indices, this.hidden)
+    }
+    return { ok: true, doc: doc.setSheet(this.sheet, data) }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    if (this.restore) return new SetHiddenStep(this.sheet, this.axis, this.indices, this.hidden)
+    const data = beforeDoc.sheet(this.sheet)
+    const prior = this.axis === 'row' ? data.hiddenRows : data.hiddenCols
+    const priorSet = new Set(prior)
+    return new SetHiddenStep(
+      this.sheet,
+      this.axis,
+      this.indices,
+      this.hidden,
+      this.indices.filter((i) => priorSet.has(i)),
+    )
+  }
+
+  toJSON(): unknown {
+    return { type: 'setHidden', sheet: this.sheet, axis: this.axis, indices: this.indices, hidden: this.hidden, restore: this.restore }
+  }
+}
+
+// 设置/清除自动筛选（filter undefined = 清除）
+export class SetFilterStep extends Step {
+  constructor(readonly sheet: SheetId, readonly filter: FilterState | undefined) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    let data: SheetData
+    try {
+      data = doc.sheet(this.sheet)
+    } catch {
+      return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    }
+    return { ok: true, doc: doc.setSheet(this.sheet, data.setFilter(this.filter)) }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    return new SetFilterStep(this.sheet, beforeDoc.sheet(this.sheet).filter)
+  }
+
+  toJSON(): unknown {
+    return { type: 'setFilter', sheet: this.sheet, filter: this.filter }
+  }
+}
+
 export function stepFromJSON(json: any): Step {
   switch (json?.type) {
     case 'setCells':
@@ -567,6 +658,10 @@ export function stepFromJSON(json: any): Step {
       return new StructureStep(json.spec, json.restore ?? null)
     case 'setFreeze':
       return new SetFreezeStep(json.sheet, json.rows, json.cols)
+    case 'setHidden':
+      return new SetHiddenStep(json.sheet, json.axis, json.indices, json.hidden, json.restore ?? null)
+    case 'setFilter':
+      return new SetFilterStep(json.sheet, json.filter)
     default:
       throw new Error(`unknown step type: ${json?.type}`)
   }

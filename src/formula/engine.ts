@@ -57,7 +57,7 @@ export class CellEvaluator {
     if (isFormula(raw)) {
       this.visiting.add(key)
       try {
-        value = this.evalFormula(raw, sheet)
+        value = this.evalFormula(raw, sheet, row, col)
       } finally {
         this.visiting.delete(key)
       }
@@ -83,9 +83,11 @@ export class CellEvaluator {
     return v
   }
 
-  private evalFormula(raw: string, sheet: SheetId): FormulaValue {
+  private evalFormula(raw: string, sheet: SheetId, row: number, col: number): FormulaValue {
     const ctx: EvalCtx = {
       sheet,
+      row,
+      col,
       get: (s, r, c) => this.get(s, r, c),
       resolveSheet: (name) => {
         const lower = name.toLowerCase()
@@ -98,7 +100,7 @@ export class CellEvaluator {
       // BLANK 哨兵不越过公式边界：对外仍是 ''
       return isBlank(v) ? '' : v
     } catch {
-      // 词法/语法错误（含未知裸名字）→ #NAME?
+      // 词法/语法错误 → #NAME?（未知裸名已在 parser 产出 err 节点，求值期报错）
       return { error: '#NAME?' }
     }
   }

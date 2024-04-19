@@ -8,7 +8,7 @@ export type TokenType =
   | 'ident'
   | 'sheetname' // '...' 引号表名（'' 转义）
   | 'cellref' // 可带 $ 前缀，value 保留原文（如 $A$1）
-  | 'errlit' // #REF! 字面量
+  | 'errlit' // 错误字面量（#REF!/#NAME? 等全套）
   | 'op'
   | 'lparen'
   | 'rparen'
@@ -24,6 +24,8 @@ export class LexError extends Error {}
 
 const NUM_RE = /^(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?/
 const CELLREF_RE = /^\$?[A-Za-z]+\$?[0-9]+/
+// 全套 Excel 错误字面量（长的在前，保证 startsWith 匹配正确）
+const ERR_LITS = ['#DIV/0!', '#VALUE!', '#NAME?', '#CYCLE!', '#REF!', '#NULL!', '#NUM!', '#N/A']
 
 export function tokenize(src: string): Token[] {
   const tokens: Token[] = []
@@ -88,11 +90,12 @@ export function tokenize(src: string): Token[] {
       i = j
       continue
     }
-    // #REF! 字面量
+    // 错误字面量（#REF!/#NAME? 等全套；serialize 输出的 err 节点文本须能读回）
     if (ch === '#') {
-      if (src.startsWith('#REF!', i)) {
-        tokens.push({ type: 'errlit', value: '#REF!' })
-        i += 5
+      const lit = ERR_LITS.find((e) => src.startsWith(e, i))
+      if (lit) {
+        tokens.push({ type: 'errlit', value: lit })
+        i += lit.length
         continue
       }
       throw new LexError(`unexpected character: #`)

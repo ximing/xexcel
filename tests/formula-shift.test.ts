@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { Workbook } from '../src/core/model'
+import { evaluatorFor } from '../src/formula/engine'
+import { parseFormula } from '../src/formula/parser'
 import { shiftFormula } from '../src/formula/transform'
 
 describe('shiftFormula', () => {
@@ -32,5 +35,21 @@ describe('shiftFormula', () => {
   })
   it('零偏移等价恒等', () => {
     expect(shiftFormula('=A1+B$2', 0, 0)).toBe('=A1+B$2')
+  })
+  it('含未知裸名（#NAME? err 节点）：改写后可再 parse 且语义不变', () => {
+    const shifted = shiftFormula('=IFERROR(NOPE,A1)', 1, 0)
+    expect(shifted).toBe('=IFERROR(#NAME?,A2)')
+    expect(() => parseFormula(shifted.slice(1))).not.toThrow()
+    // 语义不变：原公式与改写后公式求值一致（IFERROR 兜住 #NAME? 取第二参）
+    let wb = Workbook.create({ rowCount: 5, colCount: 5 })
+    let data = wb.activeSheet
+    data = data.setCell(0, 0, { raw: '42' })
+    data = data.setCell(1, 0, { raw: '42' })
+    data = data.setCell(0, 1, { raw: '=IFERROR(NOPE,A1)' })
+    data = data.setCell(0, 2, { raw: shifted })
+    wb = wb.setSheet(wb.active, data)
+    const ev = evaluatorFor(wb)
+    expect(ev.get(wb.active, 0, 1)).toBe(42)
+    expect(ev.get(wb.active, 0, 2)).toBe(42)
   })
 })

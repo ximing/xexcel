@@ -7,10 +7,12 @@ import { EditorViewLike, PluginProps, PluginView } from '../core/plugin'
 import { selectionRange, singleCell } from '../core/selection'
 import type { SheetState } from '../core/state'
 import type { Transaction } from '../core/transaction'
+import { evaluatorFor } from '../formula/engine'
+import { filterHiddenRows } from '../formula/filter'
 import { openEditor } from './editbox'
 import { GridGeometry } from './geometry'
 import { FILL_HANDLE_SIZE, renderAll } from './layers'
-import { hScrollbar, thumbHit, vScrollbar } from './scrollbar'
+import { contentViewport, hScrollbar, thumbHit, vScrollbar } from './scrollbar'
 import { HitResult, Rect } from './types'
 
 export interface DirectEditorProps {
@@ -88,11 +90,14 @@ export class EditorView implements EditorViewLike {
     this.render()
   }
 
-  // 按 activeSheet 引用缓存几何对象（行高列宽/冻结变化会得到新 SheetData）
+  // 按 activeSheet 引用缓存几何对象（行高列宽/冻结/筛选/隐藏变化都会得到新 SheetData）
   geometry(): GridGeometry {
     const sheet = this.state.activeSheet
     if (this.geomCache?.sheet !== sheet) {
-      this.geomCache = { sheet, geom: new GridGeometry(sheet, sheet.frozenRows, sheet.frozenCols) }
+      const extra = sheet.filter
+        ? filterHiddenRows(this.state.doc.active, sheet, evaluatorFor(this.state.doc))
+        : undefined
+      this.geomCache = { sheet, geom: new GridGeometry(sheet, sheet.frozenRows, sheet.frozenCols, extra) }
     }
     return this.geomCache.geom
   }
@@ -171,7 +176,7 @@ export class EditorView implements EditorViewLike {
           ? geom.colAt(cx)
           : geom.colAt(geom.frozenWidth + this.scrollX + (cx - geom.frozenWidth))
       const left = col < geom.frozenCols ? geom.colLeft(col) : geom.frozenWidth + (geom.colLeft(col) - geom.frozenWidth - this.scrollX)
-      const right = left + geom.sheet.colWidth(col)
+      const right = left + geom.colWidth(col)
       // 边界双侧 ±3px → 列调宽边界
       if (Math.abs(cx - right) <= BORDER_TOLERANCE) return { region: 'colborder', row: -1, col }
       if (col > 0) {
@@ -179,7 +184,7 @@ export class EditorView implements EditorViewLike {
           col - 1 < geom.frozenCols
             ? geom.colLeft(col - 1)
             : geom.frozenWidth + (geom.colLeft(col - 1) - geom.frozenWidth - this.scrollX)
-        const prevRight = prevLeft + geom.sheet.colWidth(col - 1)
+        const prevRight = prevLeft + geom.colWidth(col - 1)
         if (Math.abs(cx - prevRight) <= BORDER_TOLERANCE) return { region: 'colborder', row: -1, col: col - 1 }
       }
       return { region: 'colheader', row: -1, col }
@@ -191,19 +196,25 @@ export class EditorView implements EditorViewLike {
           ? geom.rowAt(cy)
           : geom.rowAt(geom.frozenHeight + this.scrollY + (cy - geom.frozenHeight))
       const top = row < geom.frozenRows ? geom.rowTop(row) : geom.frozenHeight + (geom.rowTop(row) - geom.frozenHeight - this.scrollY)
-      const bottom = top + geom.sheet.rowHeight(row)
+      const bottom = top + geom.rowHeight(row)
       if (Math.abs(cy - bottom) <= BORDER_TOLERANCE) return { region: 'rowborder', row, col: -1 }
       if (row > 0) {
         const prevTop =
           row - 1 < geom.frozenRows
             ? geom.rowTop(row - 1)
             : geom.frozenHeight + (geom.rowTop(row - 1) - geom.frozenHeight - this.scrollY)
-        const prevBottom = prevTop + geom.sheet.rowHeight(row - 1)
+        const prevBottom = prevTop + geom.rowHeight(row - 1)
         if (Math.abs(cy - prevBottom) <= BORDER_TOLERANCE) return { region: 'rowborder', row: row - 1, col: -1 }
       }
       return { region: 'rowheader', row, col: -1 }
     }
     const a = geom.cellAtContent(x - ROW_HEADER_WIDTH, y - COL_HEADER_HEIGHT, this.scrollX, this.scrollY)
+    // 筛选箭头：表头行单元格右缘 18px 区域
+    const f = this.state.activeSheet.filter
+    if (f && a.row === f.range.sr && a.col >= f.range.sc && a.col <= f.range.ec) {
+      const rect = this.cellViewportRect(a.row, a.col)
+      if (x >= rect.x + rect.w - 18) return { region: 'filter', row: a.row, col: a.col }
+    }
     return { region: 'cell', row: a.row, col: a.col }
   }
 
@@ -234,19 +245,24 @@ export class EditorView implements EditorViewLike {
 
   ensureVisible(addr: CellAddr): void {
     const geom = this.geometry()
-    const sheet = this.state.activeSheet
-    const viewW = this.stage.width() - ROW_HEADER_WIDTH
-    const viewH = this.stage.height() - COL_HEADER_HEIGHT
+    const vp = contentViewport(
+      geom.contentWidth,
+      geom.contentHeight,
+      this.stage.width() - ROW_HEADER_WIDTH,
+      this.stage.height() - COL_HEADER_HEIGHT,
+    )
+    const viewW = vp.w
+    const viewH = vp.h
     if (addr.col >= geom.frozenCols) {
       const left = geom.colLeft(addr.col) - geom.frozenWidth
-      const right = left + sheet.colWidth(addr.col)
+      const right = left + geom.colWidth(addr.col)
       const span = viewW - geom.frozenWidth
       if (left < this.scrollX) this.scrollX = left
       else if (right > this.scrollX + span) this.scrollX = right - span
     }
     if (addr.row >= geom.frozenRows) {
       const top = geom.rowTop(addr.row) - geom.frozenHeight
-      const bottom = top + sheet.rowHeight(addr.row)
+      const bottom = top + geom.rowHeight(addr.row)
       const span = viewH - geom.frozenHeight
       if (top < this.scrollY) this.scrollY = top
       else if (bottom > this.scrollY + span) this.scrollY = bottom - span
@@ -304,11 +320,23 @@ export class EditorView implements EditorViewLike {
   }
 
   private maxScrollX(): number {
-    return Math.max(0, this.geometry().contentWidth - (this.stage.width() - ROW_HEADER_WIDTH))
+    const vp = contentViewport(
+      this.geometry().contentWidth,
+      this.geometry().contentHeight,
+      this.stage.width() - ROW_HEADER_WIDTH,
+      this.stage.height() - COL_HEADER_HEIGHT,
+    )
+    return Math.max(0, this.geometry().contentWidth - vp.w)
   }
 
   private maxScrollY(): number {
-    return Math.max(0, this.geometry().contentHeight - (this.stage.height() - COL_HEADER_HEIGHT))
+    const vp = contentViewport(
+      this.geometry().contentWidth,
+      this.geometry().contentHeight,
+      this.stage.width() - ROW_HEADER_WIDTH,
+      this.stage.height() - COL_HEADER_HEIGHT,
+    )
+    return Math.max(0, this.geometry().contentHeight - vp.h)
   }
 
   // 插件（selection 边缘自动滚动）也需要钳位，故公开

@@ -56,3 +56,29 @@ describe('normalizedCell', () => {
     expect(normalizedCell('abc', undefined)).toEqual({ raw: 'abc' })
   })
 })
+
+describe('TODAY/NOW 录入自动格式', () => {
+  it('=TODAY() 无 numFmt 时附 yyyy/m/d', () => {
+    const c = normalizedCell('=TODAY()', undefined)
+    expect(c.raw).toBe('=TODAY()')
+    expect(c.style?.numFmt).toBe('yyyy/m/d')
+  })
+
+  it('=NOW() 附 yyyy/m/d h:mm；大小写与空白不敏感', () => {
+    expect(normalizedCell('=now()', undefined).style?.numFmt).toBe('yyyy/m/d h:mm')
+    expect(normalizedCell(' = TODAY( ) ', undefined).style?.numFmt).toBe('yyyy/m/d')
+  })
+
+  it('已有 numFmt 不覆盖；非纯 TODAY 公式不附格式', () => {
+    const existing = { raw: '1', style: { numFmt: '0%' } }
+    expect(normalizedCell('=TODAY()', existing).style?.numFmt).toBe('0%')
+    expect(normalizedCell('=TODAY()+1', undefined).style?.numFmt).toBeUndefined()
+  })
+
+  it('保留原样式其余字段', () => {
+    const existing = { raw: '', style: { bold: true } }
+    const c = normalizedCell('=TODAY()', existing)
+    expect(c.style?.bold).toBe(true)
+    expect(c.style?.numFmt).toBe('yyyy/m/d')
+  })
+})

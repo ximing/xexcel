@@ -1,17 +1,11 @@
 // 录入归一：把用户输入的日期/时间文本转为 Excel 序列值（1900 系统）+ 对应 numFmt。
 // 纯函数，零 DOM 依赖。接入点：编辑框提交、公式栏提交、外部 TSV 粘贴。
 import { Cell } from '../core/model'
+import { dateSerial } from './date'
 
-const DAY_MS = 86400000
-// Excel 1900 系统：serial 1 = 1900-01-01，此处基准 1899-12-30（含 Excel 闰年 bug 兼容）
-const EPOCH = Date.UTC(1899, 11, 30)
-
-function dateSerial(y: number, m: number, d: number): number | null {
-  if (m < 1 || m > 12 || d < 1 || d > 31) return null
-  const dt = new Date(Date.UTC(y, m - 1, d))
-  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null
-  return Math.round((dt.getTime() - EPOCH) / DAY_MS)
-}
+// 仅为 =TODAY()/=NOW() 的公式录入自动附日期格式（否则显示 serial 数字）
+const TODAY_RE = /^=\s*TODAY\s*\(\s*\)\s*$/i
+const NOW_RE = /^=\s*NOW\s*\(\s*\)\s*$/i
 
 const FULL_DATE_RE = /^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})$/
 const SHORT_DATE_RE = /^(\d{1,2})[/-](\d{1,2})$/
@@ -57,8 +51,10 @@ export function normalizeInput(raw: string, now?: Date): { raw: string; numFmt?:
 export function normalizedCell(text: string, existing: Cell | undefined, now?: Date): Cell {
   const n = normalizeInput(text, now)
   const style = existing?.style ? { ...existing.style } : undefined
-  if (n.numFmt && !style?.numFmt) {
-    return { raw: n.raw, style: { ...style, numFmt: n.numFmt } }
+  if (!style?.numFmt) {
+    if (n.numFmt) return { raw: n.raw, style: { ...style, numFmt: n.numFmt } }
+    if (TODAY_RE.test(text.trim())) return { raw: n.raw, style: { ...style, numFmt: 'yyyy/m/d' } }
+    if (NOW_RE.test(text.trim())) return { raw: n.raw, style: { ...style, numFmt: 'yyyy/m/d h:mm' } }
   }
   return style ? { raw: n.raw, style } : { raw: n.raw }
 }

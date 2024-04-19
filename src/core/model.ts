@@ -20,6 +20,27 @@ export interface CellStyle {
 export interface Cell { raw: string; style?: CellStyle }
 export interface SheetConfig { rowCount: number; colCount: number }
 
+// ---- 自动筛选 ----
+export type FilterOp =
+  | 'contains' | 'notContains' | 'startsWith' | 'endsWith' // 文本
+  | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between' // 数值（eq/neq 两域通用）
+export interface FilterValuesCriteria {
+  type: 'values'
+  excluded: string[] // 被排除的显示文本（存排除集：新值默认可见）
+}
+export interface FilterConditionCriteria {
+  type: 'condition'
+  field: 'text' | 'num'
+  op: FilterOp
+  v1: string
+  v2?: string // between 上界
+}
+export type FilterCriteria = FilterValuesCriteria | FilterConditionCriteria
+export interface FilterState {
+  range: CellRange // 含表头行（sr 行）
+  criteria: Record<number, FilterCriteria> // key = 绝对列号
+}
+
 interface SheetParts {
   rowCount: number
   colCount: number
@@ -29,6 +50,9 @@ interface SheetParts {
   merges: readonly CellRange[]
   frozenRows: number
   frozenCols: number
+  hiddenRows: number[]
+  hiddenCols: number[]
+  filter?: FilterState
 }
 
 export class SheetData {
@@ -37,6 +61,11 @@ export class SheetData {
   readonly merges: readonly CellRange[]
   readonly frozenRows: number
   readonly frozenCols: number
+  readonly hiddenRows: number[]
+  readonly hiddenCols: number[]
+  readonly filter?: FilterState
+  private readonly _hiddenRowSet: Set<number>
+  private readonly _hiddenColSet: Set<number>
   private readonly _cells: Map<number, Map<number, Cell>>
   private readonly _rowHeights: Map<number, number>
   private readonly _colWidths: Map<number, number>
@@ -47,6 +76,11 @@ export class SheetData {
     this.merges = parts.merges
     this.frozenRows = parts.frozenRows
     this.frozenCols = parts.frozenCols
+    this.hiddenRows = parts.hiddenRows
+    this.hiddenCols = parts.hiddenCols
+    this.filter = parts.filter
+    this._hiddenRowSet = new Set(parts.hiddenRows)
+    this._hiddenColSet = new Set(parts.hiddenCols)
     this._cells = parts.cells
     this._rowHeights = parts.rowHeights
     this._colWidths = parts.colWidths
@@ -62,6 +96,9 @@ export class SheetData {
       merges: this.merges,
       frozenRows: this.frozenRows,
       frozenCols: this.frozenCols,
+      hiddenRows: this.hiddenRows,
+      hiddenCols: this.hiddenCols,
+      filter: this.filter,
     }
   }
 
@@ -79,6 +116,8 @@ export class SheetData {
       merges: [],
       frozenRows: 0,
       frozenCols: 0,
+      hiddenRows: [],
+      hiddenCols: [],
     })
   }
 
@@ -87,11 +126,11 @@ export class SheetData {
   }
 
   rowHeight(row: number): number {
-    return this._rowHeights.get(row) ?? DEFAULT_ROW_HEIGHT
+    return this._hiddenRowSet.has(row) ? 0 : this._rowHeights.get(row) ?? DEFAULT_ROW_HEIGHT
   }
 
   colWidth(col: number): number {
-    return this._colWidths.get(col) ?? DEFAULT_COL_WIDTH
+    return this._hiddenColSet.has(col) ? 0 : this._colWidths.get(col) ?? DEFAULT_COL_WIDTH
   }
 
   get customRowHeights(): ReadonlyMap<number, number> {
@@ -129,6 +168,11 @@ export class SheetData {
     return SheetData.fromParts({ ...this._parts, merges: [...merges] })
   }
 
+  // 整体替换隐藏行列数组（结构操作 undo 的 wholesale 恢复用；Set 由构造器从数组重建）
+  withHidden(hiddenRows: number[], hiddenCols: number[]): SheetData {
+    return SheetData.fromParts({ ...this._parts, hiddenRows, hiddenCols })
+  }
+
   // 命中合并区（含锚点）→ 返回该区域；未命中 → null
   mergeAt(row: number, col: number): CellRange | null {
     for (const m of this.merges) {
@@ -139,6 +183,23 @@ export class SheetData {
 
   setFrozen(rows: number, cols: number): SheetData {
     return SheetData.fromParts({ ...this._parts, frozenRows: rows, frozenCols: cols })
+  }
+
+  // 手动隐藏（有序去重）；筛选隐藏不入模型（由 filter 状态实时推导）
+  setHidden(axis: 'row' | 'col', indices: number[], hidden: boolean): SheetData {
+    const cur = new Set(axis === 'row' ? this.hiddenRows : this.hiddenCols)
+    for (const i of indices) {
+      if (hidden) cur.add(i); else cur.delete(i)
+    }
+    const sorted = [...cur].sort((a, b) => a - b)
+    return SheetData.fromParts(
+      axis === 'row' ? { ...this._parts, hiddenRows: sorted } : { ...this._parts, hiddenCols: sorted },
+    )
+  }
+
+  // 自动筛选设置/清除（undefined = 清除）
+  setFilter(filter: FilterState | undefined): SheetData {
+    return SheetData.fromParts({ ...this._parts, filter })
   }
 
   insertRows(index: number, count: number): SheetData {
@@ -212,6 +273,36 @@ export class SheetData {
       }
     }
     const delta = mode === 'insert' ? count : -count
+    const remapIndices = (src: number[]): number[] => {
+      const out = new Set<number>()
+      for (const i of src) {
+        const ni = mapIdx(i)
+        if (ni >= 0) out.add(ni)
+      }
+      return [...out].sort((a, b) => a - b)
+    }
+    // 筛选重映射：行轴平移/裁剪 range（表头行被删则整体移除）；列轴另重映射 criteria 键
+    const remapFilter = (f: FilterState | undefined): FilterState | undefined => {
+      if (!f) return f
+      if (axis === 'row') {
+        const sr = mapIdx(f.range.sr)
+        if (sr < 0) return undefined // 表头行被删 → 筛选整体移除
+        const er0 = mapIdx(f.range.er)
+        const er = er0 < 0 ? index - 1 : er0 // 删除区下缘裁剪
+        if (er < sr) return undefined // 数据区删空
+        return { range: { sr, sc: f.range.sc, er, ec: f.range.ec }, criteria: f.criteria }
+      }
+      const sc = mapIdx(f.range.sc)
+      const ec0 = mapIdx(f.range.ec)
+      const ec = ec0 < 0 ? index - 1 : ec0
+      if (sc < 0 || ec < sc) return undefined
+      const criteria: Record<number, FilterCriteria> = {}
+      for (const [k, c] of Object.entries(f.criteria)) {
+        const nk = mapIdx(Number(k))
+        if (nk >= 0) criteria[nk] = c
+      }
+      return { range: { sr: f.range.sr, sc, er: f.range.er, ec }, criteria }
+    }
     return SheetData.fromParts({
       rowCount: this.rowCount + (axis === 'row' ? delta : 0),
       colCount: this.colCount + (axis === 'col' ? delta : 0),
@@ -219,9 +310,18 @@ export class SheetData {
       rowHeights: axis === 'row' ? remapSizes(this._rowHeights) : new Map(this._rowHeights),
       colWidths: axis === 'col' ? remapSizes(this._colWidths) : new Map(this._colWidths),
       merges,
-      // 冻结设置：delete 时钳到新尺寸（冻结超出表无意义，且防几何越界 NaN）；insert 与另一轴不动
-      frozenRows: axis === 'row' && mode === 'delete' ? Math.min(this.frozenRows, this.rowCount - count) : this.frozenRows,
-      frozenCols: axis === 'col' && mode === 'delete' ? Math.min(this.frozenCols, this.colCount - count) : this.frozenCols,
+      hiddenRows: axis === 'row' ? remapIndices(this.hiddenRows) : [...this.hiddenRows],
+      hiddenCols: axis === 'col' ? remapIndices(this.hiddenCols) : [...this.hiddenCols],
+      filter: remapFilter(this.filter),
+      // 冻结设置：delete 时裁掉落在删除区内的冻结行/列（冻结边界随内容走），insert 与另一轴不动
+      frozenRows:
+        axis === 'row' && mode === 'delete'
+          ? Math.max(0, this.frozenRows - Math.max(0, Math.min(this.frozenRows, index + count) - index))
+          : this.frozenRows,
+      frozenCols:
+        axis === 'col' && mode === 'delete'
+          ? Math.max(0, this.frozenCols - Math.max(0, Math.min(this.frozenCols, index + count) - index))
+          : this.frozenCols,
     })
   }
 
@@ -264,6 +364,9 @@ export class SheetData {
       merges: this.merges,
       frozenRows: this.frozenRows,
       frozenCols: this.frozenCols,
+      hiddenRows: this.hiddenRows,
+      hiddenCols: this.hiddenCols,
+      filter: this.filter,
     }
   }
 
@@ -277,6 +380,9 @@ export class SheetData {
       merges?: CellRange[]
       frozenRows?: number
       frozenCols?: number
+      hiddenRows?: number[]
+      hiddenCols?: number[]
+      filter?: FilterState
     }
     const cells = new Map<number, Map<number, Cell>>()
     for (const [row, cols] of Object.entries(j.cells ?? {})) {
@@ -293,6 +399,9 @@ export class SheetData {
       merges: j.merges ?? [],
       frozenRows: j.frozenRows ?? 0,
       frozenCols: j.frozenCols ?? 0,
+      hiddenRows: j.hiddenRows ?? [],
+      hiddenCols: j.hiddenCols ?? [],
+      filter: j.filter,
     })
   }
 }

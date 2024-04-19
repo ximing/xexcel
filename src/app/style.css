@@ -236,3 +236,91 @@ body {
 .tool-select:hover {
   background: #f1f3f4;
 }
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dialog {
+  background: #fff;
+  border: 1px solid #d9dce1;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 320px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+.dialog-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.dialog-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.filter-panel {
+  position: fixed;
+  background: #fff;
+  border: 1px solid #d9dce1;
+  border-radius: 8px;
+  padding: 10px;
+  width: 260px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+}
+.filter-tabs button.active {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+.filter-search {
+  flex: 1;
+  min-width: 0;
+}
+.filter-values {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.filter-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.find-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid #d9dce1;
+  background: #f7f8fa;
+  font-size: 13px;
+}
+.find-input {
+  width: 180px;
+}
+.find-count {
+  min-width: 40px;
+  color: #5f6368;
+}

@@ -38,3 +38,17 @@ export function vScrollbar(contentHeight: number, scrollY: number, viewW: number
 export function thumbHit(g: ScrollbarGeom, x: number, y: number): boolean {
   return x >= g.thumb.x && x <= g.thumb.x + g.thumb.w && y >= g.thumb.y && y <= g.thumb.y + g.thumb.h
 }
+
+// 内容视口尺寸（w0/h0 = 扣表头后的区域）：对侧滚动条存在时扣其厚度。
+// 双轮判定：横条占高可能引发纵条需求，纵条占宽也可能反过来引发横条。
+export function contentViewport(
+  contentW: number,
+  contentH: number,
+  w0: number,
+  h0: number,
+): { w: number; h: number } {
+  const needH = contentW > w0
+  const needV = contentH > (needH ? h0 - SB_SIZE : h0)
+  const needH2 = contentW > (needV ? w0 - SB_SIZE : w0)
+  return { w: needV ? w0 - SB_SIZE : w0, h: needH2 ? h0 - SB_SIZE : h0 }
+}

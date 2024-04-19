@@ -24,11 +24,13 @@ export class GridGeometry {
   readonly frozenRows: number
   readonly frozenCols: number
 
-  constructor(readonly sheet: SheetData, frozenRows = 0, frozenCols = 0) {
+  constructor(readonly sheet: SheetData, frozenRows = 0, frozenCols = 0, extraHiddenRows?: ReadonlySet<number>) {
     this.frozenRows = frozenRows
     this.frozenCols = frozenCols
     this.rowTops = [0]
-    for (let r = 0; r < sheet.rowCount; r++) this.rowTops.push(this.rowTops[r] + sheet.rowHeight(r))
+    for (let r = 0; r < sheet.rowCount; r++) {
+      this.rowTops.push(this.rowTops[r] + (extraHiddenRows?.has(r) ? 0 : sheet.rowHeight(r)))
+    }
     this.colLefts = [0]
     for (let c = 0; c < sheet.colCount; c++) this.colLefts.push(this.colLefts[c] + sheet.colWidth(c))
   }
@@ -49,6 +51,14 @@ export class GridGeometry {
     return this.colLefts[col]
   }
 
+  rowHeight(row: number): number {
+    return this.rowTops[row + 1] - this.rowTops[row]
+  }
+
+  colWidth(col: number): number {
+    return this.colLefts[col + 1] - this.colLefts[col]
+  }
+
   rowAt(y: number): number {
     return bsearch(this.rowTops, y)
   }
@@ -57,8 +67,9 @@ export class GridGeometry {
     return bsearch(this.colLefts, x)
   }
 
+  // 宽高用前缀和差值：筛选隐藏（extraHiddenRows）塌缩的行/列返回 0，而非模型层的原始尺寸
   cellRect(row: number, col: number): Rect {
-    return { x: this.colLefts[col], y: this.rowTops[row], w: this.sheet.colWidth(col), h: this.sheet.rowHeight(row) }
+    return { x: this.colLefts[col], y: this.rowTops[row], w: this.colWidth(col), h: this.rowHeight(row) }
   }
 
   rangeRect(r: CellRange): Rect {
