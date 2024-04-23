@@ -41,11 +41,17 @@ describe('computeBorderStyles', () => {
     expect(at(2, 1).style?.border).toEqual({ bottom: edge })
     expect(at(1, 1).style?.border).toBeUndefined()
   })
-  it('保留格内已有其他边', () => {
-    const s = sheet().setCell(1, 1, { raw: '', style: { border: { left: { style: 'thick' } } } })
+  it('后写覆盖同侧边，未触及边保留', () => {
+    const s = sheet().setCell(1, 1, {
+      raw: '',
+      style: { border: { left: { style: 'thick' }, right: { style: 'dotted', color: '#00ff00' } } },
+    })
     const entries = computeBorderStyles(s, range, 'outer', edge)
     const at = entries.find((e) => e.row === 1 && e.col === 1)!
-    expect(at.style?.border?.left).toEqual({ style: 'thick' })
+    // outer 触及 left/top（周界边）：同侧已声明边被后写覆盖
+    expect(at.style?.border?.left).toEqual(edge)
     expect(at.style?.border?.top).toEqual(edge)
+    // right 非 (1,1) 周界边，outer 未触及：原有声明保留
+    expect(at.style?.border?.right).toEqual({ style: 'dotted', color: '#00ff00' })
   })
 })

@@ -22,7 +22,7 @@ export function computeBorderStyles(
       const set = (side: Side, on: boolean): void => {
         if (!on) return
         if (clear || edge === null) delete border[side]
-        else if (border[side] === undefined) border[side] = edge // 已声明的边不覆盖
+        else border[side] = edge // 后写覆盖：预设触及的边一律替换
       }
       const isTop = r === range.sr
       const isBottom = r === range.er
