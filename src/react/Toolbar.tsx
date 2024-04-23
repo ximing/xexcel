@@ -139,6 +139,29 @@ export function Toolbar({ view }: Props) {
           {{ left: '左', center: '中', right: '右' }[a]}
         </button>
       ))}
+      <button
+        className={'tool-btn' + (active.wrap ? ' active' : '')}
+        title="自动换行"
+        onClick={() => {
+          patch({ wrap: active.wrap ? undefined : true })
+          view.focus()
+        }}
+      >
+        换行
+      </button>
+      {(['top', 'middle', 'bottom'] as const).map((v) => (
+        <button
+          key={v}
+          className={'tool-btn' + ((active.vAlign ?? 'bottom') === v ? ' active' : '')}
+          title={{ top: '顶端对齐', middle: '垂直居中', bottom: '底端对齐' }[v]}
+          onClick={() => {
+            patch({ vAlign: v })
+            view.focus()
+          }}
+        >
+          {{ top: '上', middle: '中', bottom: '下' }[v]}
+        </button>
+      ))}
       <span className="tool-sep" />
       <select
         className="tool-select"

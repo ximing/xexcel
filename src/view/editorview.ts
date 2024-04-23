@@ -9,6 +9,7 @@ import type { SheetState } from '../core/state'
 import type { Transaction } from '../core/transaction'
 import { evaluatorFor } from '../formula/engine'
 import { filterHiddenRows } from '../formula/filter'
+import { autoRowHeights } from './autoheight'
 import { openEditor } from './editbox'
 import { GridGeometry } from './geometry'
 import { FILL_HANDLE_SIZE, renderAll } from './layers'
@@ -94,10 +95,13 @@ export class EditorView implements EditorViewLike {
   geometry(): GridGeometry {
     const sheet = this.state.activeSheet
     if (this.geomCache?.sheet !== sheet) {
-      const extra = sheet.filter
-        ? filterHiddenRows(this.state.doc.active, sheet, evaluatorFor(this.state.doc))
-        : undefined
-      this.geomCache = { sheet, geom: new GridGeometry(sheet, sheet.frozenRows, sheet.frozenCols, extra) }
+      const ev = evaluatorFor(this.state.doc)
+      const extra = sheet.filter ? filterHiddenRows(this.state.doc.active, sheet, ev) : undefined
+      const auto = autoRowHeights(sheet, this.state.doc.active, ev)
+      this.geomCache = {
+        sheet,
+        geom: new GridGeometry(sheet, sheet.frozenRows, sheet.frozenCols, extra, auto.size ? auto : undefined),
+      }
     }
     return this.geomCache.geom
   }

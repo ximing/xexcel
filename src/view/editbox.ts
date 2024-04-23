@@ -44,6 +44,14 @@ export function openEditor(view: EditorView, addr: CellAddr, initialText?: strin
     color: '#202124',
   })
   el.value = initialText ?? cell?.raw ?? ''
+  // wrap 格：编辑框随内容向下增长（不小于行高）
+  if (cell?.style?.wrap) {
+    const grow = (): void => {
+      el.style.height = `${Math.max(r.h + 2, el.scrollHeight + 2)}px`
+    }
+    el.addEventListener('input', grow)
+    grow()
+  }
   el.addEventListener('keydown', onEditorKeyDown)
   el.addEventListener('blur', onEditorBlur)
   view.dom.appendChild(el)

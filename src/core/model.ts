@@ -22,6 +22,8 @@ export interface CellStyle {
   underline?: boolean
   strikethrough?: boolean
   border?: { top?: BorderEdge; right?: BorderEdge; bottom?: BorderEdge; left?: BorderEdge }
+  wrap?: boolean // 自动换行（行高由 geometry 推导撑高，手动行高优先）
+  vAlign?: 'top' | 'middle' | 'bottom' // 垂直对齐，缺省 bottom（对齐 Excel）
 }
 export interface Cell { raw: string; style?: CellStyle }
 export interface SheetConfig { rowCount: number; colCount: number }

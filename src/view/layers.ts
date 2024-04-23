@@ -457,7 +457,7 @@ function drawCellText(
       height: rect.h,
       text,
       align,
-      verticalAlign: 'middle',
+      verticalAlign: cell.style?.vAlign ?? 'bottom',
       fontSize: cell.style?.fontSize ?? FONT_SIZE,
       fontFamily: cell.style?.fontFamily ?? FONT_FAMILY,
       fontStyle,
@@ -469,7 +469,7 @@ function drawCellText(
           ? 'line-through'
           : '',
       fill: cell.style?.color ?? COLOR_TEXT,
-      wrap: 'none',
+      wrap: cell.style?.wrap ? 'char' : 'none',
       ...noListen,
     }),
   )
