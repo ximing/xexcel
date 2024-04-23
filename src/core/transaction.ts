@@ -1,7 +1,7 @@
 import { CellRange, normalizeRange } from './addr'
 import { Cell, CellStyle, FilterState, SheetConfig, SheetData, SheetId, Workbook } from './model'
 import { Selection } from './selection'
-import { PatchStyleStep, ResizeStep, SetCellsStep, SetFilterStep, SetFreezeStep, SetHiddenStep, SetMergesStep, Step, StructureStep } from './steps'
+import { PatchStyleStep, ResizeStep, RestoreStyleStep, SetCellsStep, SetFilterStep, SetFreezeStep, SetHiddenStep, SetMergesStep, Step, StructureStep } from './steps'
 import { InsertSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
 import type { PluginKey } from './plugin'
 import type { SheetState } from './state'
@@ -46,6 +46,11 @@ export class Transaction {
 
   patchStyle(range: CellRange, patch: Partial<CellStyle>): this {
     return this._pushStep(new PatchStyleStep(this.activeSheetId, range, patch))
+  }
+
+  // 逐格整体替换 style（null=删 style 键）；边框预设与格式刷共用（RestoreStyleStep 即此语义）
+  setCellStyles(entries: ReadonlyArray<{ row: number; col: number; style: CellStyle | null }>): this {
+    return this._pushStep(new RestoreStyleStep(this.activeSheetId, entries))
   }
 
   resize(axis: 'row' | 'col', index: number, size: number | null): this {

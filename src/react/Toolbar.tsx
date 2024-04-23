@@ -1,9 +1,10 @@
 // 工具栏：撤销/重做 + 粗体/斜体/文字色/背景色/对齐。操作回走 view.dispatch(applyStylePatch)。
 import { useState } from 'react'
 import { applyStylePatch, mergeSelection, unmergeSelection } from '../core/commands'
+import { computeBorderStyles, BorderPreset } from '../core/border'
 import { selectionRange } from '../core/selection'
 import { redo, redoDepth, undo, undoDepth } from '../core/history'
-import type { CellStyle } from '../core/model'
+import type { BorderLineStyle, CellStyle } from '../core/model'
 import type { SheetState } from '../core/state'
 import type { EditorView } from '../view/editorview'
 import { findBarKey } from '../view/types'
@@ -22,6 +23,22 @@ export function Toolbar({ view }: Props) {
   const { row, col } = state.selection.focus
   const active: CellStyle = state.activeSheet.getCell(row, col)?.style ?? {}
   const [showSort, setShowSort] = useState(false)
+  const [showBorder, setShowBorder] = useState(false)
+  const [borderLine, setBorderLine] = useState<BorderLineStyle>('thin')
+  const [borderColor, setBorderColor] = useState('#000000')
+
+  const applyBorder = (preset: BorderPreset): void => {
+    const sheet = view.state.activeSheet
+    const entries = computeBorderStyles(
+      sheet,
+      selectionRange(view.state.selection),
+      preset,
+      preset === 'none' ? null : { style: borderLine, color: borderColor },
+    )
+    view.dispatch(view.state.tr.setCellStyles(entries))
+    setShowBorder(false)
+    view.focus()
+  }
 
   const quickSort = (asc: boolean): void => {
     const r = selectionRange(view.state.selection)
@@ -254,6 +271,45 @@ export function Toolbar({ view }: Props) {
         拆
       </button>
       <span className="tool-sep" />
+      <span className="tool-border-wrap">
+        <button className="tool-btn" title="边框" onClick={() => setShowBorder(!showBorder)}>
+          框
+        </button>
+        {showBorder && (
+          <div className="tool-border-panel">
+            <div className="tool-border-presets">
+              {([
+                ['none', '无框'], ['all', '全框'], ['outer', '外框'], ['inner', '内框'],
+                ['top', '上'], ['bottom', '下'], ['left', '左'], ['right', '右'],
+              ] as [BorderPreset, string][]).map(([p, label]) => (
+                <button key={p} className="tool-btn" onClick={() => applyBorder(p)}>{label}</button>
+              ))}
+            </div>
+            <select
+              className="tool-select"
+              title="线型"
+              value={borderLine}
+              onChange={(e) => setBorderLine(e.target.value as BorderLineStyle)}
+            >
+              <option value="thin">细线</option>
+              <option value="medium">中线</option>
+              <option value="thick">粗线</option>
+              <option value="dashed">虚线</option>
+              <option value="dotted">点线</option>
+              <option value="double">双线</option>
+              <option value="hair">极细</option>
+              <option value="mediumDashed">中虚线</option>
+            </select>
+            <input
+              className="tool-color"
+              type="color"
+              title="边框颜色"
+              value={borderColor}
+              onChange={(e) => setBorderColor(e.target.value)}
+            />
+          </div>
+        )}
+      </span>
       <button
         className="tool-btn"
         title="上方插入行（选中整行时按行数）"

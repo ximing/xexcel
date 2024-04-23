@@ -324,3 +324,11 @@ body {
   min-width: 40px;
   color: #5f6368;
 }
+.tool-border-wrap { position: relative; display: inline-block; }
+.tool-border-panel {
+  position: absolute; top: 100%; left: 0; z-index: 30;
+  background: #fff; border: 1px solid #d9dce1; border-radius: 4px;
+  padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column; gap: 4px; min-width: 160px;
+}
+.tool-border-presets { display: flex; flex-wrap: wrap; gap: 2px; }

@@ -5,7 +5,8 @@
 // 每次 updateState 后整层重建可见节点（M1 从简，1000 格/帧量级可接受）。
 import Konva from 'konva'
 import { CellRange, colName, rangesIntersect } from '../core/addr'
-import { COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
+import { BorderEdge, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
+import { edgeDash, edgeWidth, resolveHEdge, resolveVEdge } from './borders'
 import { selectionRange } from '../core/selection'
 import type { SheetState } from '../core/state'
 import type { CellEvaluator } from '../formula/engine'
@@ -30,6 +31,19 @@ const FONT_FAMILY =
 export const FILL_HANDLE_SIZE = 6
 
 const noListen = { listening: false }
+
+// 单条边框边：double 画两条平行 1px 线，其余按线宽/虚线
+function drawBorderEdge(inner: Konva.Group, points: number[], e: BorderEdge): void {
+  const stroke = e.color ?? '#000000'
+  if (e.style === 'double') {
+    const [x1, y1, x2, y2] = points
+    const v = x1 === x2 // 竖线
+    inner.add(new Konva.Line({ points: v ? [x1 - 1, y1, x2 - 1, y2] : [x1, y1 - 1, x2, y2 - 1], stroke, strokeWidth: 1, ...noListen }))
+    inner.add(new Konva.Line({ points: v ? [x1 + 1, y1, x2 + 1, y2] : [x1, y1 + 1, x2, y2 + 1], stroke, strokeWidth: 1, ...noListen }))
+    return
+  }
+  inner.add(new Konva.Line({ points, stroke, strokeWidth: edgeWidth(e.style), dash: edgeDash(e.style), ...noListen }))
+}
 
 // 一个渲染象限：clip 为内容区坐标（不含表头），off 为内容坐标的绘制偏移
 interface Quadrant {
@@ -351,6 +365,23 @@ function renderCellsInto(
   for (let r = q.sr; r <= q.er + 1; r++) {
     const y = geom.rowTop(r)
     inner.add(new Konva.Line({ points: [left, y, right, y], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
+  }
+  // 边框：每条网格线按共享边权重裁决后画一次（覆盖默认网格线）
+  for (let r = q.sr; r <= q.er; r++) {
+    for (let c = q.sc; c <= q.ec + 1; c++) {
+      const e = resolveVEdge(sheet, r, c)
+      if (!e) continue
+      const x = geom.colLeft(c)
+      drawBorderEdge(inner, [x, geom.rowTop(r), x, geom.rowTop(r) + geom.rowHeight(r)], e)
+    }
+  }
+  for (let r = q.sr; r <= q.er + 1; r++) {
+    for (let c = q.sc; c <= q.ec; c++) {
+      const e = resolveHEdge(sheet, r, c)
+      if (!e) continue
+      const y = geom.rowTop(r)
+      drawBorderEdge(inner, [geom.colLeft(c), y, geom.colLeft(c) + geom.colWidth(c), y], e)
+    }
   }
   // 合并区：白底盖网格线 → 锚点 bg → 外框 → 锚点文字
   for (const m of merges) {

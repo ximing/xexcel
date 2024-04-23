@@ -5,6 +5,11 @@ export const COL_HEADER_HEIGHT = 26
 export const DEFAULT_ROW_HEIGHT = 24
 export const DEFAULT_COL_WIDTH = 96
 
+export type BorderLineStyle =
+  | 'thin' | 'medium' | 'thick'
+  | 'dashed' | 'dotted' | 'double' | 'hair' | 'mediumDashed'
+export interface BorderEdge { style: BorderLineStyle; color?: string } // color 缺省 #000
+
 export interface CellStyle {
   bold?: boolean
   italic?: boolean
@@ -16,6 +21,7 @@ export interface CellStyle {
   fontSize?: number // px，缺省 13
   underline?: boolean
   strikethrough?: boolean
+  border?: { top?: BorderEdge; right?: BorderEdge; bottom?: BorderEdge; left?: BorderEdge }
 }
 export interface Cell { raw: string; style?: CellStyle }
 export interface SheetConfig { rowCount: number; colCount: number }
