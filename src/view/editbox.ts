@@ -45,16 +45,17 @@ export function openEditor(view: EditorView, addr: CellAddr, initialText?: strin
   })
   el.value = initialText ?? cell?.raw ?? ''
   // wrap 格：编辑框随内容向下增长（不小于行高）
-  if (cell?.style?.wrap) {
-    const grow = (): void => {
-      el.style.height = `${Math.max(r.h + 2, el.scrollHeight + 2)}px`
-    }
-    el.addEventListener('input', grow)
-    grow()
-  }
+  const grow = cell?.style?.wrap
+    ? (): void => {
+        el.style.height = `${Math.max(r.h + 2, el.scrollHeight + 2)}px`
+      }
+    : null
+  if (grow) el.addEventListener('input', grow)
   el.addEventListener('keydown', onEditorKeyDown)
   el.addEventListener('blur', onEditorBlur)
   view.dom.appendChild(el)
+  // 首次测量须在挂载后：detached 节点 scrollHeight 恒为 0
+  grow?.()
   session = { view, addr, el, done: false }
   el.focus()
   el.setSelectionRange(el.value.length, el.value.length)
