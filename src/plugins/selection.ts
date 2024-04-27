@@ -209,10 +209,14 @@ export function selection(): Plugin {
           const tr = v.state.tr.setMeta(resizeGuideKey, null)
           if (drag.size !== drag.startSize) tr.resize(drag.axis, drag.index, drag.size)
           v.dispatch(tr)
+          drag = null
+          activeView = null
+          return true
         }
+        // select 拖拽的 mouseup 只做清理、无 doc 变更：不拦截，放行给后续插件（如格式刷 painter）
         drag = null
         activeView = null
-        return true
+        return false
       },
       handleDoubleClick(view: EditorViewLike, _e: MouseEvent, hit: HitResult): boolean {
         if (hit.region !== 'colborder' && hit.region !== 'rowborder') return false
