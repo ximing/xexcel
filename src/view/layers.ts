@@ -344,6 +344,7 @@ function renderCellsInto(
   const merges = sheet.merges.filter((m) => rangesIntersect(m, q))
   // 条件格式：命中样式叠加在格样式之上（bg 覆盖、文字样式合并）
   const cfRules = sheet.condFormats
+  // 有意从简：每帧重算，缓存推迟（spec §4.2 备案）
   const cfDups = cfRules.length ? duplicateSets(cfRules, sheetId, evaluator) : new Map<string, Set<string>>()
   const cfOf = (r: number, c: number): CFStyle | undefined =>
     cfRules.length ? condFormatStyle(cfRules, sheetId, r, c, evaluator, cfDups) : undefined
@@ -444,8 +445,14 @@ function drawCellText(
 ): void {
   const text = evaluator.displayText(sheetId, r, c)
   if (text === '') return
-  // 条件格式命中样式覆盖格样式（仅 CFStyle 子集键）
-  const style: import('../core/model').CellStyle = cf ? { ...cell.style, ...cf } : (cell.style ?? {})
+  // 条件格式命中样式覆盖格样式（仅 CFStyle 子集键）；跳过 undefined 值，
+  // 防御显式 undefined own property 覆盖静态样式
+  const style: import('../core/model').CellStyle = { ...cell.style }
+  if (cf) {
+    for (const [k, v] of Object.entries(cf)) {
+      if (v !== undefined) (style as Record<string, unknown>)[k] = v
+    }
+  }
   let align = style.align
   if (!align) {
     const v = evaluator.get(sheetId, r, c)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseA1, parseRangeA1 } from '../src/core/addr'
 import { CondFormatRule, SheetData } from '../src/core/model'
-import { SetCondFormatsStep } from '../src/core/steps'
+import { SetCondFormatsStep, StructureStep, stepFromJSON } from '../src/core/steps'
 import { Workbook } from '../src/core/model'
 
 const rule = (over: Partial<CondFormatRule> = {}): CondFormatRule => ({
@@ -55,6 +55,26 @@ describe('SetCondFormatsStep', () => {
     const r2 = inv.apply(r.doc!)
     expect(r2.doc!.sheet('s1').condFormats).toEqual([])
     expect(JSON.parse(JSON.stringify(step.toJSON()))).toEqual(step.toJSON())
+  })
+  it('stepFromJSON 往返：实例类型 + apply 行为', () => {
+    const wb = Workbook.create({ rowCount: 10, colCount: 10 })
+    const step = new SetCondFormatsStep('s1', [rule()])
+    const back = stepFromJSON(JSON.parse(JSON.stringify(step.toJSON())))
+    expect(back).toBeInstanceOf(SetCondFormatsStep)
+    const r = back.apply(wb)
+    expect(r.ok).toBe(true)
+    expect(r.doc!.sheet('s1').condFormats).toEqual([rule()])
+  })
+  it('旧历史 JSON：restore 无 condFormats 字段时按 [] 恢复', () => {
+    let wb = Workbook.create({ rowCount: 10, colCount: 10 })
+    wb = wb.setSheet('s1', wb.activeSheet.setCondFormats([rule()]))
+    const spec = { sheet: 's1', axis: 'row' as const, index: 0, count: 4, mode: 'delete' as const }
+    // 模拟旧版本历史 JSON 反序列化出的 restore：缺 condFormats 键
+    const restore = { cells: [], sizes: [], merges: [], hiddenRows: [], hiddenCols: [], filter: undefined } as any
+    const r = new StructureStep(spec, restore).apply(wb)
+    expect(r.ok).toBe(true)
+    expect(r.doc!.sheet('s1').rowCount).toBe(14) // 逆操作 = 插回 4 行
+    expect(r.doc!.sheet('s1').condFormats).toEqual([])
   })
 })
 

@@ -6,6 +6,7 @@ import { CondFormatRule, FilterOp } from '../core/model'
 import { selectionRange } from '../core/selection'
 import type { EditorView } from '../view/editorview'
 import { useSheetState } from './bridge'
+import { CFToggleKey, toggleCFStyle } from './cfstyle'
 
 interface Props {
   view: EditorView
@@ -24,7 +25,7 @@ const RULE_TYPES: { type: CondFormatRule['type']; label: string }[] = [
   { type: 'duplicate', label: '重复值' },
 ]
 
-const STYLE_TOGGLES: { key: 'bold' | 'italic' | 'underline' | 'strikethrough'; label: string }[] = [
+const STYLE_TOGGLES: { key: CFToggleKey; label: string }[] = [
   { key: 'bold', label: 'B' },
   { key: 'italic', label: 'I' },
   { key: 'underline', label: 'U' },
@@ -107,9 +108,9 @@ export function CondFormatDialog({ view, onClose }: Props) {
           : { ...base, type: 'duplicate' }
     update(i, next)
   }
-  const toggleStyle = (i: number, key: 'bold' | 'italic' | 'underline' | 'strikethrough'): void => {
+  const toggleStyle = (i: number, key: CFToggleKey): void => {
     const r = draft[i]
-    update(i, { ...r, style: { ...r.style, [key]: r.style[key] ? undefined : true } })
+    update(i, { ...r, style: toggleCFStyle(r.style, key) })
   }
 
   const anyInvalid = draft.some((r, i) => ruleInvalid(r, texts[i]))
