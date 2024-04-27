@@ -12,7 +12,7 @@ import { EditorViewLike, Plugin } from '../core/plugin'
 import { singleCell } from '../core/selection'
 import { isEditing, openEditor } from '../view/editbox'
 import type { EditorView } from '../view/editorview'
-import { findBarKey } from '../view/types'
+import { findBarKey, formatPainterKey } from '../view/types'
 
 // 导航落点修正（导出供单测）：目标在合并区内时——
 // 当前 focus 已是该合并区锚点（继续向外移动）→ 跳过整个合并区到远侧之外；
@@ -103,6 +103,12 @@ export function keymap(): Plugin {
           case 'F2':
             openEditor(v, sel.focus)
             break
+          case 'Escape': {
+            const fp = state.getField(formatPainterKey)
+            if (!fp) return false
+            v.dispatch(state.tr.setMeta(formatPainterKey, null).setMeta('addToHistory', false))
+            break
+          }
           default: {
             const k = e.key.toLowerCase()
             if (mod && k === 'f') {

@@ -7,7 +7,7 @@ import { redo, redoDepth, undo, undoDepth } from '../core/history'
 import type { BorderLineStyle, CellStyle } from '../core/model'
 import type { SheetState } from '../core/state'
 import type { EditorView } from '../view/editorview'
-import { findBarKey } from '../view/types'
+import { findBarKey, formatPainterKey, FormatPainterState } from '../view/types'
 import { useSheetState } from './bridge'
 import { adjustDecimals } from '../formula/format'
 import { evaluatorFor } from '../formula/engine'
@@ -22,6 +22,7 @@ export function Toolbar({ view }: Props) {
   const state = useSheetState(view)
   const { row, col } = state.selection.focus
   const active: CellStyle = state.activeSheet.getCell(row, col)?.style ?? {}
+  const fp = state.getField(formatPainterKey) as FormatPainterState | null | undefined
   const [showSort, setShowSort] = useState(false)
   const [showBorder, setShowBorder] = useState(false)
   const [borderLine, setBorderLine] = useState<BorderLineStyle>('thin')
@@ -82,6 +83,26 @@ export function Toolbar({ view }: Props) {
         ↪
       </button>
       <span className="tool-sep" />
+      <button
+        className={'tool-btn' + (fp ? ' active' : '')}
+        title="格式刷（单击取格式刷一次，双击锁定连刷，Esc 解除）"
+        onClick={() => {
+          if (fp) {
+            view.dispatch(view.state.tr.setMeta(formatPainterKey, null).setMeta('addToHistory', false))
+          } else {
+            const src = { ...(view.state.activeSheet.getCell(row, col)?.style ?? {}) }
+            view.dispatch(view.state.tr.setMeta(formatPainterKey, { style: src, locked: false }).setMeta('addToHistory', false))
+          }
+          view.focus()
+        }}
+        onDoubleClick={() => {
+          const src = { ...(view.state.activeSheet.getCell(row, col)?.style ?? {}) }
+          view.dispatch(view.state.tr.setMeta(formatPainterKey, { style: src, locked: true }).setMeta('addToHistory', false))
+          view.focus()
+        }}
+      >
+        刷
+      </button>
       <button
         className={'tool-btn' + (active.bold ? ' active' : '')}
         title="加粗"

@@ -38,3 +38,10 @@ export const filterDropdownKey = new PluginKey('filterDropdown')
 
 // 查找栏开关（true=显示）
 export const findBarKey = new PluginKey('findBar')
+
+// 格式刷状态：源格 style 快照 + 是否锁定连刷；null=未激活
+export interface FormatPainterState {
+  style: import('../core/model').CellStyle
+  locked: boolean
+}
+export const formatPainterKey = new PluginKey('formatPainter')
