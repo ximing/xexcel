@@ -1,7 +1,7 @@
 import { CellRange, normalizeRange } from './addr'
-import { Cell, CellStyle, FilterState, SheetConfig, SheetData, SheetId, Workbook } from './model'
+import { Cell, CellStyle, CondFormatRule, FilterState, SheetConfig, SheetData, SheetId, Workbook } from './model'
 import { Selection } from './selection'
-import { PatchStyleStep, ResizeStep, RestoreStyleStep, SetCellsStep, SetFilterStep, SetFreezeStep, SetHiddenStep, SetMergesStep, Step, StructureStep } from './steps'
+import { PatchStyleStep, ResizeStep, RestoreStyleStep, SetCellsStep, SetCondFormatsStep, SetFilterStep, SetFreezeStep, SetHiddenStep, SetMergesStep, Step, StructureStep } from './steps'
 import { InsertSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
 import type { PluginKey } from './plugin'
 import type { SheetState } from './state'
@@ -104,6 +104,11 @@ export class Transaction {
   // 设置/清除自动筛选（undefined = 清除）
   setFilter(filter: FilterState | undefined): this {
     return this._pushStep(new SetFilterStep(this.activeSheetId, filter))
+  }
+
+  // 整体替换条件格式规则
+  setCondFormats(rules: CondFormatRule[]): this {
+    return this._pushStep(new SetCondFormatsStep(this.activeSheetId, rules))
   }
 
   // 插入/删除当前表的行列（公式级联由 StructureStep 内处理）

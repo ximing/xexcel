@@ -271,6 +271,54 @@ body {
   margin-top: 12px;
 }
 
+.cf-dialog {
+  min-width: 640px;
+  max-width: 90vw;
+}
+.cf-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.cf-empty {
+  color: #5f6368;
+  font-size: 13px;
+}
+.cf-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+.cf-row.invalid {
+  border-color: #d93025;
+  background: #fce8e6;
+}
+.cf-range {
+  width: 110px;
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid #d9dce1;
+  border-radius: 4px;
+}
+.cf-value {
+  width: 80px;
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid #d9dce1;
+  border-radius: 4px;
+}
+.cf-toggle {
+  padding: 0 6px;
+}
+.cf-actions-gap {
+  flex: 1;
+}
+
 .filter-panel {
   position: fixed;
   background: #fff;

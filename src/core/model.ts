@@ -49,6 +49,13 @@ export interface FilterState {
   criteria: Record<number, FilterCriteria> // key = 绝对列号
 }
 
+// ---- 条件格式 ----
+export type CFStyle = Pick<CellStyle, 'color' | 'bg' | 'bold' | 'italic' | 'underline' | 'strikethrough'>
+export type CondFormatRule =
+  | { id: string; range: CellRange; type: 'value'; op: FilterOp; v1: string; v2?: string; style: CFStyle }
+  | { id: string; range: CellRange; type: 'textContains'; text: string; style: CFStyle }
+  | { id: string; range: CellRange; type: 'duplicate'; style: CFStyle }
+
 interface SheetParts {
   rowCount: number
   colCount: number
@@ -61,6 +68,7 @@ interface SheetParts {
   hiddenRows: number[]
   hiddenCols: number[]
   filter?: FilterState
+  condFormats: CondFormatRule[]
 }
 
 export class SheetData {
@@ -72,6 +80,7 @@ export class SheetData {
   readonly hiddenRows: number[]
   readonly hiddenCols: number[]
   readonly filter?: FilterState
+  readonly condFormats: CondFormatRule[]
   private readonly _hiddenRowSet: Set<number>
   private readonly _hiddenColSet: Set<number>
   private readonly _cells: Map<number, Map<number, Cell>>
@@ -87,6 +96,7 @@ export class SheetData {
     this.hiddenRows = parts.hiddenRows
     this.hiddenCols = parts.hiddenCols
     this.filter = parts.filter
+    this.condFormats = parts.condFormats
     this._hiddenRowSet = new Set(parts.hiddenRows)
     this._hiddenColSet = new Set(parts.hiddenCols)
     this._cells = parts.cells
@@ -107,6 +117,7 @@ export class SheetData {
       hiddenRows: this.hiddenRows,
       hiddenCols: this.hiddenCols,
       filter: this.filter,
+      condFormats: this.condFormats,
     }
   }
 
@@ -126,6 +137,7 @@ export class SheetData {
       frozenCols: 0,
       hiddenRows: [],
       hiddenCols: [],
+      condFormats: [],
     })
   }
 
@@ -210,6 +222,11 @@ export class SheetData {
     return SheetData.fromParts({ ...this._parts, filter })
   }
 
+  // 整体替换条件格式规则（数组序即优先级）
+  setCondFormats(rules: CondFormatRule[]): SheetData {
+    return SheetData.fromParts({ ...this._parts, condFormats: rules })
+  }
+
   insertRows(index: number, count: number): SheetData {
     return this.remap('row', index, count, 'insert')
   }
@@ -289,27 +306,42 @@ export class SheetData {
       }
       return [...out].sort((a, b) => a - b)
     }
-    // 筛选重映射：行轴平移/裁剪 range（表头行被删则整体移除）；列轴另重映射 criteria 键
+    // range 重映射：平移 + 删除区裁剪；起点被删/删空 → null（调用侧丢规则/丢筛选）
+    const remapRangeLocal = (rg: CellRange): CellRange | null => {
+      if (axis === 'row') {
+        const sr = mapIdx(rg.sr)
+        if (sr < 0) return null
+        const er0 = mapIdx(rg.er)
+        const er = er0 < 0 ? index - 1 : er0
+        if (er < sr) return null
+        return { sr, sc: rg.sc, er, ec: rg.ec }
+      }
+      const sc = mapIdx(rg.sc)
+      const ec0 = mapIdx(rg.ec)
+      const ec = ec0 < 0 ? index - 1 : ec0
+      if (sc < 0 || ec < sc) return null
+      return { sr: rg.sr, sc, er: rg.er, ec }
+    }
+    // 筛选重映射：range 走 remapRangeLocal（表头行被删则整体移除）；列轴另重映射 criteria 键
     const remapFilter = (f: FilterState | undefined): FilterState | undefined => {
       if (!f) return f
-      if (axis === 'row') {
-        const sr = mapIdx(f.range.sr)
-        if (sr < 0) return undefined // 表头行被删 → 筛选整体移除
-        const er0 = mapIdx(f.range.er)
-        const er = er0 < 0 ? index - 1 : er0 // 删除区下缘裁剪
-        if (er < sr) return undefined // 数据区删空
-        return { range: { sr, sc: f.range.sc, er, ec: f.range.ec }, criteria: f.criteria }
-      }
-      const sc = mapIdx(f.range.sc)
-      const ec0 = mapIdx(f.range.ec)
-      const ec = ec0 < 0 ? index - 1 : ec0
-      if (sc < 0 || ec < sc) return undefined
+      const nr = remapRangeLocal(f.range)
+      if (!nr) return undefined
+      if (axis === 'row') return { range: nr, criteria: f.criteria }
       const criteria: Record<number, FilterCriteria> = {}
       for (const [k, c] of Object.entries(f.criteria)) {
         const nk = mapIdx(Number(k))
         if (nk >= 0) criteria[nk] = c
       }
-      return { range: { sr: f.range.sr, sc, er: f.range.er, ec }, criteria }
+      return { range: nr, criteria }
+    }
+    const remapCondFormats = (rules: CondFormatRule[]): CondFormatRule[] => {
+      const out: CondFormatRule[] = []
+      for (const rule of rules) {
+        const nr = remapRangeLocal(rule.range)
+        if (nr) out.push({ ...rule, range: nr })
+      }
+      return out
     }
     return SheetData.fromParts({
       rowCount: this.rowCount + (axis === 'row' ? delta : 0),
@@ -321,6 +353,7 @@ export class SheetData {
       hiddenRows: axis === 'row' ? remapIndices(this.hiddenRows) : [...this.hiddenRows],
       hiddenCols: axis === 'col' ? remapIndices(this.hiddenCols) : [...this.hiddenCols],
       filter: remapFilter(this.filter),
+      condFormats: remapCondFormats(this.condFormats),
       // 冻结设置：delete 时裁掉落在删除区内的冻结行/列（冻结边界随内容走），insert 与另一轴不动
       frozenRows:
         axis === 'row' && mode === 'delete'
@@ -375,6 +408,7 @@ export class SheetData {
       hiddenRows: this.hiddenRows,
       hiddenCols: this.hiddenCols,
       filter: this.filter,
+      condFormats: this.condFormats,
     }
   }
 
@@ -391,6 +425,7 @@ export class SheetData {
       hiddenRows?: number[]
       hiddenCols?: number[]
       filter?: FilterState
+      condFormats?: CondFormatRule[]
     }
     const cells = new Map<number, Map<number, Cell>>()
     for (const [row, cols] of Object.entries(j.cells ?? {})) {
@@ -410,6 +445,7 @@ export class SheetData {
       hiddenRows: j.hiddenRows ?? [],
       hiddenCols: j.hiddenCols ?? [],
       filter: j.filter,
+      condFormats: j.condFormats ?? [],
     })
   }
 }

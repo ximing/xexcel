@@ -13,6 +13,7 @@ import { adjustDecimals } from '../formula/format'
 import { evaluatorFor } from '../formula/engine'
 import { computeSortEntries, sortBlockedByMerges } from '../formula/sort'
 import { SortDialog } from './SortDialog'
+import { CondFormatDialog } from './CondFormatDialog'
 
 interface Props {
   view: EditorView
@@ -24,6 +25,7 @@ export function Toolbar({ view }: Props) {
   const active: CellStyle = state.activeSheet.getCell(row, col)?.style ?? {}
   const fp = state.getField(formatPainterKey) as FormatPainterState | null | undefined
   const [showSort, setShowSort] = useState(false)
+  const [showCF, setShowCF] = useState(false)
   const [showBorder, setShowBorder] = useState(false)
   const [borderLine, setBorderLine] = useState<BorderLineStyle>('thin')
   const [borderColor, setBorderColor] = useState('#000000')
@@ -533,6 +535,10 @@ export function Toolbar({ view }: Props) {
       >
         查
       </button>
+      <button className="tool-btn" title="条件格式" onClick={() => setShowCF(true)}>
+        条件
+      </button>
+      {showCF && <CondFormatDialog view={view} onClose={() => setShowCF(false)} />}
       <button
         className="tool-btn"
         title="重置选中行/列尺寸为默认"

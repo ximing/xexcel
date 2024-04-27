@@ -5,12 +5,13 @@
 // 每次 updateState 后整层重建可见节点（M1 从简，1000 格/帧量级可接受）。
 import Konva from 'konva'
 import { CellRange, colName, rangesIntersect } from '../core/addr'
-import { BorderEdge, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
+import { BorderEdge, CFStyle, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
 import { edgeDash, edgeWidth, resolveHEdge, resolveVEdge } from './borders'
 import { selectionRange } from '../core/selection'
 import type { SheetState } from '../core/state'
 import type { CellEvaluator } from '../formula/engine'
 import { evaluatorFor } from '../formula/engine'
+import { condFormatStyle, duplicateSets } from '../formula/condformat'
 import { GridGeometry } from './geometry'
 import { CELL_PAD_X } from './measure'
 import { hScrollbar, vScrollbar } from './scrollbar'
@@ -341,6 +342,11 @@ function renderCellsInto(
   const sheet = state.activeSheet
   const sheetId = state.doc.active
   const merges = sheet.merges.filter((m) => rangesIntersect(m, q))
+  // 条件格式：命中样式叠加在格样式之上（bg 覆盖、文字样式合并）
+  const cfRules = sheet.condFormats
+  const cfDups = cfRules.length ? duplicateSets(cfRules, sheetId, evaluator) : new Map<string, Set<string>>()
+  const cfOf = (r: number, c: number): CFStyle | undefined =>
+    cfRules.length ? condFormatStyle(cfRules, sheetId, r, c, evaluator, cfDups) : undefined
 
   const left = geom.colLeft(q.sc)
   const right = geom.colLeft(q.ec) + geom.colWidth(q.ec)
@@ -352,9 +358,10 @@ function renderCellsInto(
     for (let c = q.sc; c <= q.ec; c++) {
       if (merges.some((m) => r >= m.sr && r <= m.er && c >= m.sc && c <= m.ec)) continue
       const cell = sheet.getCell(r, c)
-      if (!cell?.style?.bg) continue
+      const cfBg = cfOf(r, c)?.bg ?? cell?.style?.bg
+      if (!cfBg) continue
       const rect = geom.cellRect(r, c)
-      inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, fill: cell.style.bg, ...noListen }))
+      inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, fill: cfBg, ...noListen }))
     }
   }
   // 网格线
@@ -388,11 +395,12 @@ function renderCellsInto(
     const rect = geom.rangeRect(m)
     inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, fill: '#ffffff', ...noListen }))
     const anchor = sheet.getCell(m.sr, m.sc)
-    if (anchor?.style?.bg) {
-      inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, fill: anchor.style.bg, ...noListen }))
+    const anchorBg = cfOf(m.sr, m.sc)?.bg ?? anchor?.style?.bg
+    if (anchorBg) {
+      inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, fill: anchorBg, ...noListen }))
     }
     inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
-    if (anchor && anchor.raw !== '') drawCellText(inner, evaluator, sheetId, m.sr, m.sc, anchor, geom.rangeRect(m))
+    if (anchor && anchor.raw !== '') drawCellText(inner, evaluator, sheetId, m.sr, m.sc, anchor, geom.rangeRect(m), cfOf(m.sr, m.sc))
   }
   // 文字（合并区内的格跳过）
   for (let r = q.sr; r <= q.er; r++) {
@@ -400,7 +408,7 @@ function renderCellsInto(
       if (merges.some((m) => r >= m.sr && r <= m.er && c >= m.sc && c <= m.ec)) continue
       const cell = sheet.getCell(r, c)
       if (!cell || cell.raw === '') continue
-      drawCellText(inner, evaluator, sheetId, r, c, cell, geom.cellRect(r, c))
+      drawCellText(inner, evaluator, sheetId, r, c, cell, geom.cellRect(r, c), cfOf(r, c))
     }
   }
   // 筛选箭头：筛选区域表头行各列右缘小三角；有生效 criteria 的列高亮
@@ -432,20 +440,23 @@ function drawCellText(
   c: number,
   cell: { raw: string; style?: import('../core/model').CellStyle },
   rect: { x: number; y: number; w: number; h: number },
+  cf?: CFStyle,
 ): void {
   const text = evaluator.displayText(sheetId, r, c)
   if (text === '') return
-  let align = cell.style?.align
+  // 条件格式命中样式覆盖格样式（仅 CFStyle 子集键）
+  const style: import('../core/model').CellStyle = cf ? { ...cell.style, ...cf } : (cell.style ?? {})
+  let align = style.align
   if (!align) {
     const v = evaluator.get(sheetId, r, c)
     align = typeof v === 'number' || typeof v === 'boolean' ? 'right' : 'left'
   }
   const fontStyle =
-    cell.style?.bold && cell.style?.italic
+    style.bold && style.italic
       ? 'bold italic'
-      : cell.style?.bold
+      : style.bold
         ? 'bold'
-        : cell.style?.italic
+        : style.italic
           ? 'italic'
           : 'normal'
   const g = new Konva.Group({ clipX: rect.x, clipY: rect.y, clipWidth: rect.w, clipHeight: rect.h, ...noListen })
@@ -457,19 +468,19 @@ function drawCellText(
       height: rect.h,
       text,
       align,
-      verticalAlign: cell.style?.vAlign ?? 'bottom',
-      fontSize: cell.style?.fontSize ?? FONT_SIZE,
-      fontFamily: cell.style?.fontFamily ?? FONT_FAMILY,
+      verticalAlign: style.vAlign ?? 'bottom',
+      fontSize: style.fontSize ?? FONT_SIZE,
+      fontFamily: style.fontFamily ?? FONT_FAMILY,
       fontStyle,
-      textDecoration: cell.style?.underline
-        ? cell.style?.strikethrough
+      textDecoration: style.underline
+        ? style.strikethrough
           ? 'underline line-through'
           : 'underline'
-        : cell.style?.strikethrough
+        : style.strikethrough
           ? 'line-through'
           : '',
-      fill: cell.style?.color ?? COLOR_TEXT,
-      wrap: cell.style?.wrap ? 'char' : 'none',
+      fill: style.color ?? COLOR_TEXT,
+      wrap: style.wrap ? 'char' : 'none',
       ...noListen,
     }),
   )
