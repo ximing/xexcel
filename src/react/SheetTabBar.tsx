@@ -73,7 +73,14 @@ export function SheetTabBar({ view }: Props) {
       if (to !== s.from) view.dispatch(view.state.tr.moveSheet(s.id, to))
       view.focus()
     }
-    const onUp = (): void => finish(false)
+    const onUp = (e: MouseEvent): void => {
+      // 拖出标签栏区域松开 = 取消（按指针坐标判定落点）
+      const bar = barRef.current
+      const r = bar?.getBoundingClientRect()
+      const outside =
+        !r || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom
+      finish(outside)
+    }
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape' && sessionRef.current?.active) finish(true)
     }
@@ -176,6 +183,8 @@ export function SheetTabBar({ view }: Props) {
               data-sheet-id={id}
               className={active ? 'sheet-tab active' : 'sheet-tab'}
               onMouseDown={(e) => {
+                // 新按压作废旧抑制标记（防拖拽 mouseup 落在非 tab 元素上时标记残留吞掉下次单击）
+                suppressClick.current = false
                 if (e.button !== 0) return
                 if ((e.target as HTMLElement).closest('.sheet-tab-close')) return
                 sessionRef.current = {
