@@ -23,6 +23,8 @@ export function openEditor(view: EditorView, addr: CellAddr, initialText?: strin
   if (session) closeEditor(true)
   const cell = view.state.activeSheet.getCell(addr.row, addr.col)
   const r = view.cellViewportRect(addr.row, addr.col)
+  // 编辑器字号 = 格样式字号 × zoom，与画布几何缩放一致
+  const fs = (cell?.style?.fontSize ?? 13) * view.zoom()
   const el = document.createElement('textarea')
   el.className = 'xcell-editor'
   Object.assign(el.style, {
@@ -36,7 +38,7 @@ export function openEditor(view: EditorView, addr: CellAddr, initialText?: strin
     outline: 'none',
     margin: '0',
     padding: '1px 5px',
-    font: '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    font: `${fs}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`,
     resize: 'none',
     overflow: 'hidden',
     zIndex: '10',

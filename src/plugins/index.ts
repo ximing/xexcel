@@ -1,7 +1,7 @@
 // 内建交互插件组装。builtinPlugins() 顺序：selection → fillhandle → clipboard → keymap；
 // 返回数组不含 history——由调用方插入最前（如 [history(), ...builtinPlugins()]）。
 import { Plugin } from '../core/plugin'
-import { contextMenuKey, filterDropdownKey, findBarKey, formatPainterKey, tabRenameKey } from '../view/types'
+import { contextMenuKey, filterDropdownKey, findBarKey, formatPainterKey, tabRenameKey, zoomKey } from '../view/types'
 import { clipboard } from './clipboard'
 import { fillhandle } from './fillhandle'
 import { keymap } from './keymap'
@@ -29,5 +29,6 @@ export function builtinPlugins(): Plugin[] {
     painter(),
     metaField(contextMenuKey, null),
     metaField(tabRenameKey, null),
+    metaField(zoomKey, null),
   ]
 }

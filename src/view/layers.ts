@@ -14,7 +14,7 @@ import { evaluatorFor } from '../formula/engine'
 import { condFormatStyle, duplicateSets } from '../formula/condformat'
 import { GridGeometry } from './geometry'
 import { CELL_PAD_X } from './measure'
-import { hScrollbar, vScrollbar } from './scrollbar'
+import { hScrollbar, SB_SIZE, vScrollbar } from './scrollbar'
 import { fillPreviewKey, ResizeGuide, resizeGuideKey } from './types'
 
 const COLOR_GRID = '#d9dce1'
@@ -31,19 +31,25 @@ const FONT_FAMILY =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
 export const FILL_HANDLE_SIZE = 6
 
+// 填充手柄尺寸随 zoom 几何缩放
+export function fillHandleSize(zoom: number): number {
+  return FILL_HANDLE_SIZE * zoom
+}
+
 const noListen = { listening: false }
 
-// 单条边框边：double 画两条平行 1px 线，其余按线宽/虚线
-function drawBorderEdge(inner: Konva.Group, points: number[], e: BorderEdge): void {
+// 单条边框边：double 画两条平行线（间距 ×zoom），其余按线宽/虚线（线宽 ×zoom）
+function drawBorderEdge(inner: Konva.Group, points: number[], e: BorderEdge, zoom = 1): void {
   const stroke = e.color ?? '#000000'
   if (e.style === 'double') {
     const [x1, y1, x2, y2] = points
     const v = x1 === x2 // 竖线
-    inner.add(new Konva.Line({ points: v ? [x1 - 1, y1, x2 - 1, y2] : [x1, y1 - 1, x2, y2 - 1], stroke, strokeWidth: 1, ...noListen }))
-    inner.add(new Konva.Line({ points: v ? [x1 + 1, y1, x2 + 1, y2] : [x1, y1 + 1, x2, y2 + 1], stroke, strokeWidth: 1, ...noListen }))
+    const d = zoom
+    inner.add(new Konva.Line({ points: v ? [x1 - d, y1, x2 - d, y2] : [x1, y1 - d, x2, y2 - d], stroke, strokeWidth: zoom, ...noListen }))
+    inner.add(new Konva.Line({ points: v ? [x1 + d, y1, x2 + d, y2] : [x1, y1 + d, x2, y2 + d], stroke, strokeWidth: zoom, ...noListen }))
     return
   }
-  inner.add(new Konva.Line({ points, stroke, strokeWidth: edgeWidth(e.style), dash: edgeDash(e.style), ...noListen }))
+  inner.add(new Konva.Line({ points, stroke, strokeWidth: edgeWidth(e.style) * zoom, dash: edgeDash(e.style), ...noListen }))
 }
 
 // 一个渲染象限：clip 为内容区坐标（不含表头），off 为内容坐标的绘制偏移
@@ -67,9 +73,10 @@ function scrollableRange(
   scrollY: number,
   viewW: number,
   viewH: number,
+  zoom = 1,
 ): CellRange {
-  const W = Math.max(0, viewW - ROW_HEADER_WIDTH)
-  const H = Math.max(0, viewH - COL_HEADER_HEIGHT)
+  const W = Math.max(0, viewW - ROW_HEADER_WIDTH * zoom)
+  const H = Math.max(0, viewH - COL_HEADER_HEIGHT * zoom)
   const fw = geom.frozenWidth
   const fh = geom.frozenHeight
   const sr = Math.max(geom.frozenRows, geom.rowAt(fh + scrollY))
@@ -85,14 +92,15 @@ function computeQuadrants(
   scrollY: number,
   viewW: number,
   viewH: number,
+  zoom = 1,
 ): Quadrant[] {
-  const W = Math.max(0, viewW - ROW_HEADER_WIDTH)
-  const H = Math.max(0, viewH - COL_HEADER_HEIGHT)
+  const W = Math.max(0, viewW - ROW_HEADER_WIDTH * zoom)
+  const H = Math.max(0, viewH - COL_HEADER_HEIGHT * zoom)
   const fw = geom.frozenWidth
   const fh = geom.frozenHeight
   const fr = geom.frozenRows
   const fc = geom.frozenCols
-  const main = scrollableRange(geom, scrollX, scrollY, viewW, viewH)
+  const main = scrollableRange(geom, scrollX, scrollY, viewW, viewH, zoom)
   const qs: Quadrant[] = []
   if (W > fw && H > fh) {
     qs.push({ clipX: fw, clipY: fh, clipW: W - fw, clipH: H - fh, offX: -fw - scrollX, offY: -fh - scrollY, ...main })
@@ -109,10 +117,10 @@ function computeQuadrants(
   return qs
 }
 
-function quadrantGroup(q: Quadrant): Konva.Group {
+function quadrantGroup(q: Quadrant, zoom = 1): Konva.Group {
   const g = new Konva.Group({
-    x: ROW_HEADER_WIDTH + q.clipX,
-    y: COL_HEADER_HEIGHT + q.clipY,
+    x: ROW_HEADER_WIDTH * zoom + q.clipX,
+    y: COL_HEADER_HEIGHT * zoom + q.clipY,
     clipX: 0,
     clipY: 0,
     clipWidth: Math.max(0, q.clipW),
@@ -133,15 +141,16 @@ export function renderAll(
   scrollY: number,
   viewW: number,
   viewH: number,
+  zoom = 1,
 ): void {
   gridLayer.destroyChildren()
   cellLayer.destroyChildren()
   overlayLayer.destroyChildren()
   if (viewW <= 0 || viewH <= 0) return
-  renderCellLayer(cellLayer, state, geom, scrollX, scrollY, viewW, viewH)
-  renderGridLayer(gridLayer, state, geom, scrollX, scrollY, viewW, viewH)
-  renderOverlayLayer(overlayLayer, state, geom, scrollX, scrollY, viewW, viewH)
-  renderScrollbars(overlayLayer, geom, scrollX, scrollY, viewW, viewH)
+  renderCellLayer(cellLayer, state, geom, scrollX, scrollY, viewW, viewH, zoom)
+  renderGridLayer(gridLayer, state, geom, scrollX, scrollY, viewW, viewH, zoom)
+  renderOverlayLayer(overlayLayer, state, geom, scrollX, scrollY, viewW, viewH, zoom)
+  renderScrollbars(overlayLayer, geom, scrollX, scrollY, viewW, viewH, zoom)
   gridLayer.batchDraw()
   cellLayer.batchDraw()
   overlayLayer.batchDraw()
@@ -155,13 +164,18 @@ function renderGridLayer(
   scrollY: number,
   viewW: number,
   viewH: number,
+  zoom = 1,
 ): void {
-  layer.add(new Konva.Rect({ x: ROW_HEADER_WIDTH, y: COL_HEADER_HEIGHT, width: viewW, height: viewH, fill: '#ffffff', ...noListen }))
-  layer.add(new Konva.Rect({ x: 0, y: 0, width: viewW, height: COL_HEADER_HEIGHT, fill: COLOR_HEADER_BG, ...noListen }))
-  layer.add(new Konva.Rect({ x: 0, y: 0, width: ROW_HEADER_WIDTH, height: viewH, fill: COLOR_HEADER_BG, ...noListen }))
+  // 表头几何/字号随 zoom 缩放
+  const hw = ROW_HEADER_WIDTH * zoom
+  const hh = COL_HEADER_HEIGHT * zoom
+  const headerFont = FONT_SIZE * zoom
+  layer.add(new Konva.Rect({ x: hw, y: hh, width: viewW, height: viewH, fill: '#ffffff', ...noListen }))
+  layer.add(new Konva.Rect({ x: 0, y: 0, width: viewW, height: hh, fill: COLOR_HEADER_BG, ...noListen }))
+  layer.add(new Konva.Rect({ x: 0, y: 0, width: hw, height: viewH, fill: COLOR_HEADER_BG, ...noListen }))
 
   const sel = selectionRange(state.selection)
-  const main = scrollableRange(geom, scrollX, scrollY, viewW, viewH)
+  const main = scrollableRange(geom, scrollX, scrollY, viewW, viewH, zoom)
   const fw = geom.frozenWidth
   const fh = geom.frozenHeight
   const sheet = geom.sheet
@@ -171,28 +185,28 @@ function renderGridLayer(
     const w = geom.colWidth(c)
     const active = c >= sel.sc && c <= sel.ec
     if (active) {
-      layer.add(new Konva.Rect({ x, y: 0, width: w, height: COL_HEADER_HEIGHT, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
+      layer.add(new Konva.Rect({ x, y: 0, width: w, height: hh, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
     }
     layer.add(
       new Konva.Text({
-        x, y: 0, width: w, height: COL_HEADER_HEIGHT,
+        x, y: 0, width: w, height: hh,
         text: colName(c), align: 'center', verticalAlign: 'middle',
-        fontSize: FONT_SIZE, fontFamily: FONT_FAMILY,
+        fontSize: headerFont, fontFamily: FONT_FAMILY,
         fill: active ? COLOR_HEADER_ACTIVE_TEXT : COLOR_HEADER_TEXT,
         wrap: 'none', ...noListen,
       }),
     )
-    layer.add(new Konva.Line({ points: [x, 0, x, COL_HEADER_HEIGHT], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
+    layer.add(new Konva.Line({ points: [x, 0, x, hh], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
   }
-  for (let c = 0; c < geom.frozenCols; c++) drawColHeader(c, ROW_HEADER_WIDTH + geom.colLeft(c))
+  for (let c = 0; c < geom.frozenCols; c++) drawColHeader(c, hw + geom.colLeft(c))
   const colStrip = new Konva.Group({
     x: 0, y: 0,
-    clipX: ROW_HEADER_WIDTH + fw, clipY: 0,
-    clipWidth: Math.max(0, viewW - ROW_HEADER_WIDTH - fw), clipHeight: COL_HEADER_HEIGHT,
+    clipX: hw + fw, clipY: 0,
+    clipWidth: Math.max(0, viewW - hw - fw), clipHeight: hh,
     ...noListen,
   })
   for (let c = main.sc; c <= main.ec; c++) {
-    drawColHeaderInto(colStrip, c, ROW_HEADER_WIDTH + fw + (geom.colLeft(c) - fw - scrollX), geom, sel)
+    drawColHeaderInto(colStrip, c, hw + fw + (geom.colLeft(c) - fw - scrollX), geom, sel, hh, headerFont)
   }
   layer.add(colStrip)
 
@@ -201,41 +215,41 @@ function renderGridLayer(
     const h = geom.rowHeight(r)
     const active = r >= sel.sr && r <= sel.er
     if (active) {
-      layer.add(new Konva.Rect({ x: 0, y, width: ROW_HEADER_WIDTH, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
+      layer.add(new Konva.Rect({ x: 0, y, width: hw, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
     }
     layer.add(
       new Konva.Text({
-        x: 0, y, width: ROW_HEADER_WIDTH, height: h,
+        x: 0, y, width: hw, height: h,
         text: String(r + 1), align: 'center', verticalAlign: 'middle',
-        fontSize: FONT_SIZE, fontFamily: FONT_FAMILY,
+        fontSize: headerFont, fontFamily: FONT_FAMILY,
         fill: active ? COLOR_HEADER_ACTIVE_TEXT : COLOR_HEADER_TEXT,
         wrap: 'none', ...noListen,
       }),
     )
-    layer.add(new Konva.Line({ points: [0, y, ROW_HEADER_WIDTH, y], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
+    layer.add(new Konva.Line({ points: [0, y, hw, y], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
   }
-  for (let r = 0; r < geom.frozenRows; r++) drawRowHeader(r, COL_HEADER_HEIGHT + geom.rowTop(r))
+  for (let r = 0; r < geom.frozenRows; r++) drawRowHeader(r, hh + geom.rowTop(r))
   const rowStrip = new Konva.Group({
     x: 0, y: 0,
-    clipX: 0, clipY: COL_HEADER_HEIGHT + fh,
-    clipWidth: ROW_HEADER_WIDTH, clipHeight: Math.max(0, viewH - COL_HEADER_HEIGHT - fh),
+    clipX: 0, clipY: hh + fh,
+    clipWidth: hw, clipHeight: Math.max(0, viewH - hh - fh),
     ...noListen,
   })
   for (let r = main.sr; r <= main.er; r++) {
-    drawRowHeaderInto(rowStrip, r, COL_HEADER_HEIGHT + fh + (geom.rowTop(r) - fh - scrollY), geom, sel)
+    drawRowHeaderInto(rowStrip, r, hh + fh + (geom.rowTop(r) - fh - scrollY), geom, sel, hw, headerFont)
   }
   layer.add(rowStrip)
 
   // 表头带外缘分隔线
-  layer.add(new Konva.Line({ points: [0, COL_HEADER_HEIGHT, viewW, COL_HEADER_HEIGHT], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
-  layer.add(new Konva.Line({ points: [ROW_HEADER_WIDTH, 0, ROW_HEADER_WIDTH, viewH], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
+  layer.add(new Konva.Line({ points: [0, hh, viewW, hh], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
+  layer.add(new Konva.Line({ points: [hw, 0, hw, viewH], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
   // 冻结分割线
   if (geom.frozenCols > 0) {
-    const x = ROW_HEADER_WIDTH + fw
+    const x = hw + fw
     layer.add(new Konva.Line({ points: [x, 0, x, viewH], stroke: COLOR_FROZEN_LINE, strokeWidth: 2, ...noListen }))
   }
   if (geom.frozenRows > 0) {
-    const y = COL_HEADER_HEIGHT + fh
+    const y = hh + fh
     layer.add(new Konva.Line({ points: [0, y, viewW, y], stroke: COLOR_FROZEN_LINE, strokeWidth: 2, ...noListen }))
   }
   // 隐藏行列提示：隐藏区塌缩处的表头画双线（按屏幕坐标去重，一段连续隐藏只画一次）
@@ -243,25 +257,25 @@ function renderGridLayer(
   for (const r of sheet.hiddenRows) {
     const y =
       r < geom.frozenRows
-        ? COL_HEADER_HEIGHT + geom.rowTop(r)
-        : COL_HEADER_HEIGHT + fh + (geom.rowTop(r) - fh - scrollY)
-    if (y > COL_HEADER_HEIGHT && y < viewH) rowMarks.add(Math.round(y))
+        ? hh + geom.rowTop(r)
+        : hh + fh + (geom.rowTop(r) - fh - scrollY)
+    if (y > hh && y < viewH) rowMarks.add(Math.round(y))
   }
   for (const y of rowMarks) {
-    layer.add(new Konva.Line({ points: [0, y - 2, ROW_HEADER_WIDTH, y - 2], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
-    layer.add(new Konva.Line({ points: [0, y + 2, ROW_HEADER_WIDTH, y + 2], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+    layer.add(new Konva.Line({ points: [0, y - 2, hw, y - 2], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+    layer.add(new Konva.Line({ points: [0, y + 2, hw, y + 2], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
   }
   const colMarks = new Set<number>()
   for (const c of sheet.hiddenCols) {
     const x =
       c < geom.frozenCols
-        ? ROW_HEADER_WIDTH + geom.colLeft(c)
-        : ROW_HEADER_WIDTH + fw + (geom.colLeft(c) - fw - scrollX)
-    if (x > ROW_HEADER_WIDTH && x < viewW) colMarks.add(Math.round(x))
+        ? hw + geom.colLeft(c)
+        : hw + fw + (geom.colLeft(c) - fw - scrollX)
+    if (x > hw && x < viewW) colMarks.add(Math.round(x))
   }
   for (const x of colMarks) {
-    layer.add(new Konva.Line({ points: [x - 2, 0, x - 2, COL_HEADER_HEIGHT], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
-    layer.add(new Konva.Line({ points: [x + 2, 0, x + 2, COL_HEADER_HEIGHT], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+    layer.add(new Konva.Line({ points: [x - 2, 0, x - 2, hh], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
+    layer.add(new Konva.Line({ points: [x + 2, 0, x + 2, hh], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
   }
 }
 
@@ -272,22 +286,24 @@ function drawColHeaderInto(
   x: number,
   geom: GridGeometry,
   sel: CellRange,
+  hh: number,
+  headerFont: number,
 ): void {
   const w = geom.colWidth(c)
   const active = c >= sel.sc && c <= sel.ec
   if (active) {
-    g.add(new Konva.Rect({ x, y: 0, width: w, height: COL_HEADER_HEIGHT, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
+    g.add(new Konva.Rect({ x, y: 0, width: w, height: hh, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
   }
   g.add(
     new Konva.Text({
-      x, y: 0, width: w, height: COL_HEADER_HEIGHT,
+      x, y: 0, width: w, height: hh,
       text: colName(c), align: 'center', verticalAlign: 'middle',
-      fontSize: FONT_SIZE, fontFamily: FONT_FAMILY,
+      fontSize: headerFont, fontFamily: FONT_FAMILY,
       fill: active ? COLOR_HEADER_ACTIVE_TEXT : COLOR_HEADER_TEXT,
       wrap: 'none', ...noListen,
     }),
   )
-  g.add(new Konva.Line({ points: [x, 0, x, COL_HEADER_HEIGHT], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
+  g.add(new Konva.Line({ points: [x, 0, x, hh], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
 }
 
 function drawRowHeaderInto(
@@ -296,22 +312,24 @@ function drawRowHeaderInto(
   y: number,
   geom: GridGeometry,
   sel: CellRange,
+  hw: number,
+  headerFont: number,
 ): void {
   const h = geom.rowHeight(r)
   const active = r >= sel.sr && r <= sel.er
   if (active) {
-    g.add(new Konva.Rect({ x: 0, y, width: ROW_HEADER_WIDTH, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
+    g.add(new Konva.Rect({ x: 0, y, width: hw, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
   }
   g.add(
     new Konva.Text({
-      x: 0, y, width: ROW_HEADER_WIDTH, height: h,
+      x: 0, y, width: hw, height: h,
       text: String(r + 1), align: 'center', verticalAlign: 'middle',
-      fontSize: FONT_SIZE, fontFamily: FONT_FAMILY,
+      fontSize: headerFont, fontFamily: FONT_FAMILY,
       fill: active ? COLOR_HEADER_ACTIVE_TEXT : COLOR_HEADER_TEXT,
       wrap: 'none', ...noListen,
     }),
   )
-  g.add(new Konva.Line({ points: [0, y, ROW_HEADER_WIDTH, y], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
+  g.add(new Konva.Line({ points: [0, y, hw, y], stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
 }
 
 function renderCellLayer(
@@ -322,11 +340,12 @@ function renderCellLayer(
   scrollY: number,
   viewW: number,
   viewH: number,
+  zoom = 1,
 ): void {
   const evaluator = evaluatorFor(state.doc)
-  for (const q of computeQuadrants(geom, scrollX, scrollY, viewW, viewH)) {
-    const clip = quadrantGroup(q)
-    renderCellsInto(clip.children[0] as Konva.Group, state, geom, evaluator, q)
+  for (const q of computeQuadrants(geom, scrollX, scrollY, viewW, viewH, zoom)) {
+    const clip = quadrantGroup(q, zoom)
+    renderCellsInto(clip.children[0] as Konva.Group, state, geom, evaluator, q, zoom)
     layer.add(clip)
   }
 }
@@ -338,6 +357,7 @@ function renderCellsInto(
   geom: GridGeometry,
   evaluator: CellEvaluator,
   q: { sr: number; sc: number; er: number; ec: number },
+  zoom = 1,
 ): void {
   const sheet = state.activeSheet
   const sheetId = state.doc.active
@@ -380,7 +400,7 @@ function renderCellsInto(
       const e = resolveVEdge(sheet, r, c)
       if (!e) continue
       const x = geom.colLeft(c)
-      drawBorderEdge(inner, [x, geom.rowTop(r), x, geom.rowTop(r) + geom.rowHeight(r)], e)
+      drawBorderEdge(inner, [x, geom.rowTop(r), x, geom.rowTop(r) + geom.rowHeight(r)], e, zoom)
     }
   }
   for (let r = q.sr; r <= q.er + 1; r++) {
@@ -388,7 +408,7 @@ function renderCellsInto(
       const e = resolveHEdge(sheet, r, c)
       if (!e) continue
       const y = geom.rowTop(r)
-      drawBorderEdge(inner, [geom.colLeft(c), y, geom.colLeft(c) + geom.colWidth(c), y], e)
+      drawBorderEdge(inner, [geom.colLeft(c), y, geom.colLeft(c) + geom.colWidth(c), y], e, zoom)
     }
   }
   // 合并区：白底盖网格线 → 锚点 bg → 外框 → 锚点文字
@@ -401,7 +421,7 @@ function renderCellsInto(
       inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, fill: anchorBg, ...noListen }))
     }
     inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, stroke: COLOR_GRID, strokeWidth: 1, ...noListen }))
-    if (anchor && anchor.raw !== '') drawCellText(inner, evaluator, sheetId, m.sr, m.sc, anchor, geom.rangeRect(m), cfOf(m.sr, m.sc))
+    if (anchor && anchor.raw !== '') drawCellText(inner, evaluator, sheetId, m.sr, m.sc, anchor, geom.rangeRect(m), cfOf(m.sr, m.sc), zoom)
   }
   // 文字（合并区内的格跳过）
   for (let r = q.sr; r <= q.er; r++) {
@@ -409,21 +429,21 @@ function renderCellsInto(
       if (merges.some((m) => r >= m.sr && r <= m.er && c >= m.sc && c <= m.ec)) continue
       const cell = sheet.getCell(r, c)
       if (!cell || cell.raw === '') continue
-      drawCellText(inner, evaluator, sheetId, r, c, cell, geom.cellRect(r, c), cfOf(r, c))
+      drawCellText(inner, evaluator, sheetId, r, c, cell, geom.cellRect(r, c), cfOf(r, c), zoom)
     }
   }
-  // 筛选箭头：筛选区域表头行各列右缘小三角；有生效 criteria 的列高亮
+  // 筛选箭头：筛选区域表头行各列右缘小三角（偏移 ×zoom）；有生效 criteria 的列高亮
   const f = sheet.filter
   if (f && f.range.sr >= q.sr && f.range.sr <= q.er) {
     for (let c = Math.max(f.range.sc, q.sc); c <= Math.min(f.range.ec, q.ec); c++) {
       const rect = geom.cellRect(f.range.sr, c)
-      const cx = rect.x + rect.w - 13
+      const cx = rect.x + rect.w - 13 * zoom
       const cy = rect.y + rect.h / 2
       const crit = f.criteria[c]
       const on = crit !== undefined && (crit.type !== 'values' || crit.excluded.length > 0)
       inner.add(
         new Konva.Line({
-          points: [cx - 4, cy - 3, cx + 4, cy - 3, cx, cy + 3],
+          points: [cx - 4 * zoom, cy - 3 * zoom, cx + 4 * zoom, cy - 3 * zoom, cx, cy + 3 * zoom],
           closed: true,
           fill: on ? '#1a73e8' : '#9aa0a6',
           ...noListen,
@@ -442,6 +462,7 @@ function drawCellText(
   cell: { raw: string; style?: import('../core/model').CellStyle },
   rect: { x: number; y: number; w: number; h: number },
   cf?: CFStyle,
+  zoom = 1,
 ): void {
   const text = evaluator.displayText(sheetId, r, c)
   if (text === '') return
@@ -469,14 +490,14 @@ function drawCellText(
   const g = new Konva.Group({ clipX: rect.x, clipY: rect.y, clipWidth: rect.w, clipHeight: rect.h, ...noListen })
   g.add(
     new Konva.Text({
-      x: rect.x + CELL_PAD_X,
+      x: rect.x + CELL_PAD_X * zoom,
       y: rect.y,
-      width: Math.max(0, rect.w - CELL_PAD_X * 2),
+      width: Math.max(0, rect.w - CELL_PAD_X * zoom * 2),
       height: rect.h,
       text,
       align,
       verticalAlign: style.vAlign ?? 'bottom',
-      fontSize: style.fontSize ?? FONT_SIZE,
+      fontSize: (style.fontSize ?? FONT_SIZE) * zoom,
       fontFamily: style.fontFamily ?? FONT_FAMILY,
       fontStyle,
       textDecoration: style.underline
@@ -502,17 +523,19 @@ function renderOverlayLayer(
   scrollY: number,
   viewW: number,
   viewH: number,
+  zoom = 1,
 ): void {
   const sel = state.selection
   const rr = geom.rangeRect(selectionRange(sel))
   const fr = geom.cellRect(sel.focus.row, sel.focus.col)
   const preview = state.getField(fillPreviewKey) as CellRange | null | undefined
   const guide = state.getField(resizeGuideKey) as ResizeGuide | null | undefined
+  const fhSize = fillHandleSize(zoom)
 
-  for (const q of computeQuadrants(geom, scrollX, scrollY, viewW, viewH)) {
-    const clip = quadrantGroup(q)
+  for (const q of computeQuadrants(geom, scrollX, scrollY, viewW, viewH, zoom)) {
+    const clip = quadrantGroup(q, zoom)
     const inner = clip.children[0] as Konva.Group
-    // 选区填充 + 边框（clip 自然按象限分裂）
+    // 选区填充 + 边框（clip 自然按象限分裂）；2px 蓝框有意不缩放（视觉锚定）
     inner.add(new Konva.Rect({ x: rr.x, y: rr.y, width: rr.w, height: rr.h, fill: COLOR_SELECT_FILL, ...noListen }))
     inner.add(new Konva.Rect({ x: rr.x, y: rr.y, width: rr.w, height: rr.h, stroke: COLOR_SELECT_BORDER, strokeWidth: 2, ...noListen }))
     // 活动格边框
@@ -520,10 +543,10 @@ function renderOverlayLayer(
     // 填充手柄
     inner.add(
       new Konva.Rect({
-        x: rr.x + rr.w - FILL_HANDLE_SIZE / 2,
-        y: rr.y + rr.h - FILL_HANDLE_SIZE / 2,
-        width: FILL_HANDLE_SIZE,
-        height: FILL_HANDLE_SIZE,
+        x: rr.x + rr.w - fhSize / 2,
+        y: rr.y + rr.h - fhSize / 2,
+        width: fhSize,
+        height: fhSize,
         fill: COLOR_SELECT_BORDER,
         stroke: '#ffffff',
         strokeWidth: 1,
@@ -547,7 +570,7 @@ function renderOverlayLayer(
   }
 }
 
-// 滚动条：overlay 层屏幕坐标绘制（不进象限 clip）
+// 滚动条：overlay 层屏幕坐标绘制（不进象限 clip）；厚度/表头偏移随 zoom 缩放
 function renderScrollbars(
   layer: Konva.Layer,
   geom: GridGeometry,
@@ -555,8 +578,13 @@ function renderScrollbars(
   scrollY: number,
   viewW: number,
   viewH: number,
+  zoom = 1,
 ): void {
-  const bars = [hScrollbar(geom.contentWidth, scrollX, viewW, viewH), vScrollbar(geom.contentHeight, scrollY, viewW, viewH)]
+  const sb = SB_SIZE * zoom
+  const bars = [
+    hScrollbar(geom.contentWidth, scrollX, viewW, viewH, sb, ROW_HEADER_WIDTH * zoom),
+    vScrollbar(geom.contentHeight, scrollY, viewW, viewH, sb, COL_HEADER_HEIGHT * zoom),
+  ]
   for (const b of bars) {
     if (!b) continue
     layer.add(new Konva.Rect({ x: b.track.x, y: b.track.y, width: b.track.w, height: b.track.h, fill: '#f1f3f4', ...noListen }))

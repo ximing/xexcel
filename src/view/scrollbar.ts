@@ -25,14 +25,29 @@ function geom(track: Rect, viewportLen: number, contentLen: number, scroll: numb
   return { track, thumb, maxScroll, ratio }
 }
 
-export function hScrollbar(contentWidth: number, scrollX: number, viewW: number, viewH: number): ScrollbarGeom | null {
-  const track: Rect = { x: ROW_HEADER_WIDTH, y: viewH - SB_SIZE, w: viewW - ROW_HEADER_WIDTH - SB_SIZE, h: SB_SIZE }
-  return geom(track, viewW - ROW_HEADER_WIDTH, contentWidth, scrollX, false)
+// sb/headerW/headerH 由调用侧按 zoom 换算后传入（缺省 zoom=1 的原值）
+export function hScrollbar(
+  contentWidth: number,
+  scrollX: number,
+  viewW: number,
+  viewH: number,
+  sb = SB_SIZE,
+  headerW = ROW_HEADER_WIDTH,
+): ScrollbarGeom | null {
+  const track: Rect = { x: headerW, y: viewH - sb, w: viewW - headerW - sb, h: sb }
+  return geom(track, viewW - headerW, contentWidth, scrollX, false)
 }
 
-export function vScrollbar(contentHeight: number, scrollY: number, viewW: number, viewH: number): ScrollbarGeom | null {
-  const track: Rect = { x: viewW - SB_SIZE, y: COL_HEADER_HEIGHT, w: SB_SIZE, h: viewH - COL_HEADER_HEIGHT - SB_SIZE }
-  return geom(track, viewH - COL_HEADER_HEIGHT, contentHeight, scrollY, true)
+export function vScrollbar(
+  contentHeight: number,
+  scrollY: number,
+  viewW: number,
+  viewH: number,
+  sb = SB_SIZE,
+  headerH = COL_HEADER_HEIGHT,
+): ScrollbarGeom | null {
+  const track: Rect = { x: viewW - sb, y: headerH, w: sb, h: viewH - headerH - sb }
+  return geom(track, viewH - headerH, contentHeight, scrollY, true)
 }
 
 export function thumbHit(g: ScrollbarGeom, x: number, y: number): boolean {
@@ -46,9 +61,10 @@ export function contentViewport(
   contentH: number,
   w0: number,
   h0: number,
+  sb = SB_SIZE,
 ): { w: number; h: number } {
   const needH = contentW > w0
-  const needV = contentH > (needH ? h0 - SB_SIZE : h0)
-  const needH2 = contentW > (needV ? w0 - SB_SIZE : w0)
-  return { w: needV ? w0 - SB_SIZE : w0, h: needH2 ? h0 - SB_SIZE : h0 }
+  const needV = contentH > (needH ? h0 - sb : h0)
+  const needH2 = contentW > (needV ? w0 - sb : w0)
+  return { w: needV ? w0 - sb : w0, h: needH2 ? h0 - sb : h0 }
 }

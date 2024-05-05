@@ -137,6 +137,65 @@ body {
   flex: none;
 }
 
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 缩放控件：百分比按钮 + 向上弹出的档位菜单 */
+.status-zoom-wrap {
+  position: relative;
+}
+
+.status-zoom {
+  border: none;
+  background: transparent;
+  color: #5f6368;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.status-zoom:hover {
+  background: #e8eaed;
+}
+
+.zoom-menu {
+  position: absolute;
+  right: 0;
+  bottom: 26px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  z-index: 30;
+}
+
+.zoom-item {
+  border: none;
+  background: transparent;
+  color: #202124;
+  font-size: 12px;
+  text-align: right;
+  padding: 4px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.zoom-item:hover {
+  background: #f1f3f4;
+}
+
+.zoom-item.active {
+  color: #1a73e8;
+  font-weight: 600;
+}
+
 /* SheetTabBar 28px */
 .sheet-tab-bar {
   height: 28px;

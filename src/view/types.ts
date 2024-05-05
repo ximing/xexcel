@@ -59,3 +59,6 @@ export const contextMenuKey = new PluginKey('contextMenu')
 
 // 标签栏重命名请求（ContextMenu → SheetTabBar 进入改名输入态）
 export const tabRenameKey = new PluginKey('tabRename')
+
+// 每表缩放档位（{ sheetId: zoom }，zoom=1 为 100%）；非文档态，不入 undo、不持久化
+export const zoomKey = new PluginKey('zoom')

@@ -30,6 +30,7 @@ export class GridGeometry {
     frozenCols = 0,
     extraHiddenRows?: ReadonlySet<number>,
     autoRows?: ReadonlyMap<number, number>,
+    readonly zoom = 1,
   ) {
     this.frozenRows = frozenRows
     this.frozenCols = frozenCols
@@ -44,10 +45,10 @@ export class GridGeometry {
           : sheet.customRowHeights.has(r)
             ? base
             : Math.max(base, autoRows?.get(r) ?? 0)
-      this.rowTops.push(this.rowTops[r] + h)
+      this.rowTops.push(this.rowTops[r] + h * zoom)
     }
     this.colLefts = [0]
-    for (let c = 0; c < sheet.colCount; c++) this.colLefts.push(this.colLefts[c] + sheet.colWidth(c))
+    for (let c = 0; c < sheet.colCount; c++) this.colLefts.push(this.colLefts[c] + sheet.colWidth(c) * zoom)
   }
 
   get contentWidth(): number {
