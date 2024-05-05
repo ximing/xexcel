@@ -1,22 +1,18 @@
-// Sheet 标签栏：增/删/改名/切换/拖动排序。纯投影组件：读 useSheetState 快照，
+// Sheet 标签栏：增/删/改名/切换/拖动排序/右键菜单。纯投影组件：读 useSheetState 快照，
 // 写操作一律 view.dispatch(tr)。切换表不入 undo 栈并重置选区到 A1。
+// 增/删/改名逻辑在 sheetOps.ts（与右键菜单共用）。
 // 拖拽排序：mousedown 记起点 → window mousemove 超 5px 进入拖拽 → 按 clientX 与
 // 各 tab 中点算插入位并渲染指示线 → mouseup 派发 moveSheet；Esc 取消；
 // 拖拽结束后抑制紧随的 click（避免误触切换表）。
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { nextSheetId, nextSheetName, SheetData } from '../core/model'
 import { singleCell } from '../core/selection'
 import type { EditorView } from '../view/editorview'
+import { contextMenuKey, tabRenameKey } from '../view/types'
 import { useSheetState } from './bridge'
+import { addSheet, removeSheet, renameSheet } from './sheetOps'
 
 interface Props {
   view: EditorView
-}
-
-// 空表判定：usedRange 为单格且该格无内容（usedRange 对空表返回全 0）
-function isSheetEmpty(data: SheetData): boolean {
-  const r = data.usedRange()
-  return r.sr === 0 && r.sc === 0 && r.er === 0 && r.ec === 0 && !data.getCell(0, 0)
 }
 
 // 一次拖拽会话：active=false 表示已按下但未越阈值（仍视为点击）
@@ -106,51 +102,28 @@ export function SheetTabBar({ view }: Props) {
     view.focus()
   }
 
-  const addSheet = (): void => {
-    // 用 view.state（始终最新）而非渲染快照：快速连点时 hook 快照可能过期，
-    // 过期快照会算出重复 id 导致插入变 no-op（e2e 观察 a）
-    const st = view.state
-    const id = nextSheetId(st.doc)
-    const name = nextSheetName(st.doc)
-    const config = { rowCount: st.activeSheet.rowCount, colCount: st.activeSheet.colCount }
-    view.dispatch(st.tr.insertSheet(id, name, config).setSelection(singleCell(0, 0)))
-    view.focus()
-  }
-
-  const removeSheet = (id: string, name: string): void => {
-    if (state.doc.order.length <= 1) return
-    if (!isSheetEmpty(state.doc.sheet(id))) {
-      if (!window.confirm(`确定删除工作表「${name}」？可通过撤销恢复。`)) return
-    }
-    const tr = state.tr.removeSheet(id)
-    if (id === state.doc.active) tr.setSelection(singleCell(0, 0))
-    view.dispatch(tr)
-    view.focus()
-  }
-
   const startRename = (id: string): void => {
     setEditingId(id)
-    setDraft(state.doc.names.get(id) ?? '')
+    setDraft(view.state.doc.names.get(id) ?? '')
   }
+
+  // 右键菜单「重命名」请求：进入改名输入态后清 key（不入 undo）
+  const renameReq = state.getField(tabRenameKey) as string | null | undefined
+  useEffect(() => {
+    if (!renameReq) return
+    if (view.state.doc.order.includes(renameReq)) startRename(renameReq)
+    view.dispatch(view.state.tr.setMeta(tabRenameKey, null).setMeta('addToHistory', false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renameReq, view])
 
   const commitRename = (id: string): void => {
     setEditingId(null)
-    const name = draft.trim()
-    if (name === '' || name === state.doc.names.get(id)) return
-    const dup = [...state.doc.names.entries()].some(
-      ([other, n]) => other !== id && n.toLowerCase() === name.toLowerCase(),
-    )
-    if (dup) {
-      window.alert(`工作表名称重复：${name}`)
-      return
-    }
-    view.dispatch(state.tr.renameSheet(id, name))
-    view.focus()
+    renameSheet(view, id, draft)
   }
 
   return (
     <div className="sheet-tab-bar" ref={barRef}>
-      <button className="sheet-tab-add" title="新增工作表" onClick={addSheet}>
+      <button className="sheet-tab-add" title="新增工作表" onClick={() => addSheet(view)}>
         +
       </button>
       {state.doc.order.map((id, index) => {
@@ -198,6 +171,14 @@ export function SheetTabBar({ view }: Props) {
               }}
               onClick={() => switchTo(id)}
               onDoubleClick={() => startRename(id)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                view.dispatch(
+                  view.state.tr
+                    .setMeta(contextMenuKey, { kind: 'tab', x: e.clientX, y: e.clientY, row: -1, col: -1, sheet: id })
+                    .setMeta('addToHistory', false),
+                )
+              }}
             >
               <span>{name}</span>
               {state.doc.order.length > 1 ? (
@@ -206,7 +187,7 @@ export function SheetTabBar({ view }: Props) {
                   title="删除工作表"
                   onClick={(e) => {
                     e.stopPropagation()
-                    removeSheet(id, name)
+                    removeSheet(view, id, name)
                   }}
                 >
                   ×

@@ -1,6 +1,7 @@
 // 应用外壳：Toolbar → FormulaBar → grid（EditorView mount 点）→ StatusBar。
 // EditorView 在 useEffect 内一次性创建，unmount 时 destroy。
 import { useEffect, useRef, useState } from 'react'
+import { ContextMenu } from '../react/ContextMenu'
 import { FilterDropdown } from '../react/FilterDropdown'
 import { FindBar } from '../react/FindBar'
 import { FormulaBar } from '../react/FormulaBar'
@@ -36,6 +37,7 @@ export function App() {
       {view ? <SheetTabBar view={view} /> : null}
       {view ? <StatusBar view={view} /> : null}
       {view ? <FilterDropdown view={view} /> : null}
+      {view ? <ContextMenu view={view} /> : null}
     </div>
   )
 }

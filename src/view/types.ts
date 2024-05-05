@@ -45,3 +45,17 @@ export interface FormatPainterState {
   locked: boolean
 }
 export const formatPainterKey = new PluginKey('formatPainter')
+
+// 右键菜单开启态（React 浮层定位）；null=关闭
+export interface ContextMenuOpen {
+  kind: 'cell' | 'rowheader' | 'colheader' | 'tab'
+  x: number // client 坐标
+  y: number
+  row: number
+  col: number
+  sheet?: import('../core/model').SheetId // kind='tab'
+}
+export const contextMenuKey = new PluginKey('contextMenu')
+
+// 标签栏重命名请求（ContextMenu → SheetTabBar 进入改名输入态）
+export const tabRenameKey = new PluginKey('tabRename')

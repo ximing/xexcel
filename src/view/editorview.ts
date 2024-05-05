@@ -14,7 +14,7 @@ import { openEditor } from './editbox'
 import { GridGeometry } from './geometry'
 import { FILL_HANDLE_SIZE, renderAll } from './layers'
 import { contentViewport, hScrollbar, thumbHit, vScrollbar } from './scrollbar'
-import { HitResult, Rect } from './types'
+import { HitResult, Rect, contextMenuKey } from './types'
 
 export interface DirectEditorProps {
   state: SheetState
@@ -353,6 +353,7 @@ export class EditorView implements EditorViewLike {
     const content = this.stage.content
     content.addEventListener('mousedown', this.onMouseDown)
     content.addEventListener('dblclick', this.onDblClick)
+    content.addEventListener('contextmenu', this.onContextMenu)
     content.addEventListener('wheel', this.onWheel, { passive: false })
     window.addEventListener('mousemove', this.onMouseMove)
     window.addEventListener('mouseup', this.onMouseUp)
@@ -394,6 +395,47 @@ export class EditorView implements EditorViewLike {
     if (hit.region === 'cell') {
       this.dispatch(this.state.tr.setSelection(singleCell(hit.row, hit.col)).scrollIntoView())
       this.focus()
+    }
+  }
+
+  // 右键：点在选区外先改选区（整行/列头同理），再开菜单（不入 undo）
+  private onContextMenu = (e: MouseEvent): void => {
+    e.preventDefault()
+    const hit = this.hitTest(e.clientX, e.clientY)
+    const st = this.state
+    const sheet = st.activeSheet
+    const sel = selectionRange(st.selection)
+    const tr = st.tr
+    const openMenu = (kind: 'cell' | 'rowheader' | 'colheader', row: number, col: number): void => {
+      tr.setMeta(contextMenuKey, { kind, x: e.clientX, y: e.clientY, row, col }).setMeta('addToHistory', false)
+      this.dispatch(tr)
+    }
+    switch (hit.region) {
+      case 'cell':
+      case 'filter': {
+        const inSel = hit.row >= sel.sr && hit.row <= sel.er && hit.col >= sel.sc && hit.col <= sel.ec
+        if (!inSel) tr.setSelection(singleCell(hit.row, hit.col))
+        openMenu('cell', hit.row, hit.col)
+        break
+      }
+      case 'rowheader': {
+        const fullRows = sel.sc === 0 && sel.ec === sheet.colCount - 1
+        if (!(fullRows && hit.row >= sel.sr && hit.row <= sel.er)) {
+          tr.setSelection({ anchor: { row: hit.row, col: 0 }, focus: { row: hit.row, col: sheet.colCount - 1 } })
+        }
+        openMenu('rowheader', hit.row, -1)
+        break
+      }
+      case 'colheader': {
+        const fullCols = sel.sr === 0 && sel.er === sheet.rowCount - 1
+        if (!(fullCols && hit.col >= sel.sc && hit.col <= sel.ec)) {
+          tr.setSelection({ anchor: { row: 0, col: hit.col }, focus: { row: sheet.rowCount - 1, col: hit.col } })
+        }
+        openMenu('colheader', -1, hit.col)
+        break
+      }
+      default:
+        break // 滚动条/角落/外部不弹
     }
   }
 
