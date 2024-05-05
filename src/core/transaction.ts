@@ -2,7 +2,7 @@ import { CellRange, normalizeRange } from './addr'
 import { Cell, CellStyle, CondFormatRule, FilterState, SheetConfig, SheetData, SheetId, Workbook } from './model'
 import { Selection } from './selection'
 import { PatchStyleStep, ResizeStep, RestoreStyleStep, SetCellsStep, SetCondFormatsStep, SetFilterStep, SetFreezeStep, SetHiddenStep, SetMergesStep, Step, StructureStep } from './steps'
-import { InsertSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
+import { InsertSheetStep, MoveSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
 import type { PluginKey } from './plugin'
 import type { SheetState } from './state'
 
@@ -82,6 +82,11 @@ export class Transaction {
 
   renameSheet(id: SheetId, name: string): this {
     return this._pushStep(new RenameSheetStep(id, name))
+  }
+
+  // 移动表位置（标签拖动排序/右键左移右移）
+  moveSheet(id: SheetId, toIndex: number): this {
+    return this._pushStep(new MoveSheetStep(id, toIndex))
   }
 
   // 调用侧配 setMeta('addToHistory', false)；并自行 setSelection 防止选区越界

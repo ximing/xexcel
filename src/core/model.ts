@@ -526,6 +526,18 @@ export class Workbook {
     return new Workbook(sheets, order, active, names)
   }
 
+  // 移动表位置（active 不变；toIndex 先 clamp）
+  moveSheet(id: SheetId, toIndex: number): Workbook {
+    const from = this.order.indexOf(id)
+    if (from < 0) throw new Error(`sheet not found: ${id}`)
+    const to = Math.max(0, Math.min(toIndex, this.order.length - 1))
+    if (to === from) return this
+    const order = [...this.order]
+    order.splice(from, 1)
+    order.splice(to, 0, id)
+    return new Workbook(this.sheets, order, this.active, this.names)
+  }
+
   renameSheet(id: SheetId, name: string): Workbook {
     if (!this.sheets.has(id)) throw new Error(`sheet not found: ${id}`)
     const names = new Map(this.names)

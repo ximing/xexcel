@@ -148,6 +148,16 @@ body {
   background: #f8f9fa;
   flex: none;
   overflow-x: auto;
+  user-select: none;
+}
+
+/* 标签拖动排序的插入位指示线 */
+.sheet-tab-indicator {
+  width: 2px;
+  background: #1a73e8;
+  align-self: stretch;
+  margin: 2px 0;
+  flex: none;
 }
 
 .sheet-tab-add {

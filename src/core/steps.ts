@@ -289,6 +289,26 @@ export class RenameSheetStep extends Step {
   }
 }
 
+// 移动工作表位置（标签拖动排序/右键左移右移）
+export class MoveSheetStep extends Step {
+  constructor(readonly sheet: SheetId, readonly toIndex: number) {
+    super()
+  }
+  apply(doc: Workbook): StepResult {
+    if (!doc.sheets.has(this.sheet)) return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    if (this.toIndex < 0 || this.toIndex >= doc.order.length) {
+      return { ok: false, failed: `index out of bounds: ${this.toIndex}` }
+    }
+    return { ok: true, doc: doc.moveSheet(this.sheet, this.toIndex) }
+  }
+  invert(beforeDoc: Workbook): Step {
+    return new MoveSheetStep(this.sheet, beforeDoc.order.indexOf(this.sheet))
+  }
+  toJSON(): unknown {
+    return { type: 'moveSheet', sheet: this.sheet, toIndex: this.toIndex }
+  }
+}
+
 // 切换活动表。调用侧应配 tr.setMeta('addToHistory', false) 不入 undo 栈。
 export class SetActiveSheetStep extends Step {
   constructor(readonly sheet: SheetId) {
@@ -679,6 +699,8 @@ export function stepFromJSON(json: any): Step {
       return new RemoveSheetStep(json.sheet, json.restoreActive ?? null)
     case 'renameSheet':
       return new RenameSheetStep(json.sheet, json.name)
+    case 'moveSheet':
+      return new MoveSheetStep(json.sheet, json.toIndex)
     case 'setActiveSheet':
       return new SetActiveSheetStep(json.sheet)
     case 'setMerges':
