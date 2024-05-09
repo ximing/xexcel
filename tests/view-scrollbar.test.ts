@@ -31,6 +31,23 @@ describe('scrollbar geom', () => {
     expect(thumbHit(g, 795, 30)).toBe(true)
     expect(thumbHit(g, 795, 500)).toBe(false)
   })
+  it('双条场景：otherVisible 扣减对侧厚度', () => {
+    // 内容 2496×2400，contentViewport 判定双条均存在（vp 740×562）
+    const vp = contentViewport(2496, 2400, 800 - 48, 600 - 26)
+    expect(vp).toEqual({ w: 800 - 48 - SB_SIZE, h: 600 - 26 - SB_SIZE })
+    const vg = vScrollbar(2400, 0, 800, 600, SB_SIZE, 26, true)!
+    expect(vg.maxScroll).toBe(2400 - (600 - 26 - SB_SIZE))
+    const hg = hScrollbar(2496, 0, 800, 600, SB_SIZE, 48, true)!
+    expect(hg.maxScroll).toBe(2496 - (800 - 48 - SB_SIZE))
+  })
+  it('双条场景：滚到底 thumb 不越出轨道', () => {
+    const vg0 = vScrollbar(2400, 0, 800, 600, SB_SIZE, 26, true)!
+    const vg = vScrollbar(2400, vg0.maxScroll, 800, 600, SB_SIZE, 26, true)!
+    expect(vg.thumb.y + vg.thumb.h).toBeCloseTo(vg.track.y + vg.track.h, 5)
+    const hg0 = hScrollbar(2496, 0, 800, 600, SB_SIZE, 48, true)!
+    const hg = hScrollbar(2496, hg0.maxScroll, 800, 600, SB_SIZE, 48, true)!
+    expect(hg.thumb.x + hg.thumb.w).toBeCloseTo(hg.track.x + hg.track.w, 5)
+  })
 })
 
 describe('contentViewport', () => {

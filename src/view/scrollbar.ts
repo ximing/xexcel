@@ -25,7 +25,8 @@ function geom(track: Rect, viewportLen: number, contentLen: number, scroll: numb
   return { track, thumb, maxScroll, ratio }
 }
 
-// sb/headerW/headerH 由调用侧按 zoom 换算后传入（缺省 zoom=1 的原值）
+// sb/headerW/headerH 由调用侧按 zoom 换算后传入（缺省 zoom=1 的原值）。
+// otherVisible：对侧滚动条存在时，viewportLen 再扣 sb，thumb/maxScroll 与实际可视一致
 export function hScrollbar(
   contentWidth: number,
   scrollX: number,
@@ -33,9 +34,10 @@ export function hScrollbar(
   viewH: number,
   sb = SB_SIZE,
   headerW = ROW_HEADER_WIDTH,
+  otherVisible = false,
 ): ScrollbarGeom | null {
   const track: Rect = { x: headerW, y: viewH - sb, w: viewW - headerW - sb, h: sb }
-  return geom(track, viewW - headerW, contentWidth, scrollX, false)
+  return geom(track, viewW - headerW - (otherVisible ? sb : 0), contentWidth, scrollX, false)
 }
 
 export function vScrollbar(
@@ -45,9 +47,10 @@ export function vScrollbar(
   viewH: number,
   sb = SB_SIZE,
   headerH = COL_HEADER_HEIGHT,
+  otherVisible = false,
 ): ScrollbarGeom | null {
   const track: Rect = { x: viewW - sb, y: headerH, w: sb, h: viewH - headerH - sb }
-  return geom(track, viewH - headerH, contentHeight, scrollY, true)
+  return geom(track, viewH - headerH - (otherVisible ? sb : 0), contentHeight, scrollY, true)
 }
 
 export function thumbHit(g: ScrollbarGeom, x: number, y: number): boolean {

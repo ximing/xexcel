@@ -156,6 +156,15 @@ export class EditorView implements EditorViewLike {
     return false
   }
 
+  // 内容视口与双条存在性：纵条存在 ⇔ vp.w < w0（纵条占宽），横条存在 ⇔ vp.h < h0
+  private viewportWithBars(geom: GridGeometry): { vp: { w: number; h: number }; hVisible: boolean; vVisible: boolean } {
+    const z = this.zoom()
+    const w0 = this.stage.width() - ROW_HEADER_WIDTH * z
+    const h0 = this.stage.height() - COL_HEADER_HEIGHT * z
+    const vp = contentViewport(geom.contentWidth, geom.contentHeight, w0, h0, SB_SIZE * z)
+    return { vp, hVisible: vp.h < h0, vVisible: vp.w < w0 }
+  }
+
   hitTest(clientX: number, clientY: number): HitResult {
     const rect = this.dom.getBoundingClientRect()
     const x = clientX - rect.left
@@ -170,11 +179,12 @@ export class EditorView implements EditorViewLike {
     const sb = SB_SIZE * z
     // 滚动条区域优先于其他命中
     const geom0 = this.geometry()
-    const vg = vScrollbar(geom0.contentHeight, this.scrollY, this.stage.width(), this.stage.height(), sb, hh)
+    const { hVisible, vVisible } = this.viewportWithBars(geom0)
+    const vg = vScrollbar(geom0.contentHeight, this.scrollY, this.stage.width(), this.stage.height(), sb, hh, hVisible)
     if (vg && x >= vg.track.x && y >= vg.track.y && y <= vg.track.y + vg.track.h) {
       return { region: 'vscrollbar', row: -1, col: -1 }
     }
-    const hg = hScrollbar(geom0.contentWidth, this.scrollX, this.stage.width(), this.stage.height(), sb, hw)
+    const hg = hScrollbar(geom0.contentWidth, this.scrollX, this.stage.width(), this.stage.height(), sb, hw, vVisible)
     if (hg && y >= hg.track.y && x >= hg.track.x && x <= hg.track.x + hg.track.w) {
       return { region: 'hscrollbar', row: -1, col: -1 }
     }
@@ -396,10 +406,11 @@ export class EditorView implements EditorViewLike {
       const hw = ROW_HEADER_WIDTH * z
       const hh = COL_HEADER_HEIGHT * z
       const sb = SB_SIZE * z
+      const { vp, hVisible, vVisible } = this.viewportWithBars(geom)
       const g =
         hit.region === 'vscrollbar'
-          ? vScrollbar(geom.contentHeight, this.scrollY, this.stage.width(), this.stage.height(), sb, hh)
-          : hScrollbar(geom.contentWidth, this.scrollX, this.stage.width(), this.stage.height(), sb, hw)
+          ? vScrollbar(geom.contentHeight, this.scrollY, this.stage.width(), this.stage.height(), sb, hh, hVisible)
+          : hScrollbar(geom.contentWidth, this.scrollX, this.stage.width(), this.stage.height(), sb, hw, vVisible)
       if (!g) return
       const rect = this.dom.getBoundingClientRect()
       const x = e.clientX - rect.left
@@ -408,8 +419,8 @@ export class EditorView implements EditorViewLike {
       if (thumbHit(g, x, y)) {
         this.sbDrag = { axis, startScroll: axis === 'v' ? this.scrollY : this.scrollX, startPos: axis === 'v' ? y : x, ratio: g.ratio }
       } else {
-        // 点轨道翻页（向点击方向滚一个视口）
-        const page = axis === 'v' ? this.stage.height() - hh : this.stage.width() - hw
+        // 点轨道翻页（向点击方向滚一个内容视口，自动扣对侧条厚度）
+        const page = axis === 'v' ? vp.h : vp.w
         const onThumbSide = axis === 'v' ? y > g.thumb.y + g.thumb.h : x > g.thumb.x + g.thumb.w
         if (axis === 'v') this.scrollY += onThumbSide ? page : -page
         else this.scrollX += onThumbSide ? page : -page

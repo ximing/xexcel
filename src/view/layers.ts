@@ -14,7 +14,7 @@ import { evaluatorFor } from '../formula/engine'
 import { condFormatStyle, duplicateSets } from '../formula/condformat'
 import { GridGeometry } from './geometry'
 import { CELL_PAD_X } from './measure'
-import { hScrollbar, SB_SIZE, vScrollbar } from './scrollbar'
+import { contentViewport, hScrollbar, SB_SIZE, vScrollbar } from './scrollbar'
 import { fillPreviewKey, ResizeGuide, resizeGuideKey } from './types'
 
 const COLOR_GRID = '#d9dce1'
@@ -183,6 +183,7 @@ function renderGridLayer(
   // 列头：冻结段（不滚）+ 可滚段（clip 到冻结线右侧）
   const drawColHeader = (c: number, x: number): void => {
     const w = geom.colWidth(c)
+    if (w === 0) return // 隐藏列不画表头
     const active = c >= sel.sc && c <= sel.ec
     if (active) {
       layer.add(new Konva.Rect({ x, y: 0, width: w, height: hh, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -213,6 +214,7 @@ function renderGridLayer(
   // 行头：冻结段 + 可滚段（clip 到冻结线下侧）
   const drawRowHeader = (r: number, y: number): void => {
     const h = geom.rowHeight(r)
+    if (h === 0) return // 隐藏行不画表头
     const active = r >= sel.sr && r <= sel.er
     if (active) {
       layer.add(new Konva.Rect({ x: 0, y, width: hw, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -290,6 +292,7 @@ function drawColHeaderInto(
   headerFont: number,
 ): void {
   const w = geom.colWidth(c)
+  if (w === 0) return // 隐藏列不画表头
   const active = c >= sel.sc && c <= sel.ec
   if (active) {
     g.add(new Konva.Rect({ x, y: 0, width: w, height: hh, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -316,6 +319,7 @@ function drawRowHeaderInto(
   headerFont: number,
 ): void {
   const h = geom.rowHeight(r)
+  if (h === 0) return // 隐藏行不画表头
   const active = r >= sel.sr && r <= sel.er
   if (active) {
     g.add(new Konva.Rect({ x: 0, y, width: hw, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
@@ -581,9 +585,13 @@ function renderScrollbars(
   zoom = 1,
 ): void {
   const sb = SB_SIZE * zoom
+  // 双条存在性互判：纵条存在 ⇔ 视口宽被扣，横条存在 ⇔ 视口高被扣
+  const w0 = viewW - ROW_HEADER_WIDTH * zoom
+  const h0 = viewH - COL_HEADER_HEIGHT * zoom
+  const vp = contentViewport(geom.contentWidth, geom.contentHeight, w0, h0, sb)
   const bars = [
-    hScrollbar(geom.contentWidth, scrollX, viewW, viewH, sb, ROW_HEADER_WIDTH * zoom),
-    vScrollbar(geom.contentHeight, scrollY, viewW, viewH, sb, COL_HEADER_HEIGHT * zoom),
+    hScrollbar(geom.contentWidth, scrollX, viewW, viewH, sb, ROW_HEADER_WIDTH * zoom, vp.w < w0),
+    vScrollbar(geom.contentHeight, scrollY, viewW, viewH, sb, COL_HEADER_HEIGHT * zoom, vp.h < h0),
   ]
   for (const b of bars) {
     if (!b) continue

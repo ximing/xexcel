@@ -39,21 +39,24 @@ export function computeSortEntries(
   hasHeader: boolean,
 ): { row: number; col: number; cell: Cell | null }[] {
   const firstData = hasHeader ? range.sr + 1 : range.sr
-  // 空单元格直接按 ''（不污染 evaluator memo）；'' 恒排末尾
-  const valueOf = (r: number, c: number): FormulaValue => (data.getCell(r, c) ? ev.get(sheetId, r, c) : '')
+  // blank 判定：无 cell 或 raw===''（不污染 evaluator memo）；blank 恒排末尾。
+  // 公式格求值为 '' 不算 blank，按文本 '' 参与比较
+  const valueOf = (r: number, c: number): { v: FormulaValue; blank: boolean } => {
+    const cell = data.getCell(r, c)
+    if (!cell || cell.raw === '') return { v: '', blank: true }
+    return { v: ev.get(sheetId, r, c), blank: false }
+  }
   const decorated: { r: number; i: number }[] = []
   for (let r = firstData; r <= range.er; r++) decorated.push({ r, i: r - firstData })
   decorated.sort((x, y) => {
     for (const k of keys) {
       const a = valueOf(x.r, k.col)
       const b = valueOf(y.r, k.col)
-      const ea = a === ''
-      const eb = b === ''
-      if (ea || eb) {
-        if (ea && eb) continue
-        return ea ? 1 : -1 // 空格恒尾，不受 asc 影响
+      if (a.blank || b.blank) {
+        if (a.blank && b.blank) continue
+        return a.blank ? 1 : -1 // 空格恒尾，不受 asc 影响
       }
-      const c = compareVal(a, b)
+      const c = compareVal(a.v, b.v)
       if (c !== 0) return k.asc ? c : -c
     }
     return x.i - y.i // 稳定

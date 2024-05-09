@@ -102,6 +102,8 @@ export function FindBar({ view }: { view: EditorView }) {
           setIdx(0)
         }}
         onKeyDown={(e) => {
+          // 栏内 Ctrl/Cmd+F 不唤起浏览器默认查找（焦点留在栏内）
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') e.preventDefault()
           if (e.key === 'Enter') next(e.shiftKey ? -1 : 1)
           if (e.key === 'Escape') close()
         }}
@@ -122,6 +124,7 @@ export function FindBar({ view }: { view: EditorView }) {
             value={replacement}
             onChange={(e) => setReplacement(e.target.value)}
             onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') e.preventDefault()
               if (e.key === 'Escape') close()
             }}
           />
