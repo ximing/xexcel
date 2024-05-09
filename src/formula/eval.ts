@@ -4,16 +4,12 @@ import { normalizeRange } from '../core/addr'
 import { SheetId } from '../core/model'
 import { matchCriteria } from './criteria'
 import { dateSerialLenient, nowSerial, serialToDate, todaySerial } from './date'
+import { err, FormulaError, FormulaValue, isError } from './errors'
 import { AST } from './parser'
 
-export type FormulaValue = number | string | boolean | FormulaError
-export interface FormulaError {
-  error: string // '#REF!' '#DIV/0!' '#NAME?' '#VALUE!' '#CYCLE!'
-}
-
-export function isError(v: unknown): v is FormulaError {
-  return typeof v === 'object' && v !== null && 'error' in v
-}
+// 值/错误类型与守卫经 errors 模块共享（criteria 从 errors 取，避免循环 import）；此处再导出保持既有 API
+export { isError } from './errors'
+export type { FormulaError, FormulaValue } from './errors'
 
 export interface EvalCtx {
   sheet: SheetId // 当前公式所在表
@@ -21,6 +17,7 @@ export interface EvalCtx {
   col: number // 公式所在列
   get(sheet: SheetId, row: number, col: number): FormulaValue
   resolveSheet(name: string): SheetId | null // 表名（不区分大小写）→ SheetId；未知 → null
+  inBounds(sheet: SheetId, row: number, col: number): boolean // 坐标是否落在表格边界内
 }
 
 // 内部哨兵：标记「空单元格引用」（仅 ref 求值路径产生）。
@@ -36,8 +33,6 @@ type V = FormulaValue | Blank
 export function isBlank(v: unknown): v is Blank {
   return v === BLANK
 }
-
-const err = (error: string): FormulaError => ({ error })
 
 export function evalNode(node: AST, ctx: EvalCtx): V {
   switch (node.type) {
@@ -291,7 +286,11 @@ function condAggregate(mode: 'sum' | 'count' | 'average', args: AST[], ctx: Eval
       count++
       if (mode === 'count') continue
       // 求和域按条件域尺寸锚定其左上角（Excel 语义）；非数值按 0
-      const v = ctx.get(sumZone.sid, sumZone.sr + (row - target.sr), sumZone.sc + (col - target.sc))
+      const sr2 = sumZone.sr + (row - target.sr)
+      const sc2 = sumZone.sc + (col - target.sc)
+      // 求和域越界格按 0/空处理（对齐 Excel），不传播 #REF!；域内真实错误仍传播
+      if (!ctx.inBounds(sumZone.sid, sr2, sc2)) continue
+      const v = ctx.get(sumZone.sid, sr2, sc2)
       if (isError(v)) return v
       if (typeof v === 'number') sum += v
     }

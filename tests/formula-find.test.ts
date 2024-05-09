@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fromA1 } from '../src/core/addr'
 import { Workbook } from '../src/core/model'
 import { evaluatorFor } from '../src/formula/engine'
-import { findAll, FindQuery, replaceInRaw } from '../src/formula/find'
+import { findAll, FindMatch, FindQuery, indexAfterReplace, replaceInRaw } from '../src/formula/find'
 
 function wbWith(cells: Record<string, string>, cells2?: Record<string, string>): Workbook {
   let wb = Workbook.create({ rowCount: 20, colCount: 10 })
@@ -92,5 +92,45 @@ describe('replaceInRaw', () => {
 
   it('无匹配 → null', () => {
     expect(replaceInRaw('abc', q('xyz'), 'r')).toBeNull()
+  })
+})
+
+describe('indexAfterReplace（替换后前进）', () => {
+  const m = (row: number, col = 0): FindMatch => ({ sheet: 's1', row, col })
+
+  it('替换文本仍命中：游标前进到下一匹配（查 a 换 ab 不反复替换同格）', () => {
+    const oldM = [m(0), m(1)]
+    expect(indexAfterReplace(oldM, 0, [...oldM])).toBe(1)
+  })
+
+  it('替换后本格不再命中：指向原下一匹配（新序列已前移）', () => {
+    const oldM = [m(0), m(1), m(2)]
+    expect(indexAfterReplace(oldM, 0, [m(1), m(2)])).toBe(0)
+  })
+
+  it('末尾匹配循环回卷到首个', () => {
+    const oldM = [m(0), m(1)]
+    expect(indexAfterReplace(oldM, 1, [...oldM])).toBe(0)
+  })
+
+  it('新序列为空 → 0；oldIdx 越界钳制', () => {
+    expect(indexAfterReplace([m(0)], 0, [])).toBe(0)
+    expect(indexAfterReplace([m(0), m(1)], 99, [m(0), m(1)])).toBe(0)
+  })
+
+  it('doc 级回归：replaceInRaw 替换后 findAll 重算 + 前进到下一匹配', () => {
+    let wb = wbWith({ A1: 'a', A2: 'a', A3: 'x' })
+    const query = q('a')
+    const oldM = findAll(wb, evaluatorFor(wb), query)
+    expect(oldM).toEqual([
+      { sheet: 's1', row: 0, col: 0 },
+      { sheet: 's1', row: 1, col: 0 },
+    ])
+    // 替换 A1：a → ab（仍命中 'a'）
+    const cell = wb.activeSheet.getCell(0, 0)!
+    wb = wb.setSheet('s1', wb.activeSheet.setCell(0, 0, { ...cell, raw: replaceInRaw(cell.raw, query, 'ab')! }))
+    const newM = findAll(wb, evaluatorFor(wb), query)
+    expect(newM).toHaveLength(2)
+    expect(indexAfterReplace(oldM, 0, newM)).toBe(1) // 指向 A2
   })
 })

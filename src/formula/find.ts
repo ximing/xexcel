@@ -42,6 +42,17 @@ export function findAll(doc: Workbook, ev: CellEvaluator, q: FindQuery): FindMat
   return out
 }
 
+// 替换当前匹配后的游标前进：取旧序列中「被替换格的下一匹配」（循环），
+// 返回它在新序列中的下标；找不到或新序列为空 → 0。
+// 替换文本仍命中查询串（查 a 换 ab）时游标离开本格，不再反复替换同格。
+export function indexAfterReplace(oldMatches: FindMatch[], oldIdx: number, newMatches: FindMatch[]): number {
+  if (oldMatches.length === 0 || newMatches.length === 0) return 0
+  const i = Math.min(Math.max(oldIdx, 0), oldMatches.length - 1)
+  const target = oldMatches[(i + 1) % oldMatches.length]
+  const j = newMatches.findIndex((m) => m.sheet === target.sheet && m.row === target.row && m.col === target.col)
+  return j >= 0 ? j : 0
+}
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

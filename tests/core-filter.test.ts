@@ -42,6 +42,17 @@ describe('SheetData.filter', () => {
     expect(d.filter!.range.er).toBe(7)
   })
 
+  it('结构操作：行轴删空数据区（表头幸存）→ range 收缩到表头行', () => {
+    const d = wbWith(filter).activeSheet.deleteRows(1, 9)
+    expect(d.filter!.range).toEqual({ sr: 0, sc: 0, er: 0, ec: 2 })
+    expect(d.filter!.criteria).toEqual(filter.criteria)
+  })
+
+  it('结构操作：删除 range 首列 → 筛选整体移除', () => {
+    const d = wbWith(filter).activeSheet.deleteCols(0, 1)
+    expect(d.filter).toBeUndefined()
+  })
+
   it('结构操作：列删除重映射 criteria 键并裁剪', () => {
     const f2: FilterState = { range: { sr: 0, sc: 0, er: 9, ec: 3 }, criteria: { 1: { type: 'values', excluded: ['x'] }, 3: { type: 'condition', field: 'num', op: 'gt', v1: '5' } } }
     const d = wbWith(f2).activeSheet.deleteCols(1, 1)

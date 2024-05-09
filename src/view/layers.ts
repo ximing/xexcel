@@ -259,7 +259,7 @@ function renderGridLayer(
       r < geom.frozenRows
         ? hh + geom.rowTop(r)
         : hh + fh + (geom.rowTop(r) - fh - scrollY)
-    if (y > hh && y < viewH) rowMarks.add(Math.round(y))
+    if (y >= hh && y < viewH) rowMarks.add(Math.round(y)) // >= 含边界：行 0 隐藏时紧贴表头下缘仍画
   }
   for (const y of rowMarks) {
     layer.add(new Konva.Line({ points: [0, y - 2, hw, y - 2], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))
@@ -271,7 +271,7 @@ function renderGridLayer(
       c < geom.frozenCols
         ? hw + geom.colLeft(c)
         : hw + fw + (geom.colLeft(c) - fw - scrollX)
-    if (x > hw && x < viewW) colMarks.add(Math.round(x))
+    if (x >= hw && x < viewW) colMarks.add(Math.round(x)) // >= 含边界：列 0 隐藏时紧贴行头右缘仍画
   }
   for (const x of colMarks) {
     layer.add(new Konva.Line({ points: [x - 2, 0, x - 2, hh], stroke: COLOR_FROZEN_LINE, strokeWidth: 1, ...noListen }))

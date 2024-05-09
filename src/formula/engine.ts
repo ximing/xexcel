@@ -94,6 +94,10 @@ export class CellEvaluator {
         for (const [id, n] of this.workbook.names) if (n.toLowerCase() === lower) return id
         return null
       },
+      inBounds: (s, r, c) => {
+        const data = this.workbook.sheets.get(s)
+        return !!data && r >= 0 && c >= 0 && r < data.rowCount && c < data.colCount
+      },
     }
     try {
       const v = evalNode(parseFormula(raw.slice(1)), ctx)

@@ -431,6 +431,13 @@ export class StructureStep extends Step {
           : data.deleteCols(spec.index, spec.count)
     let out = doc.setSheet(spec.sheet, shifted)
     if (this.restore) {
+      // 恢复负载校验：每个目标格须落在目标表当前边界内（含表存在性），防脏负载越界写
+      for (const e of this.restore.cells) {
+        const target = out.sheets.get(e.sheet)
+        if (!target || e.row < 0 || e.col < 0 || e.row >= target.rowCount || e.col >= target.colCount) {
+          return { ok: false, failed: 'restore cell out of bounds' }
+        }
+      }
       // 逆操作：恢复公式原文与删除区内容
       for (const e of this.restore.cells) {
         out = out.setSheet(e.sheet, out.sheet(e.sheet).setCell(e.row, e.col, e.cell))
