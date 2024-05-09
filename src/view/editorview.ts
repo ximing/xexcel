@@ -130,6 +130,10 @@ export class EditorView implements EditorViewLike {
       this.scrollX = 0
       this.scrollY = 0
     }
+    // zoom 变化（滚轮/状态栏菜单等一切路径）后钳位滚动，避免超出新上限留白
+    if (zoomOf(prev, prev.doc.active) !== zoomOf(state, state.doc.active)) {
+      this.clampScroll()
+    }
     for (let i = 0; i < state.plugins.length; i++) {
       this.pluginViews[i]?.update?.(this, prev)
     }

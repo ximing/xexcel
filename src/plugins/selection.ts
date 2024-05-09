@@ -86,25 +86,27 @@ export function selection(): Plugin {
     rafId = requestAnimationFrame(tick)
   }
 
-  // resize 拖拽：按指针内容坐标实时计算尺寸并更新参考线
+  // resize 拖拽：按指针内容坐标实时计算尺寸并更新参考线。
+  // geom 已为缩放后坐标，drag.size 记缩放后像素（guide 直接用）；提交时 /zoom 折算回基准单位
   const updateResize = (view: EditorView): void => {
     if (!drag || drag.kind !== 'resize') return
     const rect = view.dom.getBoundingClientRect()
     const geom = view.geometry()
+    const z = view.zoom()
     // 冻结感知：滚动区内容坐标 = 屏幕坐标 + scroll（frozenWidth 抵消），
     // 冻结区内容坐标 = 屏幕坐标（不含 scroll），否则拖冻结行列边框时尺寸跳变
     const pos =
       drag.axis === 'col'
         ? (() => {
-            const cx = lastClient.x - rect.left - ROW_HEADER_WIDTH
+            const cx = lastClient.x - rect.left - ROW_HEADER_WIDTH * z
             return cx < geom.frozenWidth ? cx : cx + view.scrollX
           })()
         : (() => {
-            const cy = lastClient.y - rect.top - COL_HEADER_HEIGHT
+            const cy = lastClient.y - rect.top - COL_HEADER_HEIGHT * z
             return cy < geom.frozenHeight ? cy : cy + view.scrollY
           })()
     const left = drag.axis === 'col' ? geom.colLeft(drag.index) : geom.rowTop(drag.index)
-    drag.size = Math.max(MIN_SIZE, Math.round(pos - left))
+    drag.size = Math.max(MIN_SIZE * z, Math.round(pos - left))
     const guide: ResizeGuide = { axis: drag.axis, pos: left + drag.size }
     view.dispatch(view.state.tr.setMeta(resizeGuideKey, guide))
   }
@@ -207,7 +209,9 @@ export function selection(): Plugin {
         stopAutoScroll()
         if (drag.kind === 'resize') {
           const tr = v.state.tr.setMeta(resizeGuideKey, null)
-          if (drag.size !== drag.startSize) tr.resize(drag.axis, drag.index, drag.size)
+          // drag.size 为缩放后像素，折算回基准单位再写模型（startSize 也是基准单位）
+          const size = Math.round(drag.size / v.zoom())
+          if (size !== drag.startSize) tr.resize(drag.axis, drag.index, size)
           v.dispatch(tr)
           drag = null
           activeView = null
