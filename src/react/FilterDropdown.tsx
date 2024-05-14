@@ -25,6 +25,9 @@ const NUM_OPS: { op: FilterOp; label: string }[] = [
   { op: 'between', label: '介于' },
 ]
 
+// 面板最大高度估值（值列表 max-height 180 + 其余区块），供垂直 clamp
+const PANEL_MAX_H = 350
+
 interface Draft {
   mode: 'values' | 'condition'
   excluded: Set<string>
@@ -55,9 +58,9 @@ export function FilterDropdown({ view }: { view: EditorView }) {
       setDraft({ mode: 'values', excluded: new Set(crit?.excluded ?? []), field: 'text', op: 'contains', v1: '', v2: '' })
     }
     setSearch('')
-    // 仅在「打开目标列」变化时重建草稿
+    // 「打开目标列」或 filter 本身（undo 筛选等）变化时重建草稿
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open?.col, open !== null])
+  }, [open?.col, open !== null, filter])
 
   const values = useMemo(() => {
     if (!open || !filter) return []
@@ -113,7 +116,7 @@ export function FilterDropdown({ view }: { view: EditorView }) {
     <div className="dialog-backdrop" style={{ background: 'transparent' }} onClick={close}>
       <div
         className="filter-panel"
-        style={{ left: Math.min(open.x, window.innerWidth - 280), top: open.y }}
+        style={{ left: Math.min(open.x, window.innerWidth - 280), top: Math.min(open.y, window.innerHeight - PANEL_MAX_H) }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="filter-tabs">

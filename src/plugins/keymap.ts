@@ -12,7 +12,7 @@ import { EditorViewLike, Plugin } from '../core/plugin'
 import { singleCell } from '../core/selection'
 import { isEditing, openEditor } from '../view/editbox'
 import type { EditorView } from '../view/editorview'
-import { findBarKey } from '../view/types'
+import { findBarKey, formatPainterKey } from '../view/types'
 
 // 导航落点修正（导出供单测）：目标在合并区内时——
 // 当前 focus 已是该合并区锚点（继续向外移动）→ 跳过整个合并区到远侧之外；
@@ -40,18 +40,29 @@ export function navigateFocus(
         }
       : { row: m.sr, col: m.sc }
   }
-  // 隐藏行列跳过：沿移动方向继续步进，直到可见格或边界（guard 防全隐藏死循环）
+  // 隐藏行列跳过：循环内「先吸附合并锚点 → 再判隐藏 → 隐藏则步进」，
+  // 锚点本身隐藏时从合并区远侧之外继续（guard 防全隐藏死循环）
   let guard = 0
   const limit = Math.max(sheet.rowCount, sheet.colCount) + 1
-  while (isHidden(landed.row, landed.col) && guard++ < limit) {
+  while (guard++ < limit) {
+    const mm = sheet.mergeAt(landed.row, landed.col)
+    if (mm) {
+      if (isHidden(mm.sr, mm.sc)) {
+        // 锚点隐藏：越过整个合并区继续步进
+        const nr = clamp(dr > 0 ? mm.er + 1 : dr < 0 ? mm.sr - 1 : landed.row, sheet.rowCount - 1)
+        const nc = clamp(dc > 0 ? mm.ec + 1 : dc < 0 ? mm.sc - 1 : landed.col, sheet.colCount - 1)
+        if (nr === landed.row && nc === landed.col) break // 无法继续（边界）
+        landed = { row: nr, col: nc }
+        continue
+      }
+      landed = { row: mm.sr, col: mm.sc }
+    }
+    if (!isHidden(landed.row, landed.col)) break
     const nr = clamp(landed.row + Math.sign(dr), sheet.rowCount - 1)
     const nc = clamp(landed.col + Math.sign(dc), sheet.colCount - 1)
     if (nr === landed.row && nc === landed.col) break // 已到边界（边界格本身隐藏则停留）
     landed = { row: nr, col: nc }
   }
-  // 跳跃后落入合并区 → 锚点
-  const m2 = sheet.mergeAt(landed.row, landed.col)
-  if (m2) landed = { row: m2.sr, col: m2.sc }
   return landed
 }
 
@@ -103,6 +114,12 @@ export function keymap(): Plugin {
           case 'F2':
             openEditor(v, sel.focus)
             break
+          case 'Escape': {
+            const fp = state.getField(formatPainterKey)
+            if (!fp) return false
+            v.dispatch(state.tr.setMeta(formatPainterKey, null).setMeta('addToHistory', false))
+            break
+          }
           default: {
             const k = e.key.toLowerCase()
             if (mod && k === 'f') {

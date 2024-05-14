@@ -137,6 +137,65 @@ body {
   flex: none;
 }
 
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 缩放控件：百分比按钮 + 向上弹出的档位菜单 */
+.status-zoom-wrap {
+  position: relative;
+}
+
+.status-zoom {
+  border: none;
+  background: transparent;
+  color: #5f6368;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.status-zoom:hover {
+  background: #e8eaed;
+}
+
+.zoom-menu {
+  position: absolute;
+  right: 0;
+  bottom: 26px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  z-index: 30;
+}
+
+.zoom-item {
+  border: none;
+  background: transparent;
+  color: #202124;
+  font-size: 12px;
+  text-align: right;
+  padding: 4px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.zoom-item:hover {
+  background: #f1f3f4;
+}
+
+.zoom-item.active {
+  color: #1a73e8;
+  font-weight: 600;
+}
+
 /* SheetTabBar 28px */
 .sheet-tab-bar {
   height: 28px;
@@ -148,6 +207,16 @@ body {
   background: #f8f9fa;
   flex: none;
   overflow-x: auto;
+  user-select: none;
+}
+
+/* 标签拖动排序的插入位指示线 */
+.sheet-tab-indicator {
+  width: 2px;
+  background: #1a73e8;
+  align-self: stretch;
+  margin: 2px 0;
+  flex: none;
 }
 
 .sheet-tab-add {
@@ -271,6 +340,54 @@ body {
   margin-top: 12px;
 }
 
+.cf-dialog {
+  min-width: 640px;
+  max-width: 90vw;
+}
+.cf-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.cf-empty {
+  color: #5f6368;
+  font-size: 13px;
+}
+.cf-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+.cf-row.invalid {
+  border-color: #d93025;
+  background: #fce8e6;
+}
+.cf-range {
+  width: 110px;
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid #d9dce1;
+  border-radius: 4px;
+}
+.cf-value {
+  width: 80px;
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid #d9dce1;
+  border-radius: 4px;
+}
+.cf-toggle {
+  padding: 0 6px;
+}
+.cf-actions-gap {
+  flex: 1;
+}
+
 .filter-panel {
   position: fixed;
   background: #fff;
@@ -324,3 +441,26 @@ body {
   min-width: 40px;
   color: #5f6368;
 }
+.tool-border-wrap { position: relative; display: inline-block; }
+.tool-border-panel {
+  position: absolute; top: 100%; left: 0; z-index: 30;
+  background: #fff; border: 1px solid #d9dce1; border-radius: 4px;
+  padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column; gap: 4px; min-width: 160px;
+}
+.tool-border-presets { display: flex; flex-wrap: wrap; gap: 2px; }
+
+.ctx-overlay { position: fixed; inset: 0; z-index: 110; }
+.ctx-menu {
+  position: fixed; min-width: 160px; background: #fff;
+  border: 1px solid #d9dce1; border-radius: 4px; padding: 4px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column;
+}
+.ctx-item {
+  display: block; width: 100%; border: none; background: none;
+  text-align: left; padding: 5px 16px; font-size: 13px; cursor: pointer; color: #202124;
+}
+.ctx-item:hover:not(:disabled) { background: #e8f0fe; }
+.ctx-item:disabled { color: #9aa0a6; cursor: default; }
+.ctx-sep { height: 1px; background: #e0e3e7; margin: 4px 0; }

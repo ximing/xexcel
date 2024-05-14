@@ -20,7 +20,9 @@ export type AST =
   | { type: 'num'; value: number }
   | { type: 'str'; value: string }
   | { type: 'bool'; value: boolean }
-  | { type: 'err'; error: string } // '#REF!'（shiftRefs 越界/用户原文）或 '#NAME?'（未知裸名）
+  // error：lexer 错误字面量（'#NULL!' '#DIV/0!' '#VALUE!' '#REF!' '#NAME?' '#NUM!' '#N/A' '#CYCLE!'）、
+  // shiftRefs 越界产 '#REF!'、未知裸名产 '#NAME?'
+  | { type: 'err'; error: string }
   | { type: 'ref'; ref: RefTarget }
   | { type: 'range'; a: RefTarget; b: RefTarget }
   | { type: 'call'; name: string; args: AST[] }

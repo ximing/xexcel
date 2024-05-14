@@ -23,6 +23,8 @@ export function openEditor(view: EditorView, addr: CellAddr, initialText?: strin
   if (session) closeEditor(true)
   const cell = view.state.activeSheet.getCell(addr.row, addr.col)
   const r = view.cellViewportRect(addr.row, addr.col)
+  // 编辑器字号 = 格样式字号 × zoom，与画布几何缩放一致
+  const fs = (cell?.style?.fontSize ?? 13) * view.zoom()
   const el = document.createElement('textarea')
   el.className = 'xcell-editor'
   Object.assign(el.style, {
@@ -36,7 +38,7 @@ export function openEditor(view: EditorView, addr: CellAddr, initialText?: strin
     outline: 'none',
     margin: '0',
     padding: '1px 5px',
-    font: '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    font: `${fs}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`,
     resize: 'none',
     overflow: 'hidden',
     zIndex: '10',
@@ -44,9 +46,18 @@ export function openEditor(view: EditorView, addr: CellAddr, initialText?: strin
     color: '#202124',
   })
   el.value = initialText ?? cell?.raw ?? ''
+  // wrap 格：编辑框随内容向下增长（不小于行高）
+  const grow = cell?.style?.wrap
+    ? (): void => {
+        el.style.height = `${Math.max(r.h + 2, el.scrollHeight + 2)}px`
+      }
+    : null
+  if (grow) el.addEventListener('input', grow)
   el.addEventListener('keydown', onEditorKeyDown)
   el.addEventListener('blur', onEditorBlur)
   view.dom.appendChild(el)
+  // 首次测量须在挂载后：detached 节点 scrollHeight 恒为 0
+  grow?.()
   session = { view, addr, el, done: false }
   el.focus()
   el.setSelectionRange(el.value.length, el.value.length)

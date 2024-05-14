@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { fromA1 } from '../src/core/addr'
 import { Workbook } from '../src/core/model'
 import { evaluatorFor } from '../src/formula/engine'
-import { dateSerialLenient, nowSerial, todaySerial } from '../src/formula/date'
+import { nowSerial } from '../src/formula/date'
+
+// 与实现无关的 serial 推导（Excel 1900 系统：基准 1899-12-30），避免用被测函数验证被测函数
+const serialOf = (y: number, m: number, d: number): number =>
+  Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000)
 
 function wbWith(cells: Record<string, string>): Workbook {
   let wb = Workbook.create({ rowCount: 30, colCount: 10 })
@@ -108,12 +112,23 @@ describe('条件聚合', () => {
     const w = wbWith({ A1: '=COUNTIF(A1:A2)' })
     expect(get(w, 'A1')).toEqual({ error: '#VALUE!' })
   })
+
+  it('SUMIF 求和域越界格按 0/空处理，不传播 #REF!（对齐 Excel）', () => {
+    // 30 行表：求和域锚 B29，A30 匹配时偏移到 B31（越界）→ 按 0
+    const w = wbWith({ A28: 'x', A29: 'x', A30: 'x', B29: '10', C1: '=SUMIF(A28:A30,"x",B29)' })
+    expect(get(w, 'C1')).toBe(10)
+  })
+
+  it('SUMIF 求和域内真实 #REF! 仍传播', () => {
+    const w = wbWith({ A1: 'x', B1: '=Z99', C1: '=SUMIF(A1,"x",B1)' })
+    expect(get(w, 'C1')).toEqual({ error: '#REF!' })
+  })
 })
 
 describe('日期函数', () => {
   it('DATE/YEAR/MONTH/DAY 往返', () => {
     const wb = wbWith({ A1: '=DATE(2026,7,31)', A2: '=YEAR(A1)', A3: '=MONTH(A1)', A4: '=DAY(A1)' })
-    expect(get(wb, 'A1')).toBe(dateSerialLenient(2026, 7, 31))
+    expect(get(wb, 'A1')).toBe(serialOf(2026, 7, 31))
     expect(get(wb, 'A2')).toBe(2026)
     expect(get(wb, 'A3')).toBe(7)
     expect(get(wb, 'A4')).toBe(31)
@@ -127,7 +142,14 @@ describe('日期函数', () => {
 
   it('TODAY/NOW 为当前 serial（易失，全量重算自然刷新）', () => {
     const wb = wbWith({ A1: '=TODAY()', A2: '=NOW()' })
-    expect(get(wb, 'A1')).toBe(todaySerial())
+    // 外部推导 TODAY：本地今日 serial；跨午夜边界时取前后两值之一
+    const localSerial = (): number => {
+      const n = new Date()
+      return serialOf(n.getFullYear(), n.getMonth() + 1, n.getDate())
+    }
+    const before = localSerial()
+    const today = get(wb, 'A1') as number
+    expect(today === before || today === localSerial()).toBe(true)
     const n = get(wb, 'A2') as number
     expect(Math.abs(n - nowSerial())).toBeLessThan(2 / 86400) // 两秒容差
   })

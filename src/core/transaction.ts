@@ -1,8 +1,8 @@
 import { CellRange, normalizeRange } from './addr'
-import { Cell, CellStyle, FilterState, SheetConfig, SheetData, SheetId, Workbook } from './model'
+import { Cell, CellStyle, CondFormatRule, FilterState, SheetConfig, SheetData, SheetId, Workbook } from './model'
 import { Selection } from './selection'
-import { PatchStyleStep, ResizeStep, SetCellsStep, SetFilterStep, SetFreezeStep, SetHiddenStep, SetMergesStep, Step, StructureStep } from './steps'
-import { InsertSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
+import { PatchStyleStep, ResizeStep, RestoreStyleStep, SetCellsStep, SetCondFormatsStep, SetFilterStep, SetFreezeStep, SetHiddenStep, SetMergesStep, Step, StructureStep } from './steps'
+import { InsertSheetStep, MoveSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
 import type { PluginKey } from './plugin'
 import type { SheetState } from './state'
 
@@ -48,6 +48,11 @@ export class Transaction {
     return this._pushStep(new PatchStyleStep(this.activeSheetId, range, patch))
   }
 
+  // 逐格整体替换 style（null=删 style 键）；边框预设与格式刷共用（RestoreStyleStep 即此语义）
+  setCellStyles(entries: ReadonlyArray<{ row: number; col: number; style: CellStyle | null }>): this {
+    return this._pushStep(new RestoreStyleStep(this.activeSheetId, entries))
+  }
+
   resize(axis: 'row' | 'col', index: number, size: number | null): this {
     return this._pushStep(new ResizeStep(this.activeSheetId, axis, index, size))
   }
@@ -79,6 +84,11 @@ export class Transaction {
     return this._pushStep(new RenameSheetStep(id, name))
   }
 
+  // 移动表位置（标签拖动排序/右键左移右移）
+  moveSheet(id: SheetId, toIndex: number): this {
+    return this._pushStep(new MoveSheetStep(id, toIndex))
+  }
+
   // 调用侧配 setMeta('addToHistory', false)；并自行 setSelection 防止选区越界
   setActiveSheet(id: SheetId): this {
     return this._pushStep(new SetActiveSheetStep(id))
@@ -99,6 +109,11 @@ export class Transaction {
   // 设置/清除自动筛选（undefined = 清除）
   setFilter(filter: FilterState | undefined): this {
     return this._pushStep(new SetFilterStep(this.activeSheetId, filter))
+  }
+
+  // 整体替换条件格式规则
+  setCondFormats(rules: CondFormatRule[]): this {
+    return this._pushStep(new SetCondFormatsStep(this.activeSheetId, rules))
   }
 
   // 插入/删除当前表的行列（公式级联由 StructureStep 内处理）

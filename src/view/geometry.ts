@@ -24,15 +24,31 @@ export class GridGeometry {
   readonly frozenRows: number
   readonly frozenCols: number
 
-  constructor(readonly sheet: SheetData, frozenRows = 0, frozenCols = 0, extraHiddenRows?: ReadonlySet<number>) {
+  constructor(
+    readonly sheet: SheetData,
+    frozenRows = 0,
+    frozenCols = 0,
+    extraHiddenRows?: ReadonlySet<number>,
+    autoRows?: ReadonlyMap<number, number>,
+    readonly zoom = 1,
+  ) {
     this.frozenRows = frozenRows
     this.frozenCols = frozenCols
     this.rowTops = [0]
     for (let r = 0; r < sheet.rowCount; r++) {
-      this.rowTops.push(this.rowTops[r] + (extraHiddenRows?.has(r) ? 0 : sheet.rowHeight(r)))
+      // 行高优先级：隐藏 0 > 手动 > max(自动推导, 默认)
+      // base 为 0 即模型层隐藏（rowHeight 对隐藏行返回 0），自动行高不得撑开
+      const base = sheet.rowHeight(r)
+      const h =
+        extraHiddenRows?.has(r) || base === 0
+          ? 0
+          : sheet.customRowHeights.has(r)
+            ? base
+            : Math.max(base, autoRows?.get(r) ?? 0)
+      this.rowTops.push(this.rowTops[r] + h * zoom)
     }
     this.colLefts = [0]
-    for (let c = 0; c < sheet.colCount; c++) this.colLefts.push(this.colLefts[c] + sheet.colWidth(c))
+    for (let c = 0; c < sheet.colCount; c++) this.colLefts.push(this.colLefts[c] + sheet.colWidth(c) * zoom)
   }
 
   get contentWidth(): number {

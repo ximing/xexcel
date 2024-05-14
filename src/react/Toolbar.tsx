@@ -1,17 +1,19 @@
 // 工具栏：撤销/重做 + 粗体/斜体/文字色/背景色/对齐。操作回走 view.dispatch(applyStylePatch)。
 import { useState } from 'react'
 import { applyStylePatch, mergeSelection, unmergeSelection } from '../core/commands'
+import { computeBorderStyles, BorderPreset } from '../core/border'
 import { selectionRange } from '../core/selection'
 import { redo, redoDepth, undo, undoDepth } from '../core/history'
-import type { CellStyle } from '../core/model'
+import type { BorderLineStyle, CellStyle } from '../core/model'
 import type { SheetState } from '../core/state'
 import type { EditorView } from '../view/editorview'
-import { findBarKey } from '../view/types'
+import { findBarKey, formatPainterKey, FormatPainterState } from '../view/types'
 import { useSheetState } from './bridge'
 import { adjustDecimals } from '../formula/format'
 import { evaluatorFor } from '../formula/engine'
 import { computeSortEntries, sortBlockedByMerges } from '../formula/sort'
 import { SortDialog } from './SortDialog'
+import { CondFormatDialog } from './CondFormatDialog'
 
 interface Props {
   view: EditorView
@@ -21,7 +23,25 @@ export function Toolbar({ view }: Props) {
   const state = useSheetState(view)
   const { row, col } = state.selection.focus
   const active: CellStyle = state.activeSheet.getCell(row, col)?.style ?? {}
+  const fp = state.getField(formatPainterKey) as FormatPainterState | null | undefined
   const [showSort, setShowSort] = useState(false)
+  const [showCF, setShowCF] = useState(false)
+  const [showBorder, setShowBorder] = useState(false)
+  const [borderLine, setBorderLine] = useState<BorderLineStyle>('thin')
+  const [borderColor, setBorderColor] = useState('#000000')
+
+  const applyBorder = (preset: BorderPreset): void => {
+    const sheet = view.state.activeSheet
+    const entries = computeBorderStyles(
+      sheet,
+      selectionRange(view.state.selection),
+      preset,
+      preset === 'none' ? null : { style: borderLine, color: borderColor },
+    )
+    view.dispatch(view.state.tr.setCellStyles(entries))
+    setShowBorder(false)
+    view.focus()
+  }
 
   const quickSort = (asc: boolean): void => {
     const r = selectionRange(view.state.selection)
@@ -65,6 +85,26 @@ export function Toolbar({ view }: Props) {
         ↪
       </button>
       <span className="tool-sep" />
+      <button
+        className={'tool-btn' + (fp ? ' active' : '')}
+        title="格式刷（单击取格式刷一次，双击锁定连刷，Esc 解除）"
+        onClick={() => {
+          if (fp) {
+            view.dispatch(view.state.tr.setMeta(formatPainterKey, null).setMeta('addToHistory', false))
+          } else {
+            const src = { ...(view.state.activeSheet.getCell(row, col)?.style ?? {}) }
+            view.dispatch(view.state.tr.setMeta(formatPainterKey, { style: src, locked: false }).setMeta('addToHistory', false))
+          }
+          view.focus()
+        }}
+        onDoubleClick={() => {
+          const src = { ...(view.state.activeSheet.getCell(row, col)?.style ?? {}) }
+          view.dispatch(view.state.tr.setMeta(formatPainterKey, { style: src, locked: true }).setMeta('addToHistory', false))
+          view.focus()
+        }}
+      >
+        刷
+      </button>
       <button
         className={'tool-btn' + (active.bold ? ' active' : '')}
         title="加粗"
@@ -120,6 +160,29 @@ export function Toolbar({ view }: Props) {
           }}
         >
           {{ left: '左', center: '中', right: '右' }[a]}
+        </button>
+      ))}
+      <button
+        className={'tool-btn' + (active.wrap ? ' active' : '')}
+        title="自动换行"
+        onClick={() => {
+          patch({ wrap: active.wrap ? undefined : true })
+          view.focus()
+        }}
+      >
+        换行
+      </button>
+      {(['top', 'middle', 'bottom'] as const).map((v) => (
+        <button
+          key={v}
+          className={'tool-btn' + ((active.vAlign ?? 'bottom') === v ? ' active' : '')}
+          title={{ top: '顶端对齐', middle: '垂直居中', bottom: '底端对齐' }[v]}
+          onClick={() => {
+            patch({ vAlign: v })
+            view.focus()
+          }}
+        >
+          {{ top: '上', middle: '中', bottom: '下' }[v]}
         </button>
       ))}
       <span className="tool-sep" />
@@ -254,6 +317,45 @@ export function Toolbar({ view }: Props) {
         拆
       </button>
       <span className="tool-sep" />
+      <span className="tool-border-wrap">
+        <button className="tool-btn" title="边框" onClick={() => setShowBorder(!showBorder)}>
+          框
+        </button>
+        {showBorder && (
+          <div className="tool-border-panel">
+            <div className="tool-border-presets">
+              {([
+                ['none', '无框'], ['all', '全框'], ['outer', '外框'], ['inner', '内框'],
+                ['top', '上'], ['bottom', '下'], ['left', '左'], ['right', '右'],
+              ] as [BorderPreset, string][]).map(([p, label]) => (
+                <button key={p} className="tool-btn" onClick={() => applyBorder(p)}>{label}</button>
+              ))}
+            </div>
+            <select
+              className="tool-select"
+              title="线型"
+              value={borderLine}
+              onChange={(e) => setBorderLine(e.target.value as BorderLineStyle)}
+            >
+              <option value="thin">细线</option>
+              <option value="medium">中线</option>
+              <option value="thick">粗线</option>
+              <option value="dashed">虚线</option>
+              <option value="dotted">点线</option>
+              <option value="double">双线</option>
+              <option value="hair">极细</option>
+              <option value="mediumDashed">中虚线</option>
+            </select>
+            <input
+              className="tool-color"
+              type="color"
+              title="边框颜色"
+              value={borderColor}
+              onChange={(e) => setBorderColor(e.target.value)}
+            />
+          </div>
+        )}
+      </span>
       <button
         className="tool-btn"
         title="上方插入行（选中整行时按行数）"
@@ -433,6 +535,10 @@ export function Toolbar({ view }: Props) {
       >
         查
       </button>
+      <button className="tool-btn" title="条件格式" onClick={() => setShowCF(true)}>
+        条件
+      </button>
+      {showCF && <CondFormatDialog view={view} onClose={() => setShowCF(false)} />}
       <button
         className="tool-btn"
         title="重置选中行/列尺寸为默认"

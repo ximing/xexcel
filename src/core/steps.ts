@@ -1,5 +1,5 @@
 import { CellRange, normalizeRange, toA1 } from './addr'
-import { Cell, CellStyle, FilterState, SheetData, SheetId, Workbook } from './model'
+import { Cell, CellStyle, CondFormatRule, FilterState, SheetData, SheetId, Workbook } from './model'
 
 export interface StepResult { ok: boolean; doc?: Workbook; failed?: string }
 
@@ -289,6 +289,26 @@ export class RenameSheetStep extends Step {
   }
 }
 
+// 移动工作表位置（标签拖动排序/右键左移右移）
+export class MoveSheetStep extends Step {
+  constructor(readonly sheet: SheetId, readonly toIndex: number) {
+    super()
+  }
+  apply(doc: Workbook): StepResult {
+    if (!doc.sheets.has(this.sheet)) return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    if (this.toIndex < 0 || this.toIndex >= doc.order.length) {
+      return { ok: false, failed: `index out of bounds: ${this.toIndex}` }
+    }
+    return { ok: true, doc: doc.moveSheet(this.sheet, this.toIndex) }
+  }
+  invert(beforeDoc: Workbook): Step {
+    return new MoveSheetStep(this.sheet, beforeDoc.order.indexOf(this.sheet))
+  }
+  toJSON(): unknown {
+    return { type: 'moveSheet', sheet: this.sheet, toIndex: this.toIndex }
+  }
+}
+
 // 切换活动表。调用侧应配 tr.setMeta('addToHistory', false) 不入 undo 栈。
 export class SetActiveSheetStep extends Step {
   constructor(readonly sheet: SheetId) {
@@ -374,6 +394,7 @@ export interface StructureRestore {
   hiddenRows: number[] // delete 模式：目标表完整 hiddenRows 原文；insert 模式：空
   hiddenCols: number[] // 同上
   filter: FilterState | undefined // delete 模式：目标表完整 filter 原文（SheetData 不可变，浅引用即可）
+  condFormats: CondFormatRule[] // delete 模式：目标表完整 condFormats 原文；insert 模式：空
 }
 
 // 插入/删除行列：物理重索引 + 全簿公式级联（经注入的 cascade）。
@@ -410,6 +431,13 @@ export class StructureStep extends Step {
           : data.deleteCols(spec.index, spec.count)
     let out = doc.setSheet(spec.sheet, shifted)
     if (this.restore) {
+      // 恢复负载校验：每个目标格须落在目标表当前边界内（含表存在性），防脏负载越界写
+      for (const e of this.restore.cells) {
+        const target = out.sheets.get(e.sheet)
+        if (!target || e.row < 0 || e.col < 0 || e.row >= target.rowCount || e.col >= target.colCount) {
+          return { ok: false, failed: 'restore cell out of bounds' }
+        }
+      }
       // 逆操作：恢复公式原文与删除区内容
       for (const e of this.restore.cells) {
         out = out.setSheet(e.sheet, out.sheet(e.sheet).setCell(e.row, e.col, e.cell))
@@ -424,6 +452,7 @@ export class StructureStep extends Step {
         d = d.setMerges(this.restore.merges)
         d = d.withHidden(this.restore.hiddenRows, this.restore.hiddenCols)
         d = d.setFilter(this.restore.filter)
+        d = d.setCondFormats(this.restore.condFormats ?? []) // 旧历史 JSON 无此字段
       }
       out = out.setSheet(spec.sheet, d)
       return { ok: true, doc: out }
@@ -467,6 +496,7 @@ export class StructureStep extends Step {
     let hiddenRows: number[] = []
     let hiddenCols: number[] = []
     let filter: FilterState | undefined
+    let condFormats: CondFormatRule[] = []
     // delete 模式：删除区内的格/行高列宽/隐藏标记物理丢失，原文全部入恢复项（级联只覆盖公式文本）；
     // merges 与隐藏数组记录目标表完整原文（undo 整体恢复）
     if (this.spec.mode === 'delete') {
@@ -490,6 +520,7 @@ export class StructureStep extends Step {
       hiddenRows = [...data.hiddenRows]
       hiddenCols = [...data.hiddenCols]
       filter = data.filter
+      condFormats = [...data.condFormats]
     }
     if (cascadeFn) {
       const nameSpec: StructureSpecName = {
@@ -509,7 +540,7 @@ export class StructureStep extends Step {
         })
       }
     }
-    return new StructureStep(this.spec, { cells, sizes, merges, hiddenRows, hiddenCols, filter })
+    return new StructureStep(this.spec, { cells, sizes, merges, hiddenRows, hiddenCols, filter, condFormats })
   }
 
   toJSON(): unknown {
@@ -634,6 +665,31 @@ export class SetFilterStep extends Step {
   }
 }
 
+// 整体替换条件格式规则（invert=旧值快照）
+export class SetCondFormatsStep extends Step {
+  constructor(readonly sheet: SheetId, readonly rules: CondFormatRule[]) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    let data: SheetData
+    try {
+      data = doc.sheet(this.sheet)
+    } catch {
+      return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    }
+    return { ok: true, doc: doc.setSheet(this.sheet, data.setCondFormats(this.rules)) }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    return new SetCondFormatsStep(this.sheet, [...beforeDoc.sheet(this.sheet).condFormats])
+  }
+
+  toJSON(): unknown {
+    return { type: 'setCondFormats', sheet: this.sheet, rules: this.rules }
+  }
+}
+
 export function stepFromJSON(json: any): Step {
   switch (json?.type) {
     case 'setCells':
@@ -650,6 +706,8 @@ export function stepFromJSON(json: any): Step {
       return new RemoveSheetStep(json.sheet, json.restoreActive ?? null)
     case 'renameSheet':
       return new RenameSheetStep(json.sheet, json.name)
+    case 'moveSheet':
+      return new MoveSheetStep(json.sheet, json.toIndex)
     case 'setActiveSheet':
       return new SetActiveSheetStep(json.sheet)
     case 'setMerges':
@@ -662,6 +720,8 @@ export function stepFromJSON(json: any): Step {
       return new SetHiddenStep(json.sheet, json.axis, json.indices, json.hidden, json.restore ?? null)
     case 'setFilter':
       return new SetFilterStep(json.sheet, json.filter)
+    case 'setCondFormats':
+      return new SetCondFormatsStep(json.sheet, json.rules)
     default:
       throw new Error(`unknown step type: ${json?.type}`)
   }

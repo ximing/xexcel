@@ -9,11 +9,13 @@ import type { SheetState } from '../core/state'
 import type { Transaction } from '../core/transaction'
 import { evaluatorFor } from '../formula/engine'
 import { filterHiddenRows } from '../formula/filter'
+import { autoRowHeights } from './autoheight'
 import { openEditor } from './editbox'
 import { GridGeometry } from './geometry'
-import { FILL_HANDLE_SIZE, renderAll } from './layers'
-import { contentViewport, hScrollbar, thumbHit, vScrollbar } from './scrollbar'
-import { HitResult, Rect } from './types'
+import { fillHandleSize, renderAll } from './layers'
+import { contentViewport, hScrollbar, SB_SIZE, thumbHit, vScrollbar } from './scrollbar'
+import { HitResult, Rect, contextMenuKey, zoomKey } from './types'
+import { anchoredScroll, nextZoomLevel, zoomOf } from './zoom'
 
 export interface DirectEditorProps {
   state: SheetState
@@ -35,7 +37,7 @@ export class EditorView implements EditorViewLike {
   private readonly pluginViews: (PluginView | undefined)[]
   private readonly listeners = new Set<() => void>()
   private readonly resizeObserver: ResizeObserver
-  private geomCache: { sheet: SheetData; geom: GridGeometry } | null = null
+  private geomCache: { sheet: SheetData; zoom: number; geom: GridGeometry } | null = null
   private rafId = 0
   private sbDrag: { axis: 'h' | 'v'; startScroll: number; startPos: number; ratio: number } | null = null
 
@@ -90,14 +92,24 @@ export class EditorView implements EditorViewLike {
     this.render()
   }
 
-  // 按 activeSheet 引用缓存几何对象（行高列宽/冻结/筛选/隐藏变化都会得到新 SheetData）
+  // 当前活动表的缩放档位（缺省 1）
+  zoom(): number {
+    return zoomOf(this.state, this.state.doc.active)
+  }
+
+  // 按 activeSheet 引用 + zoom 缓存几何对象（行高列宽/冻结/筛选/隐藏变化都会得到新 SheetData）
   geometry(): GridGeometry {
     const sheet = this.state.activeSheet
-    if (this.geomCache?.sheet !== sheet) {
-      const extra = sheet.filter
-        ? filterHiddenRows(this.state.doc.active, sheet, evaluatorFor(this.state.doc))
-        : undefined
-      this.geomCache = { sheet, geom: new GridGeometry(sheet, sheet.frozenRows, sheet.frozenCols, extra) }
+    const z = this.zoom()
+    if (this.geomCache?.sheet !== sheet || this.geomCache.zoom !== z) {
+      const ev = evaluatorFor(this.state.doc)
+      const extra = sheet.filter ? filterHiddenRows(this.state.doc.active, sheet, ev) : undefined
+      const auto = autoRowHeights(sheet, this.state.doc.active, ev)
+      this.geomCache = {
+        sheet,
+        zoom: z,
+        geom: new GridGeometry(sheet, sheet.frozenRows, sheet.frozenCols, extra, auto.size ? auto : undefined, z),
+      }
     }
     return this.geomCache.geom
   }
@@ -117,6 +129,10 @@ export class EditorView implements EditorViewLike {
     if (prev.doc.active !== state.doc.active) {
       this.scrollX = 0
       this.scrollY = 0
+    }
+    // zoom 变化（滚轮/状态栏菜单等一切路径）后钳位滚动，避免超出新上限留白
+    if (zoomOf(prev, prev.doc.active) !== zoomOf(state, state.doc.active)) {
+      this.clampScroll()
     }
     for (let i = 0; i < state.plugins.length; i++) {
       this.pluginViews[i]?.update?.(this, prev)
@@ -140,6 +156,15 @@ export class EditorView implements EditorViewLike {
     return false
   }
 
+  // 内容视口与双条存在性：纵条存在 ⇔ vp.w < w0（纵条占宽），横条存在 ⇔ vp.h < h0
+  private viewportWithBars(geom: GridGeometry): { vp: { w: number; h: number }; hVisible: boolean; vVisible: boolean } {
+    const z = this.zoom()
+    const w0 = this.stage.width() - ROW_HEADER_WIDTH * z
+    const h0 = this.stage.height() - COL_HEADER_HEIGHT * z
+    const vp = contentViewport(geom.contentWidth, geom.contentHeight, w0, h0, SB_SIZE * z)
+    return { vp, hVisible: vp.h < h0, vVisible: vp.w < w0 }
+  }
+
   hitTest(clientX: number, clientY: number): HitResult {
     const rect = this.dom.getBoundingClientRect()
     const x = clientX - rect.left
@@ -147,30 +172,36 @@ export class EditorView implements EditorViewLike {
     if (x < 0 || y < 0 || x > this.stage.width() || y > this.stage.height()) {
       return { region: 'outside', row: -1, col: -1 }
     }
+    // 表头尺寸/滚动条厚度随 zoom 缩放
+    const z = this.zoom()
+    const hw = ROW_HEADER_WIDTH * z
+    const hh = COL_HEADER_HEIGHT * z
+    const sb = SB_SIZE * z
     // 滚动条区域优先于其他命中
     const geom0 = this.geometry()
-    const vg = vScrollbar(geom0.contentHeight, this.scrollY, this.stage.width(), this.stage.height())
+    const { hVisible, vVisible } = this.viewportWithBars(geom0)
+    const vg = vScrollbar(geom0.contentHeight, this.scrollY, this.stage.width(), this.stage.height(), sb, hh, hVisible)
     if (vg && x >= vg.track.x && y >= vg.track.y && y <= vg.track.y + vg.track.h) {
       return { region: 'vscrollbar', row: -1, col: -1 }
     }
-    const hg = hScrollbar(geom0.contentWidth, this.scrollX, this.stage.width(), this.stage.height())
+    const hg = hScrollbar(geom0.contentWidth, this.scrollX, this.stage.width(), this.stage.height(), sb, hw, vVisible)
     if (hg && y >= hg.track.y && x >= hg.track.x && x <= hg.track.x + hg.track.w) {
       return { region: 'hscrollbar', row: -1, col: -1 }
     }
     const geom = this.geometry()
-    // 填充手柄：活动选区右下角 6px 方块 ±2px 容差（用活动格的视口位置）
+    // 填充手柄：活动选区右下角 6px 方块（×zoom）±2px 容差（用活动格的视口位置）
     const sel = this.state.selection
     const sRange = selectionRange(sel)
     const br = this.cellViewportRect(sRange.er, sRange.ec)
     const hx = br.x + br.w
     const hy = br.y + br.h
-    const half = FILL_HANDLE_SIZE / 2 + 2
+    const half = fillHandleSize(z) / 2 + 2
     if (Math.abs(x - hx) <= half && Math.abs(y - hy) <= half) {
       return { region: 'fillhandle', row: sel.focus.row, col: sel.focus.col }
     }
-    if (x < ROW_HEADER_WIDTH && y < COL_HEADER_HEIGHT) return { region: 'corner', row: -1, col: -1 }
-    if (y < COL_HEADER_HEIGHT) {
-      const cx = x - ROW_HEADER_WIDTH
+    if (x < hw && y < hh) return { region: 'corner', row: -1, col: -1 }
+    if (y < hh) {
+      const cx = x - hw
       const col =
         cx < geom.frozenWidth
           ? geom.colAt(cx)
@@ -189,8 +220,8 @@ export class EditorView implements EditorViewLike {
       }
       return { region: 'colheader', row: -1, col }
     }
-    if (x < ROW_HEADER_WIDTH) {
-      const cy = y - COL_HEADER_HEIGHT
+    if (x < hw) {
+      const cy = y - hh
       const row =
         cy < geom.frozenHeight
           ? geom.rowAt(cy)
@@ -208,12 +239,12 @@ export class EditorView implements EditorViewLike {
       }
       return { region: 'rowheader', row, col: -1 }
     }
-    const a = geom.cellAtContent(x - ROW_HEADER_WIDTH, y - COL_HEADER_HEIGHT, this.scrollX, this.scrollY)
-    // 筛选箭头：表头行单元格右缘 18px 区域
+    const a = geom.cellAtContent(x - hw, y - hh, this.scrollX, this.scrollY)
+    // 筛选箭头：表头行单元格右缘 18px（×zoom）区域，与绘制偏移一致
     const f = this.state.activeSheet.filter
     if (f && a.row === f.range.sr && a.col >= f.range.sc && a.col <= f.range.ec) {
       const rect = this.cellViewportRect(a.row, a.col)
-      if (x >= rect.x + rect.w - 18) return { region: 'filter', row: a.row, col: a.col }
+      if (x >= rect.x + rect.w - 18 * z) return { region: 'filter', row: a.row, col: a.col }
     }
     return { region: 'cell', row: a.row, col: a.col }
   }
@@ -224,8 +255,8 @@ export class EditorView implements EditorViewLike {
     const geom = this.geometry()
     const sheet = this.state.activeSheet
     const a = geom.cellAtContent(
-      clientX - rect.left - ROW_HEADER_WIDTH,
-      clientY - rect.top - COL_HEADER_HEIGHT,
+      clientX - rect.left - ROW_HEADER_WIDTH * this.zoom(),
+      clientY - rect.top - COL_HEADER_HEIGHT * this.zoom(),
       this.scrollX,
       this.scrollY,
     )
@@ -240,16 +271,19 @@ export class EditorView implements EditorViewLike {
     const r = geom.cellRect(row, col)
     const sx = col < geom.frozenCols ? r.x : geom.frozenWidth + (r.x - geom.frozenWidth - this.scrollX)
     const sy = row < geom.frozenRows ? r.y : geom.frozenHeight + (r.y - geom.frozenHeight - this.scrollY)
-    return { x: ROW_HEADER_WIDTH + sx, y: COL_HEADER_HEIGHT + sy, w: r.w, h: r.h }
+    const z = this.zoom()
+    return { x: ROW_HEADER_WIDTH * z + sx, y: COL_HEADER_HEIGHT * z + sy, w: r.w, h: r.h }
   }
 
   ensureVisible(addr: CellAddr): void {
     const geom = this.geometry()
+    const z = this.zoom()
     const vp = contentViewport(
       geom.contentWidth,
       geom.contentHeight,
-      this.stage.width() - ROW_HEADER_WIDTH,
-      this.stage.height() - COL_HEADER_HEIGHT,
+      this.stage.width() - ROW_HEADER_WIDTH * z,
+      this.stage.height() - COL_HEADER_HEIGHT * z,
+      SB_SIZE * z,
     )
     const viewW = vp.w
     const viewH = vp.h
@@ -291,6 +325,7 @@ export class EditorView implements EditorViewLike {
       this.scrollY,
       this.stage.width(),
       this.stage.height(),
+      this.zoom(),
     )
   }
 
@@ -320,21 +355,25 @@ export class EditorView implements EditorViewLike {
   }
 
   private maxScrollX(): number {
+    const z = this.zoom()
     const vp = contentViewport(
       this.geometry().contentWidth,
       this.geometry().contentHeight,
-      this.stage.width() - ROW_HEADER_WIDTH,
-      this.stage.height() - COL_HEADER_HEIGHT,
+      this.stage.width() - ROW_HEADER_WIDTH * z,
+      this.stage.height() - COL_HEADER_HEIGHT * z,
+      SB_SIZE * z,
     )
     return Math.max(0, this.geometry().contentWidth - vp.w)
   }
 
   private maxScrollY(): number {
+    const z = this.zoom()
     const vp = contentViewport(
       this.geometry().contentWidth,
       this.geometry().contentHeight,
-      this.stage.width() - ROW_HEADER_WIDTH,
-      this.stage.height() - COL_HEADER_HEIGHT,
+      this.stage.width() - ROW_HEADER_WIDTH * z,
+      this.stage.height() - COL_HEADER_HEIGHT * z,
+      SB_SIZE * z,
     )
     return Math.max(0, this.geometry().contentHeight - vp.h)
   }
@@ -349,6 +388,7 @@ export class EditorView implements EditorViewLike {
     const content = this.stage.content
     content.addEventListener('mousedown', this.onMouseDown)
     content.addEventListener('dblclick', this.onDblClick)
+    content.addEventListener('contextmenu', this.onContextMenu)
     content.addEventListener('wheel', this.onWheel, { passive: false })
     window.addEventListener('mousemove', this.onMouseMove)
     window.addEventListener('mouseup', this.onMouseUp)
@@ -362,10 +402,15 @@ export class EditorView implements EditorViewLike {
     const hit = this.hitTest(e.clientX, e.clientY)
     if (hit.region === 'hscrollbar' || hit.region === 'vscrollbar') {
       const geom = this.geometry()
+      const z = this.zoom()
+      const hw = ROW_HEADER_WIDTH * z
+      const hh = COL_HEADER_HEIGHT * z
+      const sb = SB_SIZE * z
+      const { vp, hVisible, vVisible } = this.viewportWithBars(geom)
       const g =
         hit.region === 'vscrollbar'
-          ? vScrollbar(geom.contentHeight, this.scrollY, this.stage.width(), this.stage.height())
-          : hScrollbar(geom.contentWidth, this.scrollX, this.stage.width(), this.stage.height())
+          ? vScrollbar(geom.contentHeight, this.scrollY, this.stage.width(), this.stage.height(), sb, hh, hVisible)
+          : hScrollbar(geom.contentWidth, this.scrollX, this.stage.width(), this.stage.height(), sb, hw, vVisible)
       if (!g) return
       const rect = this.dom.getBoundingClientRect()
       const x = e.clientX - rect.left
@@ -374,8 +419,8 @@ export class EditorView implements EditorViewLike {
       if (thumbHit(g, x, y)) {
         this.sbDrag = { axis, startScroll: axis === 'v' ? this.scrollY : this.scrollX, startPos: axis === 'v' ? y : x, ratio: g.ratio }
       } else {
-        // 点轨道翻页（向点击方向滚一个视口）
-        const page = axis === 'v' ? this.stage.height() - COL_HEADER_HEIGHT : this.stage.width() - ROW_HEADER_WIDTH
+        // 点轨道翻页（向点击方向滚一个内容视口，自动扣对侧条厚度）
+        const page = axis === 'v' ? vp.h : vp.w
         const onThumbSide = axis === 'v' ? y > g.thumb.y + g.thumb.h : x > g.thumb.x + g.thumb.w
         if (axis === 'v') this.scrollY += onThumbSide ? page : -page
         else this.scrollX += onThumbSide ? page : -page
@@ -390,6 +435,47 @@ export class EditorView implements EditorViewLike {
     if (hit.region === 'cell') {
       this.dispatch(this.state.tr.setSelection(singleCell(hit.row, hit.col)).scrollIntoView())
       this.focus()
+    }
+  }
+
+  // 右键：点在选区外先改选区（整行/列头同理），再开菜单（不入 undo）
+  private onContextMenu = (e: MouseEvent): void => {
+    e.preventDefault()
+    const hit = this.hitTest(e.clientX, e.clientY)
+    const st = this.state
+    const sheet = st.activeSheet
+    const sel = selectionRange(st.selection)
+    const tr = st.tr
+    const openMenu = (kind: 'cell' | 'rowheader' | 'colheader', row: number, col: number): void => {
+      tr.setMeta(contextMenuKey, { kind, x: e.clientX, y: e.clientY, row, col }).setMeta('addToHistory', false)
+      this.dispatch(tr)
+    }
+    switch (hit.region) {
+      case 'cell':
+      case 'filter': {
+        const inSel = hit.row >= sel.sr && hit.row <= sel.er && hit.col >= sel.sc && hit.col <= sel.ec
+        if (!inSel) tr.setSelection(singleCell(hit.row, hit.col))
+        openMenu('cell', hit.row, hit.col)
+        break
+      }
+      case 'rowheader': {
+        const fullRows = sel.sc === 0 && sel.ec === sheet.colCount - 1
+        if (!(fullRows && hit.row >= sel.sr && hit.row <= sel.er)) {
+          tr.setSelection({ anchor: { row: hit.row, col: 0 }, focus: { row: hit.row, col: sheet.colCount - 1 } })
+        }
+        openMenu('rowheader', hit.row, -1)
+        break
+      }
+      case 'colheader': {
+        const fullCols = sel.sr === 0 && sel.er === sheet.rowCount - 1
+        if (!(fullCols && hit.col >= sel.sc && hit.col <= sel.ec)) {
+          tr.setSelection({ anchor: { row: 0, col: hit.col }, focus: { row: sheet.rowCount - 1, col: hit.col } })
+        }
+        openMenu('colheader', -1, hit.col)
+        break
+      }
+      default:
+        break // 滚动条/角落/外部不弹
     }
   }
 
@@ -428,6 +514,27 @@ export class EditorView implements EditorViewLike {
 
   private onWheel = (e: WheelEvent): void => {
     e.preventDefault()
+    // Ctrl/Cmd+滚轮：以光标为锚点按档缩放（zoom 非文档态，不入 undo）
+    if (e.ctrlKey || e.metaKey) {
+      const st = this.state
+      const z0 = this.zoom()
+      const z1 = nextZoomLevel(z0, e.deltaY < 0 ? 1 : -1)
+      if (z1 === z0) return
+      const rect = this.dom.getBoundingClientRect()
+      const hw = ROW_HEADER_WIDTH * z0
+      const hh = COL_HEADER_HEIGHT * z0
+      const cx = e.clientX - rect.left - hw
+      const cy = e.clientY - rect.top - hh
+      this.scrollX = anchoredScroll(this.scrollX, cx, z0, z1)
+      this.scrollY = anchoredScroll(this.scrollY, cy, z0, z1)
+      const field = (st.getField(zoomKey) as Record<string, number> | null) ?? {}
+      this.dispatch(
+        st.tr.setMeta(zoomKey, { ...field, [st.doc.active]: z1 }).setMeta('addToHistory', false),
+      )
+      this.clampScroll()
+      this.render()
+      return
+    }
     this.scrollX += e.deltaX
     this.scrollY += e.deltaY
     this.clampScroll()

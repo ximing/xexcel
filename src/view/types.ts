@@ -38,3 +38,27 @@ export const filterDropdownKey = new PluginKey('filterDropdown')
 
 // 查找栏开关（true=显示）
 export const findBarKey = new PluginKey('findBar')
+
+// 格式刷状态：源格 style 快照 + 是否锁定连刷；null=未激活
+export interface FormatPainterState {
+  style: import('../core/model').CellStyle
+  locked: boolean
+}
+export const formatPainterKey = new PluginKey('formatPainter')
+
+// 右键菜单开启态（React 浮层定位）；null=关闭
+export interface ContextMenuOpen {
+  kind: 'cell' | 'rowheader' | 'colheader' | 'tab'
+  x: number // client 坐标
+  y: number
+  row: number
+  col: number
+  sheet?: import('../core/model').SheetId // kind='tab'
+}
+export const contextMenuKey = new PluginKey('contextMenu')
+
+// 标签栏重命名请求（ContextMenu → SheetTabBar 进入改名输入态）
+export const tabRenameKey = new PluginKey('tabRename')
+
+// 每表缩放档位（{ sheetId: zoom }，zoom=1 为 100%）；非文档态，不入 undo、不持久化
+export const zoomKey = new PluginKey('zoom')

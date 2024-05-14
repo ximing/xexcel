@@ -45,6 +45,12 @@ describe('computeSortEntries', () => {
     expect(sortedRaws(wb, range, [{ col: 0, asc: false }], false, 0)).toEqual(['2', '1', '', ''])
   })
 
+  it('公式返回空串按文本参与比较，不沉底', () => {
+    const wb = wbWith({ A1: 'b', A2: '=""', A3: 'a' }) // A4 真空格
+    expect(sortedRaws(wb, range, [{ col: 0, asc: true }], false, 0)).toEqual(['=""', 'a', 'b', ''])
+    expect(sortedRaws(wb, range, [{ col: 0, asc: false }], false, 0)).toEqual(['b', 'a', '=""', ''])
+  })
+
   it('稳定排序：同键保持原相对序', () => {
     const wb = wbWith({ A1: '1', B1: 'x', A2: '1', B2: 'y', A3: '1', B3: 'z', A4: '0', B4: 'w' })
     expect(sortedRaws(wb, range, [{ col: 0, asc: true }], false, 1)).toEqual(['w', 'x', 'y', 'z'])

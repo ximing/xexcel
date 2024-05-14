@@ -1,7 +1,7 @@
 // 条件匹配（SUMIF/COUNTIF/AVERAGEIF 与 E2 条件筛选共用）。Excel 语义：
 // 前缀 > >= < <= <> = 后跟数值或文本；无前缀为精确匹配（数值串按数值）；
 // * ? 通配仅对文本值生效；文本比较一律不区分大小写；错误值永不匹配。
-import { FormulaValue, isError } from './eval'
+import { FormulaValue, isError } from './errors'
 
 const PREFIX_RE = /^(>=|<=|<>|=|>|<)(.*)$/
 

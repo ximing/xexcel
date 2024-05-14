@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react'
 import { singleCell } from '../core/selection'
 import { evaluatorFor } from '../formula/engine'
-import { findAll, FindMatch, FindQuery, replaceInRaw } from '../formula/find'
+import { findAll, FindMatch, FindQuery, indexAfterReplace, replaceInRaw } from '../formula/find'
 import { normalizedCell } from '../formula/input'
 import type { EditorView } from '../view/editorview'
 import { findBarKey } from '../view/types'
@@ -54,14 +54,20 @@ export function FindBar({ view }: { view: EditorView }) {
 
   const replaceCurrent = (): void => {
     if (matches.length === 0) return
-    const m = matches[Math.min(idx, matches.length - 1)]
+    const i = Math.min(idx, matches.length - 1)
+    const m = matches[i]
     const cell = view.state.doc.sheet(m.sheet).getCell(m.row, m.col)
     if (!cell) return
     const newRaw = replaceInRaw(cell.raw, query, replacement)
     if (newRaw === null) return // 显示值命中但 raw 不可替换（如格式化数字）
     const nextCell = normalizedCell(newRaw, cell)
     view.dispatch(view.state.tr.setCells(m.sheet, [{ row: m.row, col: m.col, cell: nextCell }]))
-    // matches 随 state.doc 重算；idx 保持即指向原下一条
+    // 替换后前进到下一匹配（替换文本仍命中时不反复替换同格），选中跟随；
+    // dispatch 同步生效，此处直接按新 doc 重算，与 useMemo 重算结果一致
+    const newMatches = findAll(view.state.doc, evaluatorFor(view.state.doc), query)
+    const ni = indexAfterReplace(matches, i, newMatches)
+    setIdx(ni)
+    if (newMatches.length > 0) gotoMatch(newMatches[ni])
   }
 
   const replaceAll = (): void => {
@@ -96,6 +102,8 @@ export function FindBar({ view }: { view: EditorView }) {
           setIdx(0)
         }}
         onKeyDown={(e) => {
+          // 栏内 Ctrl/Cmd+F 不唤起浏览器默认查找（焦点留在栏内）
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') e.preventDefault()
           if (e.key === 'Enter') next(e.shiftKey ? -1 : 1)
           if (e.key === 'Escape') close()
         }}
@@ -116,6 +124,7 @@ export function FindBar({ view }: { view: EditorView }) {
             value={replacement}
             onChange={(e) => setReplacement(e.target.value)}
             onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') e.preventDefault()
               if (e.key === 'Escape') close()
             }}
           />

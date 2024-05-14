@@ -24,6 +24,21 @@ describe('navigateFocus', () => {
     expect(navigateFocus(sheet, { row: 1, col: 1 }, 0, -1)).toEqual({ row: 1, col: 0 })
     expect(navigateFocus(sheet, { row: 1, col: 1 }, -1, 0)).toEqual({ row: 0, col: 1 })
   })
+  it('锚点隐藏：吸附后再判隐藏，跳过整个合并区到远侧之外（不落回隐藏锚点）', () => {
+    // 隐藏锚点列 1：从 (1,0) 右移，入区吸附锚点 (1,1) 仍隐藏 → 越过合并区到 (1,3)
+    const byCol = sheetWithMerge().setHidden('col', [1], true)
+    const hiddenCol = (r: number, c: number) => byCol.hiddenRows.includes(r) || byCol.hiddenCols.includes(c)
+    expect(navigateFocus(byCol, { row: 1, col: 0 }, 0, 1, hiddenCol)).toEqual({ row: 1, col: 3 })
+    // 隐藏锚点行 1：从 (0,1) 下移 → 越过合并区到 (3,1)
+    const byRow = sheetWithMerge().setHidden('row', [1], true)
+    const hiddenRow = (r: number, c: number) => byRow.hiddenRows.includes(r) || byRow.hiddenCols.includes(c)
+    expect(navigateFocus(byRow, { row: 0, col: 1 }, 1, 0, hiddenRow)).toEqual({ row: 3, col: 1 })
+  })
+  it('锚点隐藏且远侧格也隐藏：继续步进到下一可见格', () => {
+    const sheet = sheetWithMerge().setHidden('col', [1, 3], true)
+    const isHidden = (r: number, c: number) => sheet.hiddenRows.includes(r) || sheet.hiddenCols.includes(c)
+    expect(navigateFocus(sheet, { row: 1, col: 0 }, 0, 1, isHidden)).toEqual({ row: 1, col: 4 })
+  })
   it('无合并区：普通 clamp 移动（含边界钳制）', () => {
     const wb = Workbook.create({ rowCount: 10, colCount: 10 })
     const sheet = wb.activeSheet

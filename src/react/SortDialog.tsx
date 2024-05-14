@@ -29,11 +29,8 @@ export function SortDialog({ view, range, onClose }: Props) {
   for (let c = range.sc; c <= range.ec; c++) cols.push(c)
 
   const apply = (): void => {
+    // 主关键字无「（无）」选项，active 恒 ≥1
     const active = keys.filter((k): k is { col: number; asc: boolean } => k.col !== null)
-    if (active.length === 0) {
-      onClose()
-      return
-    }
     const sheet = view.state.activeSheet
     if (sortBlockedByMerges(sheet, range)) {
       window.alert('排序区域包含合并单元格，无法排序')
@@ -47,7 +44,15 @@ export function SortDialog({ view, range, onClose }: Props) {
 
   return (
     <div className="dialog-backdrop" onClick={onClose}>
-      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="dialog"
+        tabIndex={-1}
+        autoFocus
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose()
+        }}
+      >
         <div className="dialog-title">自定义排序</div>
         {keys.map((k, i) => (
           <div className="dialog-row" key={i}>

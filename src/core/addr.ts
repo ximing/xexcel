@@ -49,6 +49,24 @@ export function parseRange(s: string): CellRange | null {
   return normalizeRange({ sr: a.row, sc: a.col, er: b.row, ec: b.col })
 }
 
+// UI 输入用 A1 解析（公式层有自己的 lexer，不共用）
+export function parseA1(text: string): CellAddr | null {
+  const m = /^([A-Za-z]+)([0-9]+)$/.exec(text.trim())
+  if (!m) return null
+  let col = 0
+  for (const ch of m[1].toUpperCase()) col = col * 26 + (ch.charCodeAt(0) - 64)
+  return { row: parseInt(m[2], 10) - 1, col: col - 1 }
+}
+
+export function parseRangeA1(text: string): CellRange | null {
+  const parts = text.trim().split(':')
+  if (parts.length > 2) return null
+  const a = parseA1(parts[0])
+  const b = parts.length === 2 ? parseA1(parts[1]) : a
+  if (!a || !b) return null
+  return normalizeRange({ sr: a.row, sc: a.col, er: b.row, ec: b.col })
+}
+
 export function rangeContains(r: CellRange, row: number, col: number): boolean {
   return row >= r.sr && row <= r.er && col >= r.sc && col <= r.ec
 }

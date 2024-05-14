@@ -48,3 +48,44 @@ export function optimalRowHeight(items: { style?: CellStyle }[]): number | null 
   if (size === 0) return null
   return Math.max(20, Math.ceil(size * 1.35) + 6)
 }
+
+export const WRAP_LINE_PAD = 6
+
+// 折行数估计：\n 强制换行；段内贪心按字符填充（CJK 友好，与 Konva wrap:'char' 近似）。
+// measure 注入便于 node 单测；调用侧传 measureTextWidth。
+export function wrappedLineCount(
+  text: string,
+  style: CellStyle | undefined,
+  contentWidth: number,
+  measure: (t: string, s?: CellStyle) => number,
+): number {
+  if (text === '') return 1
+  let lines = 0
+  for (const para of text.split('\n')) {
+    lines++
+    let cur = ''
+    for (const ch of para) {
+      if (cur !== '' && measure(cur + ch, style) > contentWidth) {
+        lines++
+        cur = ch
+      } else {
+        cur += ch
+      }
+    }
+  }
+  return lines
+}
+
+// 一组 wrap 格的行高需求最大值；无项 → 0（调用侧与默认行高取 max）
+export function wrapRowHeight(
+  items: { text: string; style?: CellStyle; contentWidth: number }[],
+  measure: (t: string, s?: CellStyle) => number,
+): number {
+  let need = 0
+  for (const it of items) {
+    const lines = wrappedLineCount(it.text, it.style, it.contentWidth, measure)
+    const size = it.style?.fontSize ?? DEFAULT_FONT_SIZE
+    need = Math.max(need, lines * Math.ceil(size * 1.35) + WRAP_LINE_PAD)
+  }
+  return need
+}
