@@ -3,7 +3,7 @@ import { SheetState } from '../src/core/state'
 import { CellStyle, Workbook } from '../src/core/model'
 import { Selection, singleCell } from '../src/core/selection'
 import { Transaction } from '../src/core/transaction'
-import { FormatPainterState, formatPainterKey } from '../src/view/types'
+import { FormatPainterState, contextMenuKey, formatPainterKey } from '../src/view/types'
 import type { EditorView } from '../src/view/editorview'
 import { metaField, painter } from '../src/plugins/uistate'
 
@@ -43,15 +43,20 @@ describe('格式刷应用', () => {
 
 // painter 插件本体：最小 fake view（state + dispatch 捕获 tr），直接调 props.handleMouseUp
 describe('painter 插件 handleMouseUp', () => {
-  const mkView = (sel: Selection, fp: FormatPainterState | null) => {
+  const mkView = (sel: Selection, fp: FormatPainterState | null, menuOpen = false) => {
     let state = SheetState.create({
       doc: Workbook.create({ rowCount: 10, colCount: 10 }),
       selection: sel,
-      plugins: [metaField(formatPainterKey, null), painter()],
+      plugins: [metaField(formatPainterKey, null), metaField(contextMenuKey, null), painter()],
     })
     if (fp) {
       state = state.applyTransaction(
         state.tr.setMeta(formatPainterKey, fp).setMeta('addToHistory', false),
+      ).state
+    }
+    if (menuOpen) {
+      state = state.applyTransaction(
+        state.tr.setMeta(contextMenuKey, { x: 0, y: 0 }).setMeta('addToHistory', false),
       ).state
     }
     const trs: Transaction[] = []
@@ -67,7 +72,7 @@ describe('painter 插件 handleMouseUp', () => {
     return { view, trs, getState: () => state }
   }
   const handleMouseUp = painter().spec.props!.handleMouseUp!
-  const evt = {} as MouseEvent
+  const evt = { button: 0 } as MouseEvent
   const stylesIn = (s: SheetState, sr: number, er: number, sc: number, ec: number): (CellStyle | undefined)[] => {
     const out: (CellStyle | undefined)[] = []
     for (let r = sr; r <= er; r++) for (let c = sc; c <= ec; c++) out.push(s.activeSheet.getCell(r, c)?.style)
@@ -110,5 +115,21 @@ describe('painter 插件 handleMouseUp', () => {
     const { view, trs } = mkView(singleCell(0, 0), null)
     expect(handleMouseUp(view, evt, { region: 'cell', row: 0, col: 0 })).toBe(false)
     expect(trs).toHaveLength(0)
+  })
+
+  it('右键 mouseup（button=2）：不 dispatch，返回 false', () => {
+    const fp: FormatPainterState = { style: { bold: true }, locked: false }
+    const { view, trs, getState } = mkView(singleCell(0, 0), fp)
+    expect(handleMouseUp(view, { button: 2 } as MouseEvent, { region: 'cell', row: 0, col: 0 })).toBe(false)
+    expect(trs).toHaveLength(0)
+    expect(getState().getField(formatPainterKey)).toEqual(fp) // 右键不消耗格式刷
+  })
+
+  it('右键菜单打开中：左键 mouseup 不 dispatch，返回 false', () => {
+    const fp: FormatPainterState = { style: { bold: true }, locked: false }
+    const { view, trs, getState } = mkView(singleCell(0, 0), fp, true)
+    expect(handleMouseUp(view, evt, { region: 'cell', row: 0, col: 0 })).toBe(false)
+    expect(trs).toHaveLength(0)
+    expect(getState().getField(formatPainterKey)).toEqual(fp)
   })
 })

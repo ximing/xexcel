@@ -3,7 +3,7 @@
 import { EditorViewLike, HitResult, Plugin, PluginKey } from '../core/plugin'
 import { selectionRange } from '../core/selection'
 import type { EditorView } from '../view/editorview'
-import { filterDropdownKey, formatPainterKey, FormatPainterState } from '../view/types'
+import { contextMenuKey, filterDropdownKey, formatPainterKey, FormatPainterState } from '../view/types'
 
 // 通用「meta 透传」state field：tr.setMeta(key, v) → field 值为 v；无 meta 保持原值
 export function metaField<T>(key: PluginKey, initial: T): Plugin {
@@ -41,8 +41,11 @@ export function filterui(): Plugin {
 export function painter(): Plugin {
   return new Plugin({
     props: {
-      handleMouseUp(view: EditorViewLike, _e: MouseEvent, hit: HitResult): boolean {
+      handleMouseUp(view: EditorViewLike, e: MouseEvent, hit: HitResult): boolean {
         const v = view as EditorView
+        // 仅响应左键；右键菜单打开期间的 mouseup 穿透（window 监听）不得误刷
+        if (e.button !== 0) return false
+        if (v.state.getField(contextMenuKey)) return false
         const fp = v.state.getField(formatPainterKey) as FormatPainterState | null | undefined
         if (!fp || hit.region !== 'cell') return false
         const st = v.state

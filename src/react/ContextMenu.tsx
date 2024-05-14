@@ -131,12 +131,18 @@ export function ContextMenu({ view }: { view: EditorView }) {
     <div
       className="ctx-overlay"
       onMouseDown={close}
+      onMouseUp={(e) => e.stopPropagation()} // 双保险：阻断 window 级 mouseup 穿透到 painter 等插件
       onContextMenu={(e) => {
         e.preventDefault()
         close()
       }}
     >
-      <div className="ctx-menu" style={{ left: x, top: y }} onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        className="ctx-menu"
+        style={{ left: x, top: y }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseUp={(e) => e.stopPropagation()}
+      >
         {items.map((it) => (
           <Fragment key={it.id}>
             {it.sep ? <div className="ctx-sep" /> : null}
