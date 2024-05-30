@@ -1,7 +1,7 @@
 // 临时 UI 态宿主：metaField 工厂（PluginKey + StateField 桥接 tr meta 通道，
 // 配 addToHistory:false 不入 undo 栈）与 filterui（筛选箭头点击 → 开启下拉面板）。
 import { EditorViewLike, HitResult, Plugin, PluginKey } from '../core/plugin'
-import { selectionRange } from '../core/selection'
+import { forEachSelectionRange } from '../core/selection'
 import type { EditorView } from '../view/editorview'
 import { contextMenuKey, filterDropdownKey, formatPainterKey, FormatPainterState } from '../view/types'
 
@@ -49,11 +49,11 @@ export function painter(): Plugin {
         const fp = v.state.getField(formatPainterKey) as FormatPainterState | null | undefined
         if (!fp || hit.region !== 'cell') return false
         const st = v.state
-        const r = selectionRange(st.selection)
         const entries: { row: number; col: number; style: import('../core/model').CellStyle }[] = []
-        for (let row = r.sr; row <= r.er; row++) {
-          for (let col = r.sc; col <= r.ec; col++) entries.push({ row, col, style: fp.style })
-        }
+        forEachSelectionRange(st.selection, r => {
+          for (let row = r.sr; row <= r.er; row++)
+            for (let col = r.sc; col <= r.ec; col++) entries.push({ row, col, style: fp.style })
+        })
         v.dispatch(
           st.tr.setCellStyles(entries).setMeta(formatPainterKey, fp.locked ? fp : null),
         )

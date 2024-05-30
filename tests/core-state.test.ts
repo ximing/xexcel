@@ -25,7 +25,7 @@ describe('state/transaction', () => {
     expect(tr.getMeta('k')).toBe(42)
     const s2 = s.apply(tr)
     expect(s2.doc.sheet('s1').getCell(0, 0)).toBeUndefined()
-    expect(s2.selection).toEqual({ anchor: { row: 2, col: 2 }, focus: { row: 2, col: 2 } })
+    expect(s2.selection).toEqual({ ranges: [{ sr: 2, sc: 2, er: 2, ec: 2 }], activeCell: { row: 2, col: 2 } })
   })
   it('插件 state field init/apply 次序与 getField', () => {
     const calls: string[] = []

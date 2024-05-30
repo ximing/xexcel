@@ -12,7 +12,7 @@ interface Props {
 
 export function FormulaBar({ view }: Props) {
   const state = useSheetState(view)
-  const { row, col } = state.selection.focus
+  const { row, col } = state.selection.activeCell
   const raw = state.activeSheet.getCell(row, col)?.raw ?? ''
 
   const [text, setText] = useState(raw)

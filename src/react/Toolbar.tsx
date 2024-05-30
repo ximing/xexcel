@@ -21,7 +21,7 @@ interface Props {
 
 export function Toolbar({ view }: Props) {
   const state = useSheetState(view)
-  const { row, col } = state.selection.focus
+  const { row, col } = state.selection.activeCell
   const active: CellStyle = state.activeSheet.getCell(row, col)?.style ?? {}
   const fp = state.getField(formatPainterKey) as FormatPainterState | null | undefined
   const [showSort, setShowSort] = useState(false)
@@ -32,13 +32,10 @@ export function Toolbar({ view }: Props) {
 
   const applyBorder = (preset: BorderPreset): void => {
     const sheet = view.state.activeSheet
-    const entries = computeBorderStyles(
-      sheet,
-      selectionRange(view.state.selection),
-      preset,
-      preset === 'none' ? null : { style: borderLine, color: borderColor },
-    )
-    view.dispatch(view.state.tr.setCellStyles(entries))
+    const edge = preset === 'none' ? null : { style: borderLine, color: borderColor }
+    const entries: ReturnType<typeof computeBorderStyles>[] = []
+    for (const r of view.state.selection.ranges) entries.push(computeBorderStyles(sheet, r, preset, edge))
+    view.dispatch(view.state.tr.setCellStyles(entries.flat()))
     setShowBorder(false)
     view.focus()
   }
@@ -293,12 +290,15 @@ export function Toolbar({ view }: Props) {
         className="tool-btn"
         title="合并单元格"
         onClick={() => {
-          const r = selectionRange(view.state.selection)
-          if (r.sr === r.er && r.sc === r.ec) return
+          const ranges = view.state.selection.ranges
+          if (ranges.every(r => r.sr === r.er && r.sc === r.ec)) return
           let nonEmpty = 0
-          view.state.activeSheet.forEachInRange(r, (cell) => {
-            if (cell && cell.raw !== '') nonEmpty++
-          })
+          const sheet = view.state.activeSheet
+          for (const r of ranges) {
+            sheet.forEachInRange(r, (cell) => {
+              if (cell && cell.raw !== '') nonEmpty++
+            })
+          }
           if (nonEmpty > 1 && !window.confirm('合并仅保留左上角的值，其余内容将被清除。继续？')) return
           mergeSelection(view.state, (tr) => view.dispatch(tr))
           view.focus()
@@ -429,7 +429,7 @@ export function Toolbar({ view }: Props) {
         className="tool-btn"
         title="冻结到当前选区（其上方与左侧）"
         onClick={() => {
-          const { row, col } = view.state.selection.focus
+          const { row, col } = view.state.selection.activeCell
           view.dispatch(view.state.tr.setFrozen(row, col))
           view.focus()
         }}

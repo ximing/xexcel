@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SheetState } from '../src/core/state'
 import { CellStyle, Workbook } from '../src/core/model'
-import { Selection, singleCell } from '../src/core/selection'
+import { Selection, rangeSelection, singleCell } from '../src/core/selection'
 import { Transaction } from '../src/core/transaction'
 import { FormatPainterState, contextMenuKey, formatPainterKey } from '../src/view/types'
 import type { EditorView } from '../src/view/editorview'
@@ -81,7 +81,7 @@ describe('painter 插件 handleMouseUp', () => {
 
   it('非锁定：刷选区各格整体 style，meta 置 null 自动解除，且事务可入 history', () => {
     const fp: FormatPainterState = { style: { bold: true, numFmt: '0%' }, locked: false }
-    const sel: Selection = { anchor: { row: 1, col: 1 }, focus: { row: 2, col: 2 } }
+    const sel: Selection = rangeSelection({ sr: 1, sc: 1, er: 2, ec: 2 })
     const { view, trs, getState } = mkView(sel, fp)
     const handled = handleMouseUp(view, evt, { region: 'cell', row: 2, col: 2 })
     expect(handled).toBe(true)

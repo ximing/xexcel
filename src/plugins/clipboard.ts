@@ -5,10 +5,10 @@
 //   （copy 按目标偏移公式引用；cut 不偏移=移动语义，不相交则清源）；
 //   不一致（外部内容）→ 原 TSV 行为：文本原样落格、空串清格、越界裁剪
 // 全部经 dispatch transaction，不直接改 doc。
-import { CellRange, rangeCellCount, rangesEqual, rangesIntersect } from '../core/addr'
+import { CellRange, clampRange, rangeCellCount, rangesEqual, rangesIntersect } from '../core/addr'
 import { Cell, SheetId } from '../core/model'
 import { EditorViewLike, Plugin } from '../core/plugin'
-import { selectionRange } from '../core/selection'
+import { rangeSelection, selectionRange } from '../core/selection'
 import { evaluatorFor } from '../formula/engine'
 import { normalizedCell } from '../formula/input'
 import { shiftFormula } from '../formula/transform'
@@ -84,23 +84,30 @@ export function clipboard(): Plugin {
     props: {
       handleCopy(view: EditorViewLike, cut: boolean, event: ClipboardEvent): boolean {
         const state = view.state
-        const r = selectionRange(state.selection)
         const ev = evaluatorFor(state.doc)
         const sheetId = state.doc.active
         const sheet = state.activeSheet
-        const lines: string[] = []
+        const ranges = state.selection.ranges
+        // 每个 area 的行；多区域间用空行分隔（仅在 area 之间，不在末尾）
+        const areas: string[][] = []
         const raws: (string | null)[][] = []
-        for (let row = r.sr; row <= r.er; row++) {
-          const cells: string[] = []
-          const rawRow: (string | null)[] = []
-          for (let col = r.sc; col <= r.ec; col++) {
-            cells.push(ev.displayText(sheetId, row, col))
-            rawRow.push(sheet.getCell(row, col)?.raw ?? null)
+        for (const r of ranges) {
+          const areaLines: string[] = []
+          for (let row = r.sr; row <= r.er; row++) {
+            const cells: string[] = []
+            const rawRow: (string | null)[] = []
+            for (let col = r.sc; col <= r.ec; col++) {
+              cells.push(ev.displayText(sheetId, row, col))
+              rawRow.push(sheet.getCell(row, col)?.raw ?? null)
+            }
+            areaLines.push(cells.join('\t'))
+            raws.push(rawRow)
           }
-          lines.push(cells.join('\t'))
-          raws.push(rawRow)
+          areas.push(areaLines)
         }
-        const tsv = lines.join('\n')
+        const tsv = areas.map(a => a.join('\n')).join('\n\n')
+        // 单区域 payload 取活动区（ranges[last]）；多区域 T2 改 areas 结构
+        const r = ranges[ranges.length - 1]
         event.clipboardData?.setData('text/plain', tsv)
         payload = { sheet: sheetId, range: r, tsv, raws, cut }
         return true // EditorView 侧 preventDefault
@@ -118,7 +125,7 @@ export function clipboard(): Plugin {
         const grid = lines.map((l) => l.split('\t'))
         const oneCell = grid.length === 1 && grid[0].length === 1
         const selRange = selectionRange(state.selection)
-        const start = state.selection.focus
+        const start = state.selection.activeCell
         // 目标区域：单格剪贴板 + 多格选区 → 平铺整个选区；否则从 focus 按剪贴板尺寸展开
         const target: CellRange =
           oneCell && rangeCellCount(selRange) > 1
@@ -141,13 +148,10 @@ export function clipboard(): Plugin {
         // （与 Excel 一致：每次粘贴按各自目标偏移公式引用）
         if (payload?.cut) payload = null
         if (tr.steps.length) {
-          tr.setSelection({
-            anchor: { row: target.sr, col: target.sc },
-            focus: {
-              row: Math.min(target.er, sheet.rowCount - 1),
-              col: Math.min(target.ec, sheet.colCount - 1),
-            },
-          })
+          tr.setSelection(rangeSelection(
+            clampRange(target, sheet.rowCount, sheet.colCount),
+            { row: target.sr, col: target.sc },
+          ))
           view.dispatch(tr)
         }
         return true

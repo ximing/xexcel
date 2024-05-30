@@ -1,6 +1,6 @@
 // 状态栏：左侧 就绪/编辑中；右侧对选区数字统计（忽略非数字，单格只显示计数）+ 缩放档位控件。
 import { useEffect, useReducer, useState } from 'react'
-import { selectionRange } from '../core/selection'
+import { forEachSelectionRange } from '../core/selection'
 import type { SheetState } from '../core/state'
 import { formatNumber } from '../formula/eval'
 import { evaluatorFor } from '../formula/engine'
@@ -15,21 +15,24 @@ interface Props {
 }
 
 function collectStats(state: SheetState): { sum: number; count: number; single: boolean } {
-  const r = selectionRange(state.selection)
   const ev = evaluatorFor(state.doc)
   const sheet = state.doc.active
   let sum = 0
   let count = 0
-  for (let row = r.sr; row <= r.er; row++) {
-    for (let col = r.sc; col <= r.ec; col++) {
-      const v = ev.get(sheet, row, col)
-      if (typeof v === 'number') {
-        sum += v
-        count++
+  let cellCount = 0
+  forEachSelectionRange(state.selection, r => {
+    for (let row = r.sr; row <= r.er; row++) {
+      for (let col = r.sc; col <= r.ec; col++) {
+        cellCount++
+        const v = ev.get(sheet, row, col)
+        if (typeof v === 'number') {
+          sum += v
+          count++
+        }
       }
     }
-  }
-  return { sum, count, single: r.sr === r.er && r.sc === r.ec }
+  })
+  return { sum, count, single: cellCount <= 1 }
 }
 
 export function StatusBar({ view }: Props) {
