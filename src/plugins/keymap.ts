@@ -83,7 +83,7 @@ export function keymap(): Plugin {
           const focusCell = navigateFocus(sheet, sel.activeCell, dr, dc, isHidden)
           v.dispatch(
             state.tr
-              .setSelection(extend ? extendActiveRange(sel, sel.activeCell, focusCell) : singleCell(focusCell.row, focusCell.col))
+              .setSelection(extend ? extendActiveRange(sel, focusCell) : singleCell(focusCell.row, focusCell.col))
               .scrollIntoView(),
           )
         }

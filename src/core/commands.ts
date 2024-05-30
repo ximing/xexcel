@@ -1,6 +1,6 @@
 import { rangesIntersect } from './addr'
 import { CellStyle } from './model'
-import { forEachSelectionRange, rangeSelection, selectionRange, singleCell } from './selection'
+import { forEachSelectionRange, rangeSelection } from './selection'
 import type { SheetState } from './state'
 import type { Transaction } from './transaction'
 
@@ -55,6 +55,8 @@ export const mergeSelection: Command = (state, dispatch) => {
   if (ranges.every(r => r.sr === r.er && r.sc === r.ec)) return false
   if (!dispatch) return true
   const kept = data.merges.filter(m => !ranges.some(r => rangesIntersect(m, r)))
+  // TODO(B5/后续裁决): 多区域下若两 range 相交，newMerges 会含重叠 merge（非法状态）。
+  // 单区域零回归；多区域合并语义非 T1 必须——T6 一并或单独去相交/拒绝相交处理。
   const newMerges = [...kept, ...ranges.filter(r => !(r.sr === r.er && r.sc === r.ec))]
   const tr = state.tr.setMerges(newMerges)
   const entries: { row: number; col: number; cell: null }[] = []
@@ -80,6 +82,3 @@ export const unmergeSelection: Command = (state, dispatch) => {
   if (dispatch) dispatch(state.tr.setMerges(kept))
   return true
 }
-
-// 保留 selectionRange 再导出供 CAT-B/C 未迁移站点引用（迁移完成后可移除）
-export { selectionRange, singleCell }

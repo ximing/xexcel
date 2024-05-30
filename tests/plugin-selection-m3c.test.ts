@@ -25,6 +25,10 @@ const mkView = (opts: FakeViewOpts = {}) => {
     dispatch: (tr: Transaction) => { state = state.applyTransaction(tr).state },
     focus: () => {},
     geometry: () => ({ rowHeight: () => 24, colWidth: () => 96, frozenRows: 0, frozenCols: 0, frozenWidth: 0, frozenHeight: 0 }),
+    // 拖拽测试需要：dom/stage 供 edgeDelta 判定自动滚动（大视口不触发），pointerToCell 供 addrAt 映射
+    dom: { getBoundingClientRect: () => ({ left: 0, top: 0, right: 1000, bottom: 1000, width: 1000, height: 1000 }) },
+    stage: { width: () => 1000, height: () => 1000 },
+    pointerToCell: (x: number, y: number) => ({ row: Math.max(0, Math.min(9, Math.floor((y - 30) / 50))), col: Math.max(0, Math.min(9, Math.floor((x - 30) / 50))) }),
   } as unknown as EditorView
   return { view, getState: () => state }
 }
@@ -32,6 +36,10 @@ const mkView = (opts: FakeViewOpts = {}) => {
 const cellHit = (row: number, col: number): HitResult => ({ region: 'cell', row, col })
 const mkEvent = (mods: { ctrl?: boolean; shift?: boolean } = {}): MouseEvent =>
   ({ ctrlKey: !!mods.ctrl, shiftKey: !!mods.shift, metaKey: !!mods.ctrl, button: 0, clientX: 0, clientY: 0 } as unknown as MouseEvent)
+const keyDown = (key: string, shift = false): KeyboardEvent =>
+  ({ key, shiftKey: shift, ctrlKey: false, metaKey: false, altKey: false, preventDefault: () => {} } as unknown as KeyboardEvent)
+const move = (x: number, y: number): MouseEvent =>
+  ({ clientX: x, clientY: y, button: 0 } as unknown as MouseEvent)
 
 describe('selection 插件 Ctrl/Shift 交互', () => {
   // Ctrl+click：格不在选区 → 追加单格区域
@@ -93,5 +101,40 @@ describe('keymap Shift+Arrow', () => {
     // navigateFocus 从 activeCell(0,0) 右移 → (0,1)；无 shift → singleCell
     expect(sel.ranges).toEqual([{ sr: 0, sc: 1, er: 0, ec: 1 }])
     expect(sel.activeCell).toEqual({ row: 0, col: 1 })
+  })
+})
+
+// 审查员 repro：旧 extendActiveRange 以 sel.activeCell 作锚点 → 连续 Shift 扩展选区滑动丢起始格。
+// 新实现以活动区域中 activeCell 的对角格为固定锚点 → 生长。下列三例覆盖 keymap / Shift+click / drag 多步路径。
+describe('Shift 扩展多步生长（锚点固定，不滑动）', () => {
+  it('keymap 连续两次 Shift+Right 生长', () => {
+    const { view, getState } = mkView({ selection: singleCell(0, 0) })
+    const km = keymap()
+    km.spec.props!.handleKeyDown!(view, keyDown('ArrowRight', true))
+    expect(getState().selection.ranges).toEqual([{ sr: 0, sc: 0, er: 0, ec: 1 }])
+    km.spec.props!.handleKeyDown!(view, keyDown('ArrowRight', true))
+    expect(getState().selection.ranges).toEqual([{ sr: 0, sc: 0, er: 0, ec: 2 }]) // 生长，非滑动到 {0,1..0,2}
+    expect(getState().selection.activeCell).toEqual({ row: 0, col: 2 })
+  })
+
+  it('Shift+click 后 Shift+Arrow 继续生长（锚点固定在起始格）', () => {
+    const { view, getState } = mkView({ selection: singleCell(0, 0) })
+    const sel = selection()
+    sel.spec.props!.handleMouseDown!(view, mkEvent({ shift: true }), cellHit(0, 3)) // Shift+click (0,3)
+    expect(getState().selection.ranges).toEqual([{ sr: 0, sc: 0, er: 0, ec: 3 }])
+    keymap().spec.props!.handleKeyDown!(view, keyDown('ArrowRight', true)) // Shift+Right
+    expect(getState().selection.ranges).toEqual([{ sr: 0, sc: 0, er: 0, ec: 4 }]) // 从 (0,0) 继续生长
+    expect(getState().selection.activeCell).toEqual({ row: 0, col: 4 })
+  })
+
+  it('drag 连续 mousemove 生长（锚点固定在 mousedown 格）', () => {
+    const { view, getState } = mkView({ selection: singleCell(0, 0) })
+    const sel = selection()
+    sel.spec.props!.handleMouseDown!(view, mkEvent(), cellHit(0, 0)) // mousedown (0,0) → singleCell + 进入拖拽态
+    sel.spec.props!.handleMouseMove!(view, move(130, 30), cellHit(0, 2)) // pointerToCell → (0,2)
+    expect(getState().selection.ranges).toEqual([{ sr: 0, sc: 0, er: 0, ec: 2 }])
+    sel.spec.props!.handleMouseMove!(view, move(230, 30), cellHit(0, 4)) // → (0,4)，应从 (0,0) 生长，非滑动到 {0,2..0,4}
+    expect(getState().selection.ranges).toEqual([{ sr: 0, sc: 0, er: 0, ec: 4 }])
+    expect(getState().selection.activeCell).toEqual({ row: 0, col: 4 })
   })
 })

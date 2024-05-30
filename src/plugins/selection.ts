@@ -1,5 +1,5 @@
 // 选区与行列调宽（resize）插件。职责：
-// - 单元格 mousedown → 记 anchor 进入拖拽；mousemove 更新 focus；shift+mousedown 扩展 focus
+// - 单元格 mousedown → 进入拖拽态；mousemove 经 extendActiveRange 更新活动区域边界（固定锚点生长）；Shift+mousedown 扩展活动区域
 // - 行头 mousedown → 选整行（可拖多行）；列头同理；corner → selectAll
 // - 拖拽指针距视口边缘 <24px 时 rAF 自动滚动并重算 focus，mouseup 停止
 // - 列头右缘/行头下缘（colborder/rowborder）拖拽调宽：参考线存 resizeGuideKey state field
@@ -50,12 +50,11 @@ export function selection(): Plugin {
           ? { row: addr.row, col: sheet.colCount - 1 }
           : { row: sheet.rowCount - 1, col: addr.col }
     const sel = view.state.selection
-    const cur = sel.activeCell
-    if (cur.row === focus.row && cur.col === focus.col) {
+    if (sel.activeCell.row === focus.row && sel.activeCell.col === focus.col) {
       view.render() // 仅滚动发生变化
       return
     }
-    view.dispatch(view.state.tr.setSelection(extendActiveRange(sel, cur, focus)))
+    view.dispatch(view.state.tr.setSelection(extendActiveRange(sel, focus)))
   }
 
   // 指针相对视口四边的滚动增量（0 表示该轴不滚）
@@ -150,7 +149,7 @@ export function selection(): Plugin {
             // Shift+click：扩展活动区域到该格
             // 无修饰：singleCell 重置
             if (me.shiftKey) {
-              v.dispatch(v.state.tr.setSelection(extendActiveRange(sel, sel.activeCell, { row: hit.row, col: hit.col })).scrollIntoView())
+              v.dispatch(v.state.tr.setSelection(extendActiveRange(sel, { row: hit.row, col: hit.col })).scrollIntoView())
             } else if (me.ctrlKey || me.metaKey) {
               const inSel = sel.ranges.some(r => rangeContains(r, hit.row, hit.col))
               v.dispatch(v.state.tr.setSelection(
@@ -169,7 +168,7 @@ export function selection(): Plugin {
             const focus: CellAddr = { row: hit.row, col: sheet.colCount - 1 }
             const fullRow = { sr: hit.row, sc: 0, er: hit.row, ec: sheet.colCount - 1 }
             if (e.shiftKey) {
-              v.dispatch(v.state.tr.setSelection(extendActiveRange(sel, sel.activeCell, focus)).scrollIntoView())
+              v.dispatch(v.state.tr.setSelection(extendActiveRange(sel, focus)).scrollIntoView())
             } else if (e.ctrlKey || e.metaKey) {
               v.dispatch(v.state.tr.setSelection(appendRange(sel, fullRow, focus)))
             } else {
@@ -185,7 +184,7 @@ export function selection(): Plugin {
             const focus: CellAddr = { row: sheet.rowCount - 1, col: hit.col }
             const fullCol = { sr: 0, sc: hit.col, er: sheet.rowCount - 1, ec: hit.col }
             if (e.shiftKey) {
-              v.dispatch(v.state.tr.setSelection(extendActiveRange(sel, sel.activeCell, focus)).scrollIntoView())
+              v.dispatch(v.state.tr.setSelection(extendActiveRange(sel, focus)).scrollIntoView())
             } else if (e.ctrlKey || e.metaKey) {
               v.dispatch(v.state.tr.setSelection(appendRange(sel, fullCol, focus)))
             } else {

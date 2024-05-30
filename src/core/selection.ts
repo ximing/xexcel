@@ -56,8 +56,19 @@ export function toggleRange(sel: Selection, row: number, col: number): Selection
   return sel
 }
 
-// Shift+click/Arrow 扩展活动区：由 anchor→focus 框出 bbox，替换 ranges[last] 边界（新造数组）
-export function extendActiveRange(sel: Selection, anchor: CellAddr, focus: CellAddr): Selection {
+// Shift+click/Arrow/drag 扩展活动区：由活动区域中 activeCell 的对角格（固定锚点）→ focus 框出 bbox，
+// 替换 ranges[last] 边界（新造数组）；activeCell=focus（移动端，F2 编辑光标原 sel.focus 语义）。
+// 锚点 = ranges[last] 中 activeCell 的对角格：activeCell 是移动端（扩展路径下恒为角点），
+// 对角格即生长起始格（固定）→ 连续扩展生长不滑动；activeCell 非角点（结构级联等）按其落在
+// 区域四象限取对角角兜底，保证不变式 activeCell∈ranges[last] 成立。
+export function extendActiveRange(sel: Selection, focus: CellAddr): Selection {
+  const last = sel.ranges[sel.ranges.length - 1]
+  const cR = (last.sr + last.er) / 2
+  const cC = (last.sc + last.ec) / 2
+  const anchor: CellAddr = {
+    row: sel.activeCell.row <= cR ? last.er : last.sr,
+    col: sel.activeCell.col <= cC ? last.ec : last.sc,
+  }
   const n = normalizeRange({ sr: anchor.row, sc: anchor.col, er: focus.row, ec: focus.col })
   const ranges = sel.ranges.slice(0, -1)
   ranges.push(n)
