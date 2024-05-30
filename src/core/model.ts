@@ -4,6 +4,7 @@ export const ROW_HEADER_WIDTH = 48
 export const COL_HEADER_HEIGHT = 26
 export const DEFAULT_ROW_HEIGHT = 24
 export const DEFAULT_COL_WIDTH = 96
+export const SEL_BORDER_HIT = 4 // 选区边框命中带宽（px，view 命中层引用，禁散落魔术数字）
 
 export type BorderLineStyle =
   | 'thin' | 'medium' | 'thick'

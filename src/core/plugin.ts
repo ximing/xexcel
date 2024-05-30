@@ -26,7 +26,7 @@ export interface StateField<T> {
 // colborder/rowborder：列头右缘/行头下缘 ±3px 的调宽边界（Task 6 resize 使用）
 // filter：筛选区域表头行单元格右缘的下拉箭头
 export interface HitResult {
-  region: 'cell' | 'rowheader' | 'colheader' | 'corner' | 'fillhandle' | 'colborder' | 'rowborder' | 'filter' | 'hscrollbar' | 'vscrollbar' | 'outside'
+  region: 'cell' | 'rowheader' | 'colheader' | 'corner' | 'fillhandle' | 'selborder' | 'colborder' | 'rowborder' | 'filter' | 'hscrollbar' | 'vscrollbar' | 'outside'
   row: number
   col: number
 }

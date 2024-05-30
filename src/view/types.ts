@@ -21,6 +21,9 @@ export interface HitResult {
 // 填充手柄预览区域的 plugin state field（fillhandle 插件以其为 key；layers 读取并画 1px 虚线框）
 export const fillPreviewKey = new PluginKey('fillPreview')
 
+// F3 拖动目标预览：dragmove 插件以本 key 写 CellRange|null；layers 读非空画虚线框
+export const dragPreviewKey = new PluginKey('dragPreview')
+
 // 行列调宽拖拽参考线：selection 插件写入，layers 读取画竖/横虚线（内容坐标像素）
 export interface ResizeGuide {
   axis: 'row' | 'col'

@@ -2,7 +2,7 @@
 // 未拦截走默认行为 → dispatch(tr) → applyTransaction → updateState → rAF 合帧重绘。
 import Konva from 'konva'
 import { CellAddr } from '../core/addr'
-import { COL_HEADER_HEIGHT, ROW_HEADER_WIDTH, SheetData } from '../core/model'
+import { COL_HEADER_HEIGHT, ROW_HEADER_WIDTH, SEL_BORDER_HIT, SheetData } from '../core/model'
 import { EditorViewLike, PluginProps, PluginView } from '../core/plugin'
 import { rangeSelection, selectionRange, singleCell } from '../core/selection'
 import type { SheetState } from '../core/state'
@@ -199,6 +199,14 @@ export class EditorView implements EditorViewLike {
     if (Math.abs(x - hx) <= half && Math.abs(y - hy) <= half) {
       return { region: 'fillhandle', row: sel.activeCell.row, col: sel.activeCell.col }
     }
+    // 选区边框：活动区域四边 ±SEL_BORDER_HIT 像素带（不含内部、不含右下角填充柄区）
+    const tl = this.cellViewportRect(sRange.sr, sRange.sc)
+    const sx = tl.x, sy = tl.y, sex = br.x + br.w, sey = br.y + br.h
+    const edge = SEL_BORDER_HIT * z
+    const onEdge =
+      (Math.abs(x - sx) <= edge || Math.abs(x - sex) <= edge) && y >= sy - edge && y <= sey + edge ||
+      (Math.abs(y - sy) <= edge || Math.abs(y - sey) <= edge) && x >= sx - edge && x <= sex + edge
+    if (onEdge && !(x > sex - half && y > sey - half)) return { region: 'selborder', row: sel.activeCell.row, col: sel.activeCell.col }
     if (x < hw && y < hh) return { region: 'corner', row: -1, col: -1 }
     if (y < hh) {
       const cx = x - hw

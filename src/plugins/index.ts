@@ -5,12 +5,14 @@
 import { Plugin } from '../core/plugin'
 import { contextMenuKey, filterDropdownKey, findBarKey, formatPainterKey, tabRenameKey, zoomKey } from '../view/types'
 import { clipboard } from './clipboard'
+import { dragmove } from './dragmove'
 import { fillhandle } from './fillhandle'
 import { keymap } from './keymap'
 import { selection } from './selection'
 import { filterui, metaField, painter } from './uistate'
 
 export { clipboard } from './clipboard'
+export { dragmove } from './dragmove'
 export { fillhandle } from './fillhandle'
 export { keymap } from './keymap'
 export { selection } from './selection'
@@ -24,6 +26,7 @@ export function builtinPlugins(): Plugin[] {
     fillhandle(),
     clipboard(),
     keymap(),
+    dragmove(),
     metaField(filterDropdownKey, null),
     metaField(findBarKey, false),
     filterui(),

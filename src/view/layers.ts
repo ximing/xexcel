@@ -14,7 +14,7 @@ import { condFormatStyle, duplicateSets } from '../formula/condformat'
 import { GridGeometry } from './geometry'
 import { CELL_PAD_X } from './measure'
 import { contentViewport, hScrollbar, SB_SIZE, vScrollbar } from './scrollbar'
-import { fillPreviewKey, ResizeGuide, resizeGuideKey } from './types'
+import { dragPreviewKey, fillPreviewKey, ResizeGuide, resizeGuideKey } from './types'
 
 const COLOR_GRID = '#d9dce1'
 const COLOR_HEADER_BG = '#f7f8fa'
@@ -534,6 +534,7 @@ function renderOverlayLayer(
   const active = sel.ranges[sel.ranges.length - 1]
   const fr = geom.cellRect(sel.activeCell.row, sel.activeCell.col)
   const preview = state.getField(fillPreviewKey) as CellRange | null | undefined
+  const dragPreview = state.getField(dragPreviewKey) as CellRange | null | undefined
   const guide = state.getField(resizeGuideKey) as ResizeGuide | null | undefined
   const fhSize = fillHandleSize(zoom)
 
@@ -568,6 +569,12 @@ function renderOverlayLayer(
       const pr = geom.rangeRect(preview)
       inner.add(
         new Konva.Rect({ x: pr.x, y: pr.y, width: pr.w, height: pr.h, stroke: COLOR_SELECT_BORDER, strokeWidth: 1, dash: [4, 3], ...noListen }),
+      )
+    }
+    if (dragPreview) {
+      const dr = geom.rangeRect(dragPreview)
+      inner.add(
+        new Konva.Rect({ x: dr.x, y: dr.y, width: dr.w, height: dr.h, stroke: COLOR_SELECT_BORDER, strokeWidth: 1, dash: [5, 3], ...noListen }),
       )
     }
     if (guide) {
