@@ -13,7 +13,7 @@ import { adjustDecimals } from '../formula/format'
 import { evaluatorFor } from '../formula/engine'
 import { computeSortEntries, sortBlockedByMerges } from '../formula/sort'
 import { SortDialog } from './SortDialog'
-import { CondFormatDialog } from './CondFormatDialog'
+import { CondFormatDialog, canCondFormat } from './CondFormatDialog'
 
 interface Props {
   view: EditorView
@@ -41,6 +41,9 @@ export function Toolbar({ view }: Props) {
   }
 
   const quickSort = (asc: boolean): void => {
+    // 多区域选区拒绝（按钮已禁用，此处兜底）
+    const m = sortRejection(view.state)
+    if (m) { window.alert(m); return }
     const r = selectionRange(view.state.selection)
     if (r.sr === r.er) return
     const sheet = view.state.activeSheet
@@ -504,11 +507,14 @@ export function Toolbar({ view }: Props) {
       <button className="tool-btn" title="自定义排序" disabled={!canSort(state)} onClick={() => setShowSort(true)}>
         排序
       </button>
-      {showSort && <SortDialog view={view} range={selectionRange(view.state.selection)} onClose={() => setShowSort(false)} />}
+      {showSort && state.selection.ranges.length === 1 && <SortDialog view={view} range={selectionRange(view.state.selection)} onClose={() => setShowSort(false)} />}
       <button
         className={'tool-btn' + (state.activeSheet.filter ? ' active' : '')}
         title="自动筛选（对选区启用/清除全表筛选）"
+        disabled={!canFilter(state)}
         onClick={() => {
+          const fm = filterRejection(view.state)
+          if (fm) { window.alert(fm); return }
           const sheet = view.state.activeSheet
           if (sheet.filter) {
             view.dispatch(view.state.tr.setFilter(undefined))
@@ -535,7 +541,7 @@ export function Toolbar({ view }: Props) {
       >
         查
       </button>
-      <button className="tool-btn" title="条件格式" onClick={() => setShowCF(true)}>
+      <button className="tool-btn" title="条件格式" disabled={!canCondFormat(state)} onClick={() => setShowCF(true)}>
         条件
       </button>
       {showCF && <CondFormatDialog view={view} onClose={() => setShowCF(false)} />}
@@ -582,7 +588,22 @@ function hasHiddenInSel(state: SheetState): boolean {
   )
 }
 
-function canSort(state: SheetState): boolean {
+// 排序可用：多行（er>sr）且单区域；多区域禁用按钮
+export function canSort(state: SheetState): boolean {
   const r = selectionRange(state.selection)
-  return r.er > r.sr
+  return r.er > r.sr && state.selection.ranges.length === 1
+}
+
+// 多区域选区下筛选按钮禁用（单区域零回归：原按钮恒启用，单区域仍启用）
+export function canFilter(state: SheetState): boolean {
+  return state.selection.ranges.length === 1
+}
+
+// 多区域触发排序/筛选的拒绝消息；单区域放行返回 null。按钮 disabled 与触发拒绝共用判定。
+export function sortRejection(state: SheetState): string | null {
+  return state.selection.ranges.length > 1 ? '排序仅支持单区域选择' : null
+}
+
+export function filterRejection(state: SheetState): string | null {
+  return state.selection.ranges.length > 1 ? '筛选仅支持单区域选择' : null
 }
