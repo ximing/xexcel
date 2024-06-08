@@ -29,4 +29,11 @@ describe('buildMove cut 移动', () => {
     const { entries } = buildMove(s, { sr: 0, sc: 0, er: 0, ec: 0 }, { sr: 3, sc: 3, er: 4, ec: 4 })
     expect(entries.every(e => e.row <= 3 && e.col <= 3)).toBe(true)
   })
+  it('src 大于 clamp 后目标（装不下）→ reject，不越界写', () => {
+    // 4x4 表，src 2x2 {2,2,3,3}，目标 {3,3,4,4} 被 clamp 到 {3,3,3,3}（仅 1x1）→ 装不下 2x2 → 拒绝
+    let s = mk(4, 4); s = set(s, 2, 2, 'a'); s = set(s, 2, 3, 'b'); s = set(s, 3, 2, 'c'); s = set(s, 3, 3, 'd')
+    const { reject, entries } = buildMove(s, { sr: 2, sc: 2, er: 3, ec: 3 }, { sr: 3, sc: 3, er: 4, ec: 4 })
+    expect(reject).toBe(true)
+    expect(entries).toEqual([]) // 不越界写
+  })
 })

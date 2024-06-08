@@ -20,6 +20,10 @@ export function buildMove(
   if (rangesIntersect(s, clamped)) return { entries: [], clearSource: false, reject: true }
   if (sheet.merges.some(m => rangesIntersect(m, clamped) && !rangesIntersect(m, s)))
     return { entries: [], clearSource: false, reject: true }
+  // 目标被 clampRange 收缩（src 装不下 clamped 目标）→ 拒绝，避免越界写 / 数据丢失
+  const fitRows = clamped.er - clamped.sr + 1
+  const fitCols = clamped.ec - clamped.sc + 1
+  if (fitRows < rows || fitCols < cols) return { entries: [], clearSource: false, reject: true }
   const entries: { row: number; col: number; cell: Cell | null }[] = []
   for (let i = 0; i < rows; i++)
     for (let j = 0; j < cols; j++) {
@@ -77,7 +81,7 @@ export function dragmove(): Plugin {
         const sheet = v.state.activeSheet
         const { entries, clearSource, reject } = buildMove(sheet, S, preview)
         if (reject) {
-          window.alert('目标区域与源相交或落在合并区，无法移动')
+          window.alert('目标区域与源相交、落在合并区或超出表格边界，无法移动')
           setPreview(v, null)
           return true
         }
