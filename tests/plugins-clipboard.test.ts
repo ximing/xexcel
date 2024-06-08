@@ -1,13 +1,15 @@
+// planPaste 单测（M3c 富 payload areas 结构迁移后）。覆盖：内部 copy 公式偏移/平铺、
+// cut 不偏移+清源、源空格清目标、外部 TSV 兜底、越界裁剪、CRLF 指纹、copy 负载复用。
 import { describe, it, expect } from 'vitest'
 import { ClipboardPayload, planPaste } from '../src/plugins/clipboard'
 
 const BOUNDS = { rowCount: 100, colCount: 26 }
 
+// M3c 富 payload：单 area，range+raws+styles。旧 range/raws 字段已迁至 areas[0]。
 const payload = (over: Partial<ClipboardPayload> = {}): ClipboardPayload => ({
   sheet: 's1',
-  range: { sr: 0, sc: 0, er: 0, ec: 0 },
+  areas: [{ range: { sr: 0, sc: 0, er: 0, ec: 0 }, raws: [['=A1*2']], styles: [[null]] }],
   tsv: '2',
-  raws: [['=A1*2']],
   cut: false,
   ...over,
 })
@@ -29,12 +31,20 @@ describe('planPaste', () => {
     expect(clearSource).toBe(true)
   })
   it('内部 cut 粘贴到相交区域 → 不清源', () => {
-    const p = payload({ cut: true, range: { sr: 0, sc: 0, er: 1, ec: 1 }, raws: [['1', '2'], ['3', '4']], tsv: '1\t2\n3\t4' })
+    const p = payload({
+      cut: true,
+      areas: [{
+        range: { sr: 0, sc: 0, er: 1, ec: 1 },
+        raws: [['1', '2'], ['3', '4']],
+        styles: [[null, null], [null, null]],
+      }],
+      tsv: '1\t2\n3\t4',
+    })
     const { clearSource } = planPaste(p, p.tsv, { sr: 1, sc: 1, er: 2, ec: 2 }, BOUNDS)
     expect(clearSource).toBe(false)
   })
   it('源空格 → 清目标格', () => {
-    const p = payload({ raws: [[null]] })
+    const p = payload({ areas: [{ range: { sr: 0, sc: 0, er: 0, ec: 0 }, raws: [[null]], styles: [[null]] }] })
     const { entries } = planPaste(p, '2', { sr: 3, sc: 3, er: 3, ec: 3 }, BOUNDS)
     expect(entries).toEqual([{ row: 3, col: 3, cell: null }])
   })
@@ -54,7 +64,10 @@ describe('planPaste', () => {
     ])
   })
   it('内部 copy 多格：源内相对偏移不重复计入（F1）', () => {
-    const p = payload({ range: { sr: 0, sc: 0, er: 1, ec: 0 }, raws: [['=B1'], ['=B2']], tsv: '2\n4' })
+    const p = payload({
+      areas: [{ range: { sr: 0, sc: 0, er: 1, ec: 0 }, raws: [['=B1'], ['=B2']], styles: [[null], [null]] }],
+      tsv: '2\n4',
+    })
     const { entries } = planPaste(p, '2\n4', { sr: 4, sc: 0, er: 5, ec: 0 }, BOUNDS)
     expect(entries.map((e) => e.cell?.raw)).toEqual(['=B5', '=B6'])
   })
@@ -62,12 +75,18 @@ describe('planPaste', () => {
     // 注：协调者原期望第二个 tile 复用同一 delta（'=B5','=B6' 重复），
     // 但与 F1 评审修复公式（tileRow = r - (r-target.sr)%h）、既有单格平铺用例
     // （'=A2*2','=A3*2'）及 Excel 行为矛盾；此处按 per-tile 语义断言
-    const p = payload({ range: { sr: 0, sc: 0, er: 1, ec: 0 }, raws: [['=B1'], ['=B2']], tsv: '2\n4' })
+    const p = payload({
+      areas: [{ range: { sr: 0, sc: 0, er: 1, ec: 0 }, raws: [['=B1'], ['=B2']], styles: [[null], [null]] }],
+      tsv: '2\n4',
+    })
     const { entries } = planPaste(p, '2\n4', { sr: 4, sc: 0, er: 7, ec: 0 }, BOUNDS)
     expect(entries.map((e) => e.cell?.raw)).toEqual(['=B5', '=B6', '=B7', '=B8'])
   })
   it('CRLF 指纹：粘贴文本带 \\r\\n 仍命中内部负载（F2）', () => {
-    const p = payload({ range: { sr: 0, sc: 0, er: 1, ec: 0 }, raws: [['=B1'], ['=B2']], tsv: '2\n4' })
+    const p = payload({
+      areas: [{ range: { sr: 0, sc: 0, er: 1, ec: 0 }, raws: [['=B1'], ['=B2']], styles: [[null], [null]] }],
+      tsv: '2\n4',
+    })
     const { entries } = planPaste(p, '2\r\n4', { sr: 4, sc: 0, er: 5, ec: 0 }, BOUNDS)
     expect(entries.map((e) => e.cell?.raw)).toEqual(['=B5', '=B6'])
   })
