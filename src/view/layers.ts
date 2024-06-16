@@ -11,10 +11,11 @@ import type { SheetState } from '../core/state'
 import type { CellEvaluator } from '../formula/engine'
 import { evaluatorFor } from '../formula/engine'
 import { condFormatStyle, duplicateSets } from '../formula/condformat'
+import { extractCurrentSheetRanges } from '../formula/rangeRefs'
 import { GridGeometry } from './geometry'
 import { CELL_PAD_X } from './measure'
 import { contentViewport, hScrollbar, SB_SIZE, vScrollbar } from './scrollbar'
-import { dragPreviewKey, fillPreviewKey, ResizeGuide, resizeGuideKey } from './types'
+import { dragPreviewKey, fillPreviewKey, REF_PALETTE, refHighlightKey, ResizeGuide, resizeGuideKey } from './types'
 
 const COLOR_GRID = '#d9dce1'
 const COLOR_HEADER_BG = '#f7f8fa'
@@ -536,6 +537,8 @@ function renderOverlayLayer(
   const preview = state.getField(fillPreviewKey) as CellRange | null | undefined
   const dragPreview = state.getField(dragPreviewKey) as CellRange | null | undefined
   const guide = state.getField(resizeGuideKey) as ResizeGuide | null | undefined
+  const hlText = state.getField(refHighlightKey) as string | null | undefined
+  const hlRanges = hlText && hlText.startsWith('=') ? extractCurrentSheetRanges(hlText) : []
   const fhSize = fillHandleSize(zoom)
 
   for (const q of computeQuadrants(geom, scrollX, scrollY, viewW, viewH, zoom)) {
@@ -583,6 +586,17 @@ function renderOverlayLayer(
           ? [guide.pos, 0, guide.pos, geom.contentHeight]
           : [0, guide.pos, geom.contentWidth, guide.pos]
       inner.add(new Konva.Line({ points, stroke: COLOR_SELECT_BORDER, strokeWidth: 1, dash: [4, 3], ...noListen }))
+    }
+    // F5 引用高亮：当前编辑公式中被引区域（当前表）画彩色虚线框，按出现顺序循环取色
+    for (let i = 0; i < hlRanges.length; i++) {
+      const hr = geom.rangeRect(hlRanges[i])
+      const color = REF_PALETTE[i % REF_PALETTE.length]
+      inner.add(
+        new Konva.Rect({
+          x: hr.x, y: hr.y, width: hr.w, height: hr.h,
+          stroke: color, strokeWidth: 2, dash: [3, 2], opacity: 0.8, ...noListen,
+        }),
+      )
     }
     layer.add(clip)
   }

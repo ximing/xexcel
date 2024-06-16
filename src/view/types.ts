@@ -65,3 +65,10 @@ export const tabRenameKey = new PluginKey('tabRename')
 
 // 每表缩放档位（{ sheetId: zoom }，zoom=1 为 100%）；非文档态，不入 undo、不持久化
 export const zoomKey = new PluginKey('zoom')
+
+// F5 引用高亮：编辑公式时被引区域在画布画彩色虚线框；值 = 当前编辑文本（以 = 开头）| null。
+// 非文档态（视图态），setMeta(...).setMeta('addToHistory', false) 不入 undo。
+export const refHighlightKey = new PluginKey('refHighlight')
+
+// 引用高亮调色板：按出现顺序循环取色（layers 按 ranges 下标 i % length）
+export const REF_PALETTE = ['#1a73e8', '#ea4335', '#fbbc04', '#34a853', '#9334e6', '#ff6d00', '#00897b', '#7cb342']

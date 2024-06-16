@@ -1,16 +1,23 @@
 // 单元格编辑器：DOM textarea 覆盖层（不走 Konva，输入法体验与原生一致）。
 // Esc 取消；Enter 提交并下移；Tab 提交并右移；blur 提交。编辑期间焦点在编辑器上，
 // proxy 处于 blur，插件 keydown 不触发。
+// F5：编辑 =… 公式时画布高亮被引区域（refHighlightKey meta）；函数名补全下拉。
 import type { CellAddr } from '../core/addr'
 import { singleCell } from '../core/selection'
+import { functionNames } from '../formula/eval'
 import { normalizedCell } from '../formula/input'
+import { completionCandidates } from '../formula/rangeRefs'
 import type { EditorView } from './editorview'
+import { refHighlightKey } from './types'
 
 interface EditSession {
   view: EditorView
   addr: CellAddr
   el: HTMLTextAreaElement
   done: boolean // 防 blur 与按键路径重复关闭
+  dropdown: HTMLDivElement | null // 函数名补全下拉（null=未显示）
+  candidates: string[] // 当前补全候选
+  selIndex: number // 当前选中候选下标（-1=无）
 }
 
 let session: EditSession | null = null
@@ -55,12 +62,15 @@ export function openEditor(view: EditorView, addr: CellAddr, initialText?: strin
   if (grow) el.addEventListener('input', grow)
   el.addEventListener('keydown', onEditorKeyDown)
   el.addEventListener('blur', onEditorBlur)
+  el.addEventListener('input', onInput)
   view.dom.appendChild(el)
   // 首次测量须在挂载后：detached 节点 scrollHeight 恒为 0
   grow?.()
-  session = { view, addr, el, done: false }
+  session = { view, addr, el, done: false, dropdown: null, candidates: [], selIndex: -1 }
   el.focus()
   el.setSelectionRange(el.value.length, el.value.length)
+  // 以 = 开头的初始文本（如按键 = 入口）即触发高亮 + 补全
+  onInput()
 }
 
 export function closeEditor(commit: boolean): void {
@@ -75,9 +85,13 @@ function finish(commit: boolean, next?: CellAddr): void {
   s.done = true
   session = null
   const text = s.el.value
+  closeCompletion(s)
   s.el.removeEventListener('keydown', onEditorKeyDown)
   s.el.removeEventListener('blur', onEditorBlur)
+  s.el.removeEventListener('input', onInput)
   s.el.remove()
+  // 清画布引用高亮（非文档态 meta，不入 undo）
+  s.view.dispatch(s.view.state.tr.setMeta(refHighlightKey, null).setMeta('addToHistory', false))
   if (commit) {
     const tr = s.view.state.tr
     const oldCell = s.view.state.activeSheet.getCell(s.addr.row, s.addr.col)
@@ -92,11 +106,138 @@ function finish(commit: boolean, next?: CellAddr): void {
   s.view.focus()
 }
 
+// 编辑输入：更新画布引用高亮 meta + 维护函数名补全下拉
+function onInput(): void {
+  const s = session
+  if (!s) return
+  const t = s.el.value
+  s.view.dispatch(
+    s.view.state.tr.setMeta(refHighlightKey, t.startsWith('=') ? t : null).setMeta('addToHistory', false),
+  )
+  updateCompletion(s, t)
+}
+
+// 函数名补全：= 后末尾标识符 token 前缀匹配 functionNames()，≤8 个
+function updateCompletion(s: EditSession, text: string): void {
+  const candidates = completionCandidates(text, functionNames())
+  s.candidates = candidates
+  if (candidates.length === 0) {
+    closeCompletion(s)
+    return
+  }
+  if (!s.dropdown) {
+    const dd = document.createElement('div')
+    dd.className = 'xcell-autocomplete'
+    Object.assign(dd.style, {
+      position: 'absolute',
+      left: `${s.el.offsetLeft}px`,
+      top: `${s.el.offsetTop + s.el.offsetHeight}px`,
+      minWidth: `${s.el.offsetWidth}px`,
+      background: '#ffffff',
+      border: '1px solid #d9dce1',
+      borderTop: 'none',
+      zIndex: '11',
+      maxHeight: '200px',
+      overflowY: 'auto',
+      font: '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+    })
+    s.view.dom.appendChild(dd)
+    s.dropdown = dd
+  }
+  s.selIndex = 0
+  renderCompletion(s)
+}
+
+function renderCompletion(s: EditSession): void {
+  const dd = s.dropdown
+  if (!dd) return
+  dd.innerHTML = ''
+  s.candidates.forEach((name, i) => {
+    const item = document.createElement('div')
+    item.textContent = name
+    Object.assign(item.style, {
+      padding: '2px 8px',
+      cursor: 'pointer',
+      background: i === s.selIndex ? '#e8f0fe' : '#ffffff',
+      color: i === s.selIndex ? '#1a73e8' : '#202124',
+    })
+    // mousedown 而非 click：在 blur 前 intercept 并阻止 textarea 失焦
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault()
+      s.selIndex = i
+      acceptCompletion(s)
+    })
+    dd.appendChild(item)
+  })
+}
+
+// 接受补全：末尾标识符 token 替换为 NAME(
+function acceptCompletion(s: EditSession): void {
+  if (!s.candidates.length || s.selIndex < 0 || s.selIndex >= s.candidates.length) {
+    closeCompletion(s)
+    return
+  }
+  const name = s.candidates[s.selIndex]
+  const text = s.el.value
+  const eq = text.lastIndexOf('=')
+  if (eq < 0) {
+    closeCompletion(s)
+    return
+  }
+  const m = /[A-Za-z]+$/.exec(text.slice(eq + 1))
+  if (!m) {
+    closeCompletion(s)
+    return
+  }
+  s.el.value = text.slice(0, eq + 1 + m.index) + name + '('
+  s.el.setSelectionRange(s.el.value.length, s.el.value.length)
+  closeCompletion(s)
+  // 同步画布高亮 meta 到接受后的文本
+  s.view.dispatch(
+    s.view.state.tr.setMeta(refHighlightKey, s.el.value.startsWith('=') ? s.el.value : null).setMeta('addToHistory', false),
+  )
+}
+
+function closeCompletion(s: EditSession): void {
+  if (s.dropdown) {
+    s.dropdown.remove()
+    s.dropdown = null
+  }
+  s.candidates = []
+  s.selIndex = -1
+}
+
 function onEditorKeyDown(e: KeyboardEvent): void {
   const s = session
   if (!s) return
   e.stopPropagation()
   if (e.isComposing) return // 输入法组合中不响应提交键
+  // 补全下拉可见时优先处理导航/接受/关闭
+  if (s.dropdown) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      s.selIndex = Math.min(s.selIndex + 1, s.candidates.length - 1)
+      renderCompletion(s)
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      s.selIndex = Math.max(s.selIndex - 1, 0)
+      renderCompletion(s)
+      return
+    }
+    if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+      e.preventDefault()
+      acceptCompletion(s)
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      closeCompletion(s)
+      return
+    }
+  }
   const sheet = s.view.state.activeSheet
   if (e.key === 'Escape') {
     e.preventDefault()
