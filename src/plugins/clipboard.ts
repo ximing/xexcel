@@ -28,24 +28,32 @@ export interface ClipboardPayload {
   cut: boolean
 }
 
-// CellStyle → 内联 CSS（出站 text/html 简单映射；复杂样式可能简化）
+// CellStyle → 内联 CSS（出站 text/html 简单映射；复杂样式可能简化，border/wrap/vAlign 未映射见 §3.5）
 function styleToCss(st: CellStyle | null): string {
   if (!st) return ''
   const p: string[] = []
   if (st.bold) p.push('font-weight:bold')
   if (st.italic) p.push('font-style:italic')
-  if (st.underline) p.push('text-decoration:underline')
-  if (st.strikethrough) p.push('text-decoration:line-through')
-  if (st.color) p.push(`color:${st.color}`)
-  if (st.bg) p.push(`background-color:${st.bg}`)
+  // underline + strikethrough 合并一条 text-decoration（避免两条互覆盖，CSS 后者赢）
+  const deco: string[] = []
+  if (st.underline) deco.push('underline')
+  if (st.strikethrough) deco.push('line-through')
+  if (deco.length) p.push(`text-decoration:${deco.join(' ')}`)
+  if (st.color) p.push(`color:${escapeAttr(st.color)}`)
+  if (st.bg) p.push(`background-color:${escapeAttr(st.bg)}`)
   if (st.align) p.push(`text-align:${st.align}`)
   if (st.fontSize) p.push(`font-size:${st.fontSize}px`)
-  if (st.fontFamily) p.push(`font-family:${st.fontFamily}`)
+  if (st.fontFamily) p.push(`font-family:${escapeAttr(st.fontFamily)}`)
   return p.join(';')
 }
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// HTML 属性值转义：防 style 属性逃逸（" ' < > &）+ CSS 属性注入（去 ;）
+function escapeAttr(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!)).replace(/;/g, '')
 }
 
 // 单格写入（raw 落 entries、style 落 styleEntries；copy 偏移公式引用、cut 不偏移）。
@@ -99,7 +107,9 @@ export function planPaste(
         }
       }
     } else {
-      // 多区域：首 area 锚 target.sr/sc；余 area 按源内相对偏移落格（无平铺）
+      // 多区域：首 area 锚 target.sr/sc；余 area 按源内相对偏移落格（无平铺）。
+      // 每 area 独立 clamp 到 sheet 边界——不可用 grid-derived er/ec（=area0 维度），否则 area1+ 会
+      // 被 area0 宽度截断甚至整 area 丢弃，cut 清源致数据丢失（spec §3.4 各 area 按源内相对偏移落格）。
       const a0 = payload.areas[0]
       for (let ai = 0; ai < payload.areas.length; ai++) {
         const area = payload.areas[ai]
@@ -107,8 +117,8 @@ export function planPaste(
         const baseC = target.sc + (ai === 0 ? 0 : area.range.sc - a0.range.sc)
         const h = area.raws.length
         const w = area.raws[0]?.length ?? 1
-        const aEr = Math.min(baseR + h - 1, er)
-        const aEc = Math.min(baseC + w - 1, ec)
+        const aEr = Math.min(baseR + h - 1, bounds.rowCount - 1)
+        const aEc = Math.min(baseC + w - 1, bounds.colCount - 1)
         for (let r = Math.max(target.sr, baseR); r <= aEr; r++) {
           const i = r - baseR
           if (i < 0 || i >= h) continue

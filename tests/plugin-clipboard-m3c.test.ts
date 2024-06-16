@@ -74,6 +74,28 @@ describe('planPaste 富 payload', () => {
     const { entries } = planPaste(payload, '2', { sr: 1, sc: 0, er: 2, ec: 0 }, { rowCount: 100, colCount: 26 })
     expect(entries.map(e => e.cell?.raw)).toEqual(['=A2*2', '=A3*2'])
   })
+
+  it('多区域 paste（含 cut）：各 area 完整落格、清源不丢数据', () => {
+    // 两 area：area0 {0,0-1,1}（2×2），area1 {0,3-0,4}（1×2，源内 col 偏移 +3）。
+    // B1 repro：area1 落 col 超出 area0 宽度，旧实现按 grid-derived ec 截断 → area1 整 area 被丢
+    // ＋ cut 仍清 area1 源 → 数据丢失（spec §3.4 各 area 按源内相对偏移落格）。
+    const payload: ClipboardPayload = {
+      sheet: 's1', cut: true, tsv: '1\t2\n3\t4\n\n5\t6',
+      areas: [
+        { range: { sr: 0, sc: 0, er: 1, ec: 1 }, raws: [['1', '2'], ['3', '4']], styles: [[null, null], [null, null]] },
+        { range: { sr: 0, sc: 3, er: 0, ec: 4 }, raws: [['5', '6']], styles: [[null, null]] },
+      ],
+    }
+    // paste 锚 (2,2)：area0 落 (2,2)-(3,3)，area1 按源内偏移 col+3 落 (2,5)-(2,6)
+    const { entries, clearSource } = planPaste(payload, payload.tsv, { sr: 2, sc: 2, er: 3, ec: 3 }, { rowCount: 10, colCount: 10 })
+    expect(clearSource).toBe(true) // cut 且无 area 与 target 相交/相等
+    // area0 完整落格
+    expect(entries.find(e => e.row === 2 && e.col === 2)!.cell).toEqual({ raw: '1' })
+    expect(entries.find(e => e.row === 3 && e.col === 3)!.cell).toEqual({ raw: '4' })
+    // area1 完整落格（不被 area0 grid 宽度截断/丢弃——B1 修复）
+    expect(entries.find(e => e.row === 2 && e.col === 5)!.cell).toEqual({ raw: '5' })
+    expect(entries.find(e => e.row === 2 && e.col === 6)!.cell).toEqual({ raw: '6' })
+  })
 })
 
 describe('buildCopyPayload 富导出', () => {
