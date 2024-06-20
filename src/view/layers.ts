@@ -7,15 +7,15 @@ import Konva from 'konva'
 import { CellRange, colName, rangesIntersect } from '../core/addr'
 import { BorderEdge, CFStyle, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
 import { edgeDash, edgeWidth, resolveHEdge, resolveVEdge } from './borders'
-import { selectionRange } from '../core/selection'
 import type { SheetState } from '../core/state'
 import type { CellEvaluator } from '../formula/engine'
 import { evaluatorFor } from '../formula/engine'
 import { condFormatStyle, duplicateSets } from '../formula/condformat'
+import { extractCurrentSheetRanges } from '../formula/rangeRefs'
 import { GridGeometry } from './geometry'
 import { CELL_PAD_X } from './measure'
 import { contentViewport, hScrollbar, SB_SIZE, vScrollbar } from './scrollbar'
-import { fillPreviewKey, ResizeGuide, resizeGuideKey } from './types'
+import { dragPreviewKey, fillPreviewKey, REF_PALETTE, refHighlightKey, ResizeGuide, resizeGuideKey } from './types'
 
 const COLOR_GRID = '#d9dce1'
 const COLOR_HEADER_BG = '#f7f8fa'
@@ -174,7 +174,9 @@ function renderGridLayer(
   layer.add(new Konva.Rect({ x: 0, y: 0, width: viewW, height: hh, fill: COLOR_HEADER_BG, ...noListen }))
   layer.add(new Konva.Rect({ x: 0, y: 0, width: hw, height: viewH, fill: COLOR_HEADER_BG, ...noListen }))
 
-  const sel = selectionRange(state.selection)
+  const ranges = state.selection.ranges
+  const colActive = (c: number): boolean => ranges.some(rr => c >= rr.sc && c <= rr.ec)
+  const rowActive = (r: number): boolean => ranges.some(rr => r >= rr.sr && r <= rr.er)
   const main = scrollableRange(geom, scrollX, scrollY, viewW, viewH, zoom)
   const fw = geom.frozenWidth
   const fh = geom.frozenHeight
@@ -184,7 +186,7 @@ function renderGridLayer(
   const drawColHeader = (c: number, x: number): void => {
     const w = geom.colWidth(c)
     if (w === 0) return // 隐藏列不画表头
-    const active = c >= sel.sc && c <= sel.ec
+    const active = colActive(c)
     if (active) {
       layer.add(new Konva.Rect({ x, y: 0, width: w, height: hh, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
     }
@@ -207,7 +209,7 @@ function renderGridLayer(
     ...noListen,
   })
   for (let c = main.sc; c <= main.ec; c++) {
-    drawColHeaderInto(colStrip, c, hw + fw + (geom.colLeft(c) - fw - scrollX), geom, sel, hh, headerFont)
+    drawColHeaderInto(colStrip, c, hw + fw + (geom.colLeft(c) - fw - scrollX), geom, colActive, hh, headerFont)
   }
   layer.add(colStrip)
 
@@ -215,7 +217,7 @@ function renderGridLayer(
   const drawRowHeader = (r: number, y: number): void => {
     const h = geom.rowHeight(r)
     if (h === 0) return // 隐藏行不画表头
-    const active = r >= sel.sr && r <= sel.er
+    const active = rowActive(r)
     if (active) {
       layer.add(new Konva.Rect({ x: 0, y, width: hw, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
     }
@@ -238,7 +240,7 @@ function renderGridLayer(
     ...noListen,
   })
   for (let r = main.sr; r <= main.er; r++) {
-    drawRowHeaderInto(rowStrip, r, hh + fh + (geom.rowTop(r) - fh - scrollY), geom, sel, hw, headerFont)
+    drawRowHeaderInto(rowStrip, r, hh + fh + (geom.rowTop(r) - fh - scrollY), geom, rowActive, hw, headerFont)
   }
   layer.add(rowStrip)
 
@@ -287,13 +289,13 @@ function drawColHeaderInto(
   c: number,
   x: number,
   geom: GridGeometry,
-  sel: CellRange,
+  colActive: (c: number) => boolean,
   hh: number,
   headerFont: number,
 ): void {
   const w = geom.colWidth(c)
   if (w === 0) return // 隐藏列不画表头
-  const active = c >= sel.sc && c <= sel.ec
+  const active = colActive(c)
   if (active) {
     g.add(new Konva.Rect({ x, y: 0, width: w, height: hh, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
   }
@@ -314,13 +316,13 @@ function drawRowHeaderInto(
   r: number,
   y: number,
   geom: GridGeometry,
-  sel: CellRange,
+  rowActive: (r: number) => boolean,
   hw: number,
   headerFont: number,
 ): void {
   const h = geom.rowHeight(r)
   if (h === 0) return // 隐藏行不画表头
-  const active = r >= sel.sr && r <= sel.er
+  const active = rowActive(r)
   if (active) {
     g.add(new Konva.Rect({ x: 0, y, width: hw, height: h, fill: COLOR_HEADER_ACTIVE_BG, ...noListen }))
   }
@@ -530,16 +532,25 @@ function renderOverlayLayer(
   zoom = 1,
 ): void {
   const sel = state.selection
-  const rr = geom.rangeRect(selectionRange(sel))
-  const fr = geom.cellRect(sel.focus.row, sel.focus.col)
+  const active = sel.ranges[sel.ranges.length - 1]
+  const fr = geom.cellRect(sel.activeCell.row, sel.activeCell.col)
   const preview = state.getField(fillPreviewKey) as CellRange | null | undefined
+  const dragPreview = state.getField(dragPreviewKey) as CellRange | null | undefined
   const guide = state.getField(resizeGuideKey) as ResizeGuide | null | undefined
+  const hlText = state.getField(refHighlightKey) as string | null | undefined
+  const hlRanges = hlText && hlText.startsWith('=') ? extractCurrentSheetRanges(hlText) : []
   const fhSize = fillHandleSize(zoom)
 
   for (const q of computeQuadrants(geom, scrollX, scrollY, viewW, viewH, zoom)) {
     const clip = quadrantGroup(q, zoom)
     const inner = clip.children[0] as Konva.Group
-    // 选区填充 + 边框（clip 自然按象限分裂）；2px 蓝框有意不缩放（视觉锚定）
+    // 非活动区域：淡色虚线框
+    for (let i = 0; i < sel.ranges.length - 1; i++) {
+      const nrr = geom.rangeRect(sel.ranges[i])
+      inner.add(new Konva.Rect({ x: nrr.x, y: nrr.y, width: nrr.w, height: nrr.h, stroke: COLOR_SELECT_BORDER, strokeWidth: 1, dash: [4, 3], opacity: 0.6, ...noListen }))
+    }
+    // 活动区域：填充 + 实线边框（2px 蓝框有意不缩放，视觉锚定）
+    const rr = geom.rangeRect(active)
     inner.add(new Konva.Rect({ x: rr.x, y: rr.y, width: rr.w, height: rr.h, fill: COLOR_SELECT_FILL, ...noListen }))
     inner.add(new Konva.Rect({ x: rr.x, y: rr.y, width: rr.w, height: rr.h, stroke: COLOR_SELECT_BORDER, strokeWidth: 2, ...noListen }))
     // 活动格边框
@@ -563,12 +574,29 @@ function renderOverlayLayer(
         new Konva.Rect({ x: pr.x, y: pr.y, width: pr.w, height: pr.h, stroke: COLOR_SELECT_BORDER, strokeWidth: 1, dash: [4, 3], ...noListen }),
       )
     }
+    if (dragPreview) {
+      const dr = geom.rangeRect(dragPreview)
+      inner.add(
+        new Konva.Rect({ x: dr.x, y: dr.y, width: dr.w, height: dr.h, stroke: COLOR_SELECT_BORDER, strokeWidth: 1, dash: [5, 3], ...noListen }),
+      )
+    }
     if (guide) {
       const points =
         guide.axis === 'col'
           ? [guide.pos, 0, guide.pos, geom.contentHeight]
           : [0, guide.pos, geom.contentWidth, guide.pos]
       inner.add(new Konva.Line({ points, stroke: COLOR_SELECT_BORDER, strokeWidth: 1, dash: [4, 3], ...noListen }))
+    }
+    // F5 引用高亮：当前编辑公式中被引区域（当前表）画彩色虚线框，按出现顺序循环取色
+    for (let i = 0; i < hlRanges.length; i++) {
+      const hr = geom.rangeRect(hlRanges[i])
+      const color = REF_PALETTE[i % REF_PALETTE.length]
+      inner.add(
+        new Konva.Rect({
+          x: hr.x, y: hr.y, width: hr.w, height: hr.h,
+          stroke: color, strokeWidth: 2, dash: [3, 2], opacity: 0.8, ...noListen,
+        }),
+      )
     }
     layer.add(clip)
   }

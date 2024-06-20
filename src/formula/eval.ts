@@ -485,3 +485,8 @@ export function formatNumber(n: number): string {
   const s = String(n)
   return s.length > 12 ? Number(n.toPrecision(10)).toString() : s
 }
+
+// F5：函数名表只读导出（供 react/view 层补全前缀匹配；formula → react/view 单向只读依赖）
+export function functionNames(): string[] {
+  return [...Object.keys(AGGREGATES), ...Object.keys(FUNCTIONS)]
+}

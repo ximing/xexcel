@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SheetData, Workbook } from '../src/core/model'
+import { rangeSelection } from '../src/core/selection'
 import type { Selection } from '../src/core/selection'
 import { SheetState } from '../src/core/state'
 import { menuItems } from '../src/react/menu'
@@ -28,15 +29,15 @@ describe('menuItems cell', () => {
     expect(byId(menuItems(mk(), cellOpen), 'unhide').disabled).toBe(true)
     const wb = Workbook.create({ rowCount: 10, colCount: 10 })
     const docRows = wb.setSheet('s1', wb.activeSheet.setHidden('row', [2], true))
-    const sel = { anchor: { row: 1, col: 0 }, focus: { row: 3, col: 0 } }
+    const sel = rangeSelection({ sr: 1, sc: 0, er: 3, ec: 0 })
     expect(byId(menuItems(mk(docRows, sel), cellOpen), 'unhide').disabled).toBe(false)
     const docCols = wb.setSheet('s1', wb.activeSheet.setHidden('col', [1], true))
-    const selCols = { anchor: { row: 0, col: 0 }, focus: { row: 0, col: 2 } }
+    const selCols = rangeSelection({ sr: 0, sc: 0, er: 0, ec: 2 })
     expect(byId(menuItems(mk(docCols, selCols), cellOpen), 'unhide').disabled).toBe(false)
   })
 
   it('全表选中时 deleteRows/deleteCols 禁用；部分选区可用', () => {
-    const all = { anchor: { row: 0, col: 0 }, focus: { row: 9, col: 9 } }
+    const all = rangeSelection({ sr: 0, sc: 0, er: 9, ec: 9 })
     const items = menuItems(mk(undefined, all), cellOpen)
     expect(byId(items, 'deleteRows').disabled).toBe(true)
     expect(byId(items, 'deleteCols').disabled).toBe(true)

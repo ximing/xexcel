@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { Workbook } from '../src/core/model'
 import { SheetState } from '../src/core/state'
 import { mergeSelection, unmergeSelection } from '../src/core/commands'
+import { rangeSelection } from '../src/core/selection'
 import { SetMergesStep, stepFromJSON } from '../src/core/steps'
 import type { Transaction } from '../src/core/transaction'
 
@@ -11,7 +12,7 @@ const mk = (cells: Array<[number, number, string]>) => {
   for (const [r, c, raw] of cells) sheet = sheet.setCell(r, c, { raw })
   return wb.setSheet('s1', sheet)
 }
-const stateOf = (doc: Workbook, sel = { anchor: { row: 1, col: 1 }, focus: { row: 2, col: 2 } }) =>
+const stateOf = (doc: Workbook, sel = rangeSelection({ sr: 1, sc: 1, er: 2, ec: 2 })) =>
   SheetState.create({ doc, selection: sel })
 const run = (state: SheetState, cmd: (s: SheetState, d?: (tr: Transaction) => void) => boolean) => {
   let tr: Transaction | null = null
@@ -30,7 +31,7 @@ describe('merges', () => {
   it('mergeSelection：与旧 merge 相交 → 旧移除新并入', () => {
     let st = run(stateOf(mk([])), mergeSelection) // merge B2:C3
     st = run(
-      SheetState.create({ doc: st.doc, selection: { anchor: { row: 2, col: 2 }, focus: { row: 3, col: 3 } } }),
+      SheetState.create({ doc: st.doc, selection: rangeSelection({ sr: 2, sc: 2, er: 3, ec: 3 }) }),
       mergeSelection,
     ) // merge C3:D4（与 B2:C3 交于 C3）
     expect(st.activeSheet.merges).toEqual([{ sr: 2, sc: 2, er: 3, ec: 3 }])

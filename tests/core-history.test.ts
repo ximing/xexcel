@@ -15,7 +15,7 @@ describe('history', () => {
     expect(undoDepth(s)).toBe(1) // 纯 selection 事务不入栈
     expect(undo(s, tr => { s = s.applyTransaction(tr).state })).toBe(true)
     expect(s.doc.sheet('s1').getCell(0, 0)).toBeUndefined()
-    expect(s.selection).toEqual({ anchor: { row: 3, col: 3 }, focus: { row: 3, col: 3 } })
+    expect(s.selection).toEqual({ ranges: [{ sr: 3, sc: 3, er: 3, ec: 3 }], activeCell: { row: 3, col: 3 } })
     expect(redoDepth(s)).toBe(1)
     expect(redo(s, tr => { s = s.applyTransaction(tr).state })).toBe(true)
     expect(s.doc.sheet('s1').getCell(0, 0)).toEqual({ raw: 'a' })

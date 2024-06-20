@@ -3,14 +3,16 @@
 // uistate 系列（filter/findbar 下拉与查找栏字段、filterui、格式刷字段+painter、右键菜单/标签重命名/缩放字段）。
 // 返回数组不含 history——由调用方插入最前（如 [history(), ...builtinPlugins()]）。
 import { Plugin } from '../core/plugin'
-import { contextMenuKey, filterDropdownKey, findBarKey, formatPainterKey, tabRenameKey, zoomKey } from '../view/types'
+import { contextMenuKey, filterDropdownKey, findBarKey, formatPainterKey, refHighlightKey, tabRenameKey, zoomKey } from '../view/types'
 import { clipboard } from './clipboard'
+import { dragmove } from './dragmove'
 import { fillhandle } from './fillhandle'
 import { keymap } from './keymap'
 import { selection } from './selection'
 import { filterui, metaField, painter } from './uistate'
 
 export { clipboard } from './clipboard'
+export { dragmove } from './dragmove'
 export { fillhandle } from './fillhandle'
 export { keymap } from './keymap'
 export { selection } from './selection'
@@ -24,6 +26,7 @@ export function builtinPlugins(): Plugin[] {
     fillhandle(),
     clipboard(),
     keymap(),
+    dragmove(),
     metaField(filterDropdownKey, null),
     metaField(findBarKey, false),
     filterui(),
@@ -32,5 +35,6 @@ export function builtinPlugins(): Plugin[] {
     metaField(contextMenuKey, null),
     metaField(tabRenameKey, null),
     metaField(zoomKey, null),
+    metaField(refHighlightKey, null),
   ]
 }

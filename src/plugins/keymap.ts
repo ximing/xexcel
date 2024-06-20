@@ -9,7 +9,7 @@ import { CellAddr, CellRange } from '../core/addr'
 import { clearSelection, selectAll } from '../core/commands'
 import { redo, undo } from '../core/history'
 import { EditorViewLike, Plugin } from '../core/plugin'
-import { singleCell } from '../core/selection'
+import { extendActiveRange, singleCell } from '../core/selection'
 import { isEditing, openEditor } from '../view/editbox'
 import type { EditorView } from '../view/editorview'
 import { findBarKey, formatPainterKey } from '../view/types'
@@ -80,10 +80,10 @@ export function keymap(): Plugin {
         const move = (dr: number, dc: number, extend: boolean): void => {
           const geom = v.geometry()
           const isHidden = (r: number, c: number): boolean => geom.rowHeight(r) === 0 || geom.colWidth(c) === 0
-          const focus = navigateFocus(sheet, sel.focus, dr, dc, isHidden)
+          const focusCell = navigateFocus(sheet, sel.activeCell, dr, dc, isHidden)
           v.dispatch(
             state.tr
-              .setSelection(extend ? { anchor: sel.anchor, focus } : singleCell(focus.row, focus.col))
+              .setSelection(extend ? extendActiveRange(sel, focusCell) : singleCell(focusCell.row, focusCell.col))
               .scrollIntoView(),
           )
         }
@@ -112,7 +112,7 @@ export function keymap(): Plugin {
             clearSelection(state, (tr) => v.dispatch(tr))
             break
           case 'F2':
-            openEditor(v, sel.focus)
+            openEditor(v, sel.activeCell)
             break
           case 'Escape': {
             const fp = state.getField(formatPainterKey)
@@ -132,7 +132,7 @@ export function keymap(): Plugin {
               redo(state, (tr) => v.dispatch(tr))
             } else if (e.key.length === 1 && !mod && !e.altKey) {
               v.clearProxy() // 清掉 proxy 可能积累的脏值，再开编辑器
-              openEditor(v, sel.focus, e.key)
+              openEditor(v, sel.activeCell, e.key)
             } else {
               return false
             }

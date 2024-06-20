@@ -21,6 +21,9 @@ export interface HitResult {
 // 填充手柄预览区域的 plugin state field（fillhandle 插件以其为 key；layers 读取并画 1px 虚线框）
 export const fillPreviewKey = new PluginKey('fillPreview')
 
+// F3 拖动目标预览：dragmove 插件以本 key 写 CellRange|null；layers 读非空画虚线框
+export const dragPreviewKey = new PluginKey('dragPreview')
+
 // 行列调宽拖拽参考线：selection 插件写入，layers 读取画竖/横虚线（内容坐标像素）
 export interface ResizeGuide {
   axis: 'row' | 'col'
@@ -62,3 +65,10 @@ export const tabRenameKey = new PluginKey('tabRename')
 
 // 每表缩放档位（{ sheetId: zoom }，zoom=1 为 100%）；非文档态，不入 undo、不持久化
 export const zoomKey = new PluginKey('zoom')
+
+// F5 引用高亮：编辑公式时被引区域在画布画彩色虚线框；值 = 当前编辑文本（以 = 开头）| null。
+// 非文档态（视图态），setMeta(...).setMeta('addToHistory', false) 不入 undo。
+export const refHighlightKey = new PluginKey('refHighlight')
+
+// 引用高亮调色板：按出现顺序循环取色（layers 按 ranges 下标 i % length）
+export const REF_PALETTE = ['#1a73e8', '#ea4335', '#fbbc04', '#34a853', '#9334e6', '#ff6d00', '#00897b', '#7cb342']

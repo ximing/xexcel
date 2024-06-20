@@ -2,9 +2,9 @@
 // 未拦截走默认行为 → dispatch(tr) → applyTransaction → updateState → rAF 合帧重绘。
 import Konva from 'konva'
 import { CellAddr } from '../core/addr'
-import { COL_HEADER_HEIGHT, ROW_HEADER_WIDTH, SheetData } from '../core/model'
+import { COL_HEADER_HEIGHT, ROW_HEADER_WIDTH, SEL_BORDER_HIT, SheetData } from '../core/model'
 import { EditorViewLike, PluginProps, PluginView } from '../core/plugin'
-import { selectionRange, singleCell } from '../core/selection'
+import { rangeSelection, selectionRange, singleCell } from '../core/selection'
 import type { SheetState } from '../core/state'
 import type { Transaction } from '../core/transaction'
 import { evaluatorFor } from '../formula/engine'
@@ -119,7 +119,7 @@ export class EditorView implements EditorViewLike {
   dispatch(tr: Transaction): void {
     const { state } = this.state.applyTransaction(tr)
     this.updateState(state)
-    if (tr.scrolledIntoView) this.ensureVisible(state.selection.focus)
+    if (tr.scrolledIntoView) this.ensureVisible(state.selection.activeCell)
   }
 
   updateState(state: SheetState): void {
@@ -197,8 +197,16 @@ export class EditorView implements EditorViewLike {
     const hy = br.y + br.h
     const half = fillHandleSize(z) / 2 + 2
     if (Math.abs(x - hx) <= half && Math.abs(y - hy) <= half) {
-      return { region: 'fillhandle', row: sel.focus.row, col: sel.focus.col }
+      return { region: 'fillhandle', row: sel.activeCell.row, col: sel.activeCell.col }
     }
+    // 选区边框：活动区域四边 ±SEL_BORDER_HIT 像素带（不含内部、不含右下角填充柄区）
+    const tl = this.cellViewportRect(sRange.sr, sRange.sc)
+    const sx = tl.x, sy = tl.y, sex = br.x + br.w, sey = br.y + br.h
+    const edge = SEL_BORDER_HIT * z
+    const onEdge =
+      (Math.abs(x - sx) <= edge || Math.abs(x - sex) <= edge) && y >= sy - edge && y <= sey + edge ||
+      (Math.abs(y - sy) <= edge || Math.abs(y - sey) <= edge) && x >= sx - edge && x <= sex + edge
+    if (onEdge && !(x > sex - half && y > sey - half)) return { region: 'selborder', row: sel.activeCell.row, col: sel.activeCell.col }
     if (x < hw && y < hh) return { region: 'corner', row: -1, col: -1 }
     if (y < hh) {
       const cx = x - hw
@@ -453,7 +461,7 @@ export class EditorView implements EditorViewLike {
     switch (hit.region) {
       case 'cell':
       case 'filter': {
-        const inSel = hit.row >= sel.sr && hit.row <= sel.er && hit.col >= sel.sc && hit.col <= sel.ec
+        const inSel = st.selection.ranges.some(r => hit.row >= r.sr && hit.row <= r.er && hit.col >= r.sc && hit.col <= r.ec)
         if (!inSel) tr.setSelection(singleCell(hit.row, hit.col))
         openMenu('cell', hit.row, hit.col)
         break
@@ -461,7 +469,7 @@ export class EditorView implements EditorViewLike {
       case 'rowheader': {
         const fullRows = sel.sc === 0 && sel.ec === sheet.colCount - 1
         if (!(fullRows && hit.row >= sel.sr && hit.row <= sel.er)) {
-          tr.setSelection({ anchor: { row: hit.row, col: 0 }, focus: { row: hit.row, col: sheet.colCount - 1 } })
+          tr.setSelection(rangeSelection({ sr: hit.row, sc: 0, er: hit.row, ec: sheet.colCount - 1 }))
         }
         openMenu('rowheader', hit.row, -1)
         break
@@ -469,7 +477,7 @@ export class EditorView implements EditorViewLike {
       case 'colheader': {
         const fullCols = sel.sr === 0 && sel.er === sheet.rowCount - 1
         if (!(fullCols && hit.col >= sel.sc && hit.col <= sel.ec)) {
-          tr.setSelection({ anchor: { row: 0, col: hit.col }, focus: { row: sheet.rowCount - 1, col: hit.col } })
+          tr.setSelection(rangeSelection({ sr: 0, sc: hit.col, er: sheet.rowCount - 1, ec: hit.col }))
         }
         openMenu('colheader', -1, hit.col)
         break

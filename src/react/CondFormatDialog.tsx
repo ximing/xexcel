@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { parseRangeA1, toA1 } from '../core/addr'
 import { CondFormatRule, FilterOp } from '../core/model'
 import { selectionRange } from '../core/selection'
+import type { SheetState } from '../core/state'
 import type { EditorView } from '../view/editorview'
 import { useSheetState } from './bridge'
 import { CFToggleKey, toggleCFStyle } from './cfstyle'
@@ -83,6 +84,9 @@ export function CondFormatDialog({ view, onClose }: Props) {
     setTexts(texts.filter((_, j) => j !== i))
   }
   const addRule = (): void => {
+    // 多区域选区拒绝（入口按钮已禁用，此处兜底）
+    const m = condFormatRejection(view.state)
+    if (m) { window.alert(m); return }
     const range = selectionRange(view.state.selection)
     setDraft([
       ...draft,
@@ -260,4 +264,14 @@ export function CondFormatDialog({ view, onClose }: Props) {
       </div>
     </div>
   )
+}
+
+// 多区域选区下条件格式入口按钮禁用（单区域零回归）
+export function canCondFormat(state: SheetState): boolean {
+  return state.selection.ranges.length === 1
+}
+
+// 多区域触发添加规则时的拒绝消息；单区域放行返回 null
+export function condFormatRejection(state: SheetState): string | null {
+  return state.selection.ranges.length > 1 ? '条件格式仅支持单区域选择' : null
 }

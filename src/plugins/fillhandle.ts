@@ -9,7 +9,7 @@
 import { CellRange, rangesEqual } from '../core/addr'
 import { Cell, SheetData } from '../core/model'
 import { EditorViewLike, Plugin } from '../core/plugin'
-import { selectionRange } from '../core/selection'
+import { rangeSelection, selectionRange } from '../core/selection'
 import type { Transaction } from '../core/transaction'
 import type { FormulaValue } from '../formula/engine'
 import { evaluatorFor } from '../formula/engine'
@@ -168,5 +168,5 @@ function buildFill(view: EditorView, tr: Transaction, src: CellRange, dst: CellR
   const ev = evaluatorFor(state.doc)
   const entries = computeFillEntries(state.activeSheet, (r, c) => ev.get(sheetId, r, c), src, dst)
   if (entries.length) tr.setCells(sheetId, entries)
-  tr.setSelection({ anchor: { row: dst.sr, col: dst.sc }, focus: { row: dst.er, col: dst.ec } }).scrollIntoView()
+  tr.setSelection(rangeSelection(dst, { row: dst.sr, col: dst.sc })).scrollIntoView()
 }

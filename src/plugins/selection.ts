@@ -1,16 +1,16 @@
 // 选区与行列调宽（resize）插件。职责：
-// - 单元格 mousedown → 记 anchor 进入拖拽；mousemove 更新 focus；shift+mousedown 扩展 focus
+// - 单元格 mousedown → 进入拖拽态；mousemove 经 extendActiveRange 更新活动区域边界（固定锚点生长）；Shift+mousedown 扩展活动区域
 // - 行头 mousedown → 选整行（可拖多行）；列头同理；corner → selectAll
 // - 拖拽指针距视口边缘 <24px 时 rAF 自动滚动并重算 focus，mouseup 停止
 // - 列头右缘/行头下缘（colborder/rowborder）拖拽调宽：参考线存 resizeGuideKey state field
 //   （layers 读取画虚线），mouseup dispatch tr.resize（最小 20px）；双击边框自适应内容尺寸
 //   （整行/整列选区包含目标时批量；空行/列经 resize null 恢复默认）
 // 全部经 props 拦截 + dispatch transaction，不直接改 doc。拖拽态存插件闭包变量。
-import { CellAddr } from '../core/addr'
+import { CellAddr, rangeContains } from '../core/addr'
 import { selectAll } from '../core/commands'
 import { CellStyle, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
 import { EditorViewLike, HitResult, Plugin } from '../core/plugin'
-import { selectionRange, singleCell } from '../core/selection'
+import { appendRange, extendActiveRange, rangeSelection, selectionRange, singleCell, toggleRange } from '../core/selection'
 import { evaluatorFor } from '../formula/engine'
 import type { EditorView } from '../view/editorview'
 import { measureTextWidth, optimalColWidth, optimalRowHeight } from '../view/measure'
@@ -38,7 +38,7 @@ export function selection(): Plugin {
   const addrAt = (view: EditorView, clientX: number, clientY: number): CellAddr =>
     view.pointerToCell(clientX, clientY)
 
-  // 按拖拽模式重算 focus 并 dispatch（focus 未变则仅重绘，避免空事务刷屏）
+  // 拖拽更新活动区域边界（Shift+drag 与无 Ctrl 的 drag 都走此路径）
   const applyDragFocus = (view: EditorView): void => {
     if (!drag || drag.kind !== 'select') return
     const sheet = view.state.activeSheet
@@ -50,11 +50,11 @@ export function selection(): Plugin {
           ? { row: addr.row, col: sheet.colCount - 1 }
           : { row: sheet.rowCount - 1, col: addr.col }
     const sel = view.state.selection
-    if (sel.focus.row === focus.row && sel.focus.col === focus.col) {
+    if (sel.activeCell.row === focus.row && sel.activeCell.col === focus.col) {
       view.render() // 仅滚动发生变化
       return
     }
-    view.dispatch(view.state.tr.setSelection({ anchor: sel.anchor, focus }))
+    view.dispatch(view.state.tr.setSelection(extendActiveRange(sel, focus)))
   }
 
   // 指针相对视口四边的滚动增量（0 表示该轴不滚）
@@ -132,37 +132,65 @@ export function selection(): Plugin {
         const sheet = v.state.activeSheet
         switch (hit.region) {
           case 'cell': {
+            const me = e
+            const sel = v.state.selection
             const m = sheet.mergeAt(hit.row, hit.col)
-            if (e.shiftKey) {
-              v.dispatch(
-                v.state.tr.setSelection({ anchor: v.state.selection.anchor, focus: { row: hit.row, col: hit.col } }),
-              )
-            } else if (m) {
-              // 点击合并区任意位置 → 选中整个区
-              v.dispatch(
-                v.state.tr.setSelection({ anchor: { row: m.sr, col: m.sc }, focus: { row: m.er, col: m.ec } }),
-              )
-              startSelectDrag(v, e, 'cell')
+            // 点在合并区内 → 整个合并区作单区域（Ctrl 追加）
+            if (m) {
+              if (me.ctrlKey || me.metaKey) {
+                v.dispatch(v.state.tr.setSelection(appendRange(sel, m, { row: m.sr, col: m.sc })))
+              } else {
+                v.dispatch(v.state.tr.setSelection(rangeSelection(m, { row: m.sr, col: m.sc })))
+              }
+              v.focus()
+              return true
+            }
+            // Ctrl+click：格已在选区 → 反选（LIFO 移除最后含该格的 range）；否则追加单格区域
+            // Shift+click：扩展活动区域到该格
+            // 无修饰：singleCell 重置
+            if (me.shiftKey) {
+              v.dispatch(v.state.tr.setSelection(extendActiveRange(sel, { row: hit.row, col: hit.col })).scrollIntoView())
+            } else if (me.ctrlKey || me.metaKey) {
+              const inSel = sel.ranges.some(r => rangeContains(r, hit.row, hit.col))
+              v.dispatch(v.state.tr.setSelection(
+                inSel ? toggleRange(sel, hit.row, hit.col) : appendRange(sel, { sr: hit.row, sc: hit.col, er: hit.row, ec: hit.col }, { row: hit.row, col: hit.col }),
+              ))
             } else {
               v.dispatch(v.state.tr.setSelection(singleCell(hit.row, hit.col)))
-              startSelectDrag(v, e, 'cell')
             }
+            startSelectDrag(v, e, 'cell')
             v.focus()
             return true
           }
           case 'rowheader': {
-            const focus = { row: hit.row, col: sheet.colCount - 1 }
-            const anchor = e.shiftKey ? v.state.selection.anchor : { row: hit.row, col: 0 }
-            v.dispatch(v.state.tr.setSelection({ anchor, focus }))
-            if (!e.shiftKey) startSelectDrag(v, e, 'row')
+            // 行头：整行 range（Ctrl 追加，否则替换）
+            const sel = v.state.selection
+            const focus: CellAddr = { row: hit.row, col: sheet.colCount - 1 }
+            const fullRow = { sr: hit.row, sc: 0, er: hit.row, ec: sheet.colCount - 1 }
+            if (e.shiftKey) {
+              v.dispatch(v.state.tr.setSelection(extendActiveRange(sel, focus)).scrollIntoView())
+            } else if (e.ctrlKey || e.metaKey) {
+              v.dispatch(v.state.tr.setSelection(appendRange(sel, fullRow, focus)))
+            } else {
+              v.dispatch(v.state.tr.setSelection(rangeSelection(fullRow, focus)))
+              startSelectDrag(v, e, 'row')
+            }
             v.focus()
             return true
           }
           case 'colheader': {
-            const focus = { row: sheet.rowCount - 1, col: hit.col }
-            const anchor = e.shiftKey ? v.state.selection.anchor : { row: 0, col: hit.col }
-            v.dispatch(v.state.tr.setSelection({ anchor, focus }))
-            if (!e.shiftKey) startSelectDrag(v, e, 'col')
+            // 列头：整列 range（Ctrl 追加，否则替换）
+            const sel = v.state.selection
+            const focus: CellAddr = { row: sheet.rowCount - 1, col: hit.col }
+            const fullCol = { sr: 0, sc: hit.col, er: sheet.rowCount - 1, ec: hit.col }
+            if (e.shiftKey) {
+              v.dispatch(v.state.tr.setSelection(extendActiveRange(sel, focus)).scrollIntoView())
+            } else if (e.ctrlKey || e.metaKey) {
+              v.dispatch(v.state.tr.setSelection(appendRange(sel, fullCol, focus)))
+            } else {
+              v.dispatch(v.state.tr.setSelection(rangeSelection(fullCol, focus)))
+              startSelectDrag(v, e, 'col')
+            }
             v.focus()
             return true
           }

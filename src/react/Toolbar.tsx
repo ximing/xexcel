@@ -13,7 +13,7 @@ import { adjustDecimals } from '../formula/format'
 import { evaluatorFor } from '../formula/engine'
 import { computeSortEntries, sortBlockedByMerges } from '../formula/sort'
 import { SortDialog } from './SortDialog'
-import { CondFormatDialog } from './CondFormatDialog'
+import { CondFormatDialog, canCondFormat } from './CondFormatDialog'
 
 interface Props {
   view: EditorView
@@ -21,7 +21,7 @@ interface Props {
 
 export function Toolbar({ view }: Props) {
   const state = useSheetState(view)
-  const { row, col } = state.selection.focus
+  const { row, col } = state.selection.activeCell
   const active: CellStyle = state.activeSheet.getCell(row, col)?.style ?? {}
   const fp = state.getField(formatPainterKey) as FormatPainterState | null | undefined
   const [showSort, setShowSort] = useState(false)
@@ -32,18 +32,18 @@ export function Toolbar({ view }: Props) {
 
   const applyBorder = (preset: BorderPreset): void => {
     const sheet = view.state.activeSheet
-    const entries = computeBorderStyles(
-      sheet,
-      selectionRange(view.state.selection),
-      preset,
-      preset === 'none' ? null : { style: borderLine, color: borderColor },
-    )
-    view.dispatch(view.state.tr.setCellStyles(entries))
+    const edge = preset === 'none' ? null : { style: borderLine, color: borderColor }
+    const entries: ReturnType<typeof computeBorderStyles>[] = []
+    for (const r of view.state.selection.ranges) entries.push(computeBorderStyles(sheet, r, preset, edge))
+    view.dispatch(view.state.tr.setCellStyles(entries.flat()))
     setShowBorder(false)
     view.focus()
   }
 
   const quickSort = (asc: boolean): void => {
+    // 多区域选区拒绝（按钮已禁用，此处兜底）
+    const m = sortRejection(view.state)
+    if (m) { window.alert(m); return }
     const r = selectionRange(view.state.selection)
     if (r.sr === r.er) return
     const sheet = view.state.activeSheet
@@ -293,12 +293,15 @@ export function Toolbar({ view }: Props) {
         className="tool-btn"
         title="合并单元格"
         onClick={() => {
-          const r = selectionRange(view.state.selection)
-          if (r.sr === r.er && r.sc === r.ec) return
+          const ranges = view.state.selection.ranges
+          if (ranges.every(r => r.sr === r.er && r.sc === r.ec)) return
           let nonEmpty = 0
-          view.state.activeSheet.forEachInRange(r, (cell) => {
-            if (cell && cell.raw !== '') nonEmpty++
-          })
+          const sheet = view.state.activeSheet
+          for (const r of ranges) {
+            sheet.forEachInRange(r, (cell) => {
+              if (cell && cell.raw !== '') nonEmpty++
+            })
+          }
           if (nonEmpty > 1 && !window.confirm('合并仅保留左上角的值，其余内容将被清除。继续？')) return
           mergeSelection(view.state, (tr) => view.dispatch(tr))
           view.focus()
@@ -429,7 +432,7 @@ export function Toolbar({ view }: Props) {
         className="tool-btn"
         title="冻结到当前选区（其上方与左侧）"
         onClick={() => {
-          const { row, col } = view.state.selection.focus
+          const { row, col } = view.state.selection.activeCell
           view.dispatch(view.state.tr.setFrozen(row, col))
           view.focus()
         }}
@@ -504,11 +507,14 @@ export function Toolbar({ view }: Props) {
       <button className="tool-btn" title="自定义排序" disabled={!canSort(state)} onClick={() => setShowSort(true)}>
         排序
       </button>
-      {showSort && <SortDialog view={view} range={selectionRange(view.state.selection)} onClose={() => setShowSort(false)} />}
+      {showSort && state.selection.ranges.length === 1 && <SortDialog view={view} range={selectionRange(view.state.selection)} onClose={() => setShowSort(false)} />}
       <button
         className={'tool-btn' + (state.activeSheet.filter ? ' active' : '')}
         title="自动筛选（对选区启用/清除全表筛选）"
+        disabled={!canFilter(state)}
         onClick={() => {
+          const fm = filterRejection(view.state)
+          if (fm) { window.alert(fm); return }
           const sheet = view.state.activeSheet
           if (sheet.filter) {
             view.dispatch(view.state.tr.setFilter(undefined))
@@ -535,7 +541,7 @@ export function Toolbar({ view }: Props) {
       >
         查
       </button>
-      <button className="tool-btn" title="条件格式" onClick={() => setShowCF(true)}>
+      <button className="tool-btn" title="条件格式" disabled={!canCondFormat(state)} onClick={() => setShowCF(true)}>
         条件
       </button>
       {showCF && <CondFormatDialog view={view} onClose={() => setShowCF(false)} />}
@@ -582,7 +588,22 @@ function hasHiddenInSel(state: SheetState): boolean {
   )
 }
 
-function canSort(state: SheetState): boolean {
+// 排序可用：多行（er>sr）且单区域；多区域禁用按钮
+export function canSort(state: SheetState): boolean {
   const r = selectionRange(state.selection)
-  return r.er > r.sr
+  return r.er > r.sr && state.selection.ranges.length === 1
+}
+
+// 多区域选区下筛选按钮禁用（单区域零回归：原按钮恒启用，单区域仍启用）
+export function canFilter(state: SheetState): boolean {
+  return state.selection.ranges.length === 1
+}
+
+// 多区域触发排序/筛选的拒绝消息；单区域放行返回 null。按钮 disabled 与触发拒绝共用判定。
+export function sortRejection(state: SheetState): string | null {
+  return state.selection.ranges.length > 1 ? '排序仅支持单区域选择' : null
+}
+
+export function filterRejection(state: SheetState): string | null {
+  return state.selection.ranges.length > 1 ? '筛选仅支持单区域选择' : null
 }
