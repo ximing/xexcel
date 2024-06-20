@@ -48,6 +48,16 @@ describe('Selection 模型', () => {
     const sel = singleCell(0, 0)
     expect(toggleRange(sel, 9, 9)).toBe(sel)
   })
+  it('toggleRange：partial-overlap 移除活动区域后旧 activeCell 滞留 → 迁至新 last 左上（不变式）', () => {
+    // ranges[0]={0,0..2,2}、ranges[1]={2,2..4,4}（仅 (2,2) 重叠），activeCell={4,4} 在 ranges[1]。
+    // toggleRange(sel,2,2) LIFO 移除 ranges[1] → 新 last={0,0..2,2}；旧 activeCell {4,4} 不在新 last
+    // 内 → 须迁至新 last 左上 {0,0}，否则 invariantHolds 断裂（spec §1.1 activeCell∈ranges[last]）
+    const sel = appendRange(rangeSelection({ sr: 0, sc: 0, er: 2, ec: 2 }), { sr: 2, sc: 2, er: 4, ec: 4 }, { row: 4, col: 4 })
+    const t = toggleRange(sel, 2, 2)
+    expect(t.ranges).toEqual([{ sr: 0, sc: 0, er: 2, ec: 2 }])
+    expect(invariantHolds(t)).toBe(true) // 旧 activeCell {4,4}∉新 last → 迁 {0,0}
+    expect(t.activeCell).toEqual({ row: 0, col: 0 })
+  })
   it('extendActiveRange：替换末项边界，activeCell=新焦点，禁就地改', () => {
     const sel = singleCell(0, 0)
     const ext = extendActiveRange(sel, { row: 3, col: 4 })

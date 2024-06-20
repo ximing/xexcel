@@ -47,7 +47,11 @@ export function toggleRange(sel: Selection, row: number, col: number): Selection
       ranges.splice(i, 1)
       if (ranges.length === 0) return singleCell(row, col)
       const last = ranges[ranges.length - 1]
-      const ac = (row >= last.sr && row <= last.er && col >= last.sc && col <= last.ec)
+      // 保留旧 activeCell 仅当它仍落在新 ranges[last] 内——否则迁至新 last 左上。
+      // 旧谓词用 clicked(row,col) 判定，partial-overlap 移除活动区域时旧 activeCell 滞留被移除 range，
+      // 违反不变式 activeCell∈ranges[last]（spec §1.1）。改判旧 activeCell 本身。
+      const ac = (sel.activeCell.row >= last.sr && sel.activeCell.row <= last.er &&
+        sel.activeCell.col >= last.sc && sel.activeCell.col <= last.ec)
         ? sel.activeCell
         : { row: last.sr, col: last.sc }
       return { ranges, activeCell: ac }
