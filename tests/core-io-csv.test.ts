@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { csvToGrid } from '../src/core/io/csv'
+import { SheetData } from '../src/core/model'
+import { csvToGrid, sheetToCSV } from '../src/core/io/csv'
 
 describe('csvToGrid', () => {
   it('普通网格', () => {
@@ -39,5 +40,44 @@ describe('csvToGrid', () => {
 
   it('空文本返回 []', () => {
     expect(csvToGrid('')).toEqual([])
+  })
+})
+
+describe('sheetToCSV', () => {
+  const mkSheet = (rows: string[][]): SheetData => {
+    let s = SheetData.create({ rowCount: Math.max(rows.length, 5), colCount: 5 })
+    rows.forEach((r, ri) => r.forEach((v, ci) => {
+      if (v !== '') s = s.setCell(ri, ci, { raw: v })
+    }))
+    return s
+  }
+
+  it('特殊字符加引号转义；默认带 BOM；CRLF 行尾', () => {
+    const csv = sheetToCSV(mkSheet([['a,b', 'x"y', '行1\n行2']]))
+    expect(csv).toBe('﻿"a,b","x""y","行1\n行2"\r\n')
+  })
+
+  it('公式导出 raw 原文', () => {
+    const csv = sheetToCSV(mkSheet([['=A1+B1', '3']]), { bom: false })
+    expect(csv).toBe('=A1+B1,3\r\n')
+  })
+
+  it('空表返回空串', () => {
+    expect(sheetToCSV(SheetData.create({ rowCount: 10, colCount: 5 }))).toBe('')
+  })
+
+  it('只导到 usedRange，尾部空行空列不输出', () => {
+    const csv = sheetToCSV(mkSheet([['a', '', ''], ['b', '', '']]), { bom: false })
+    expect(csv).toBe('a\r\nb\r\n')
+  })
+
+  it('往返：grid→sheet→csv→grid 恒等', () => {
+    const grid = [['姓名', '数量'], ['苹果,梨', '3'], ['=B2*2', '']]
+    const back = csvToGrid(sheetToCSV(mkSheet(grid), { bom: false }))
+    expect(back).toEqual([
+      ['姓名', '数量'],
+      ['苹果,梨', '3'],
+      ['=B2*2', ''],
+    ])
   })
 })
