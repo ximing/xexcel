@@ -14,6 +14,8 @@ import { evaluatorFor } from '../formula/engine'
 import { computeSortEntries, sortBlockedByMerges } from '../formula/sort'
 import { SortDialog } from './SortDialog'
 import { CondFormatDialog, canCondFormat } from './CondFormatDialog'
+// 显式 .tsx 扩展名：macOS 大小写不敏感 FS 下 './FileMenu' 会被误解析到 filemenu.ts
+import { FileMenu } from './FileMenu.tsx'
 
 interface Props {
   view: EditorView
@@ -62,6 +64,7 @@ export function Toolbar({ view }: Props) {
 
   return (
     <div className="toolbar">
+      <FileMenu view={view} />
       <button
         className="tool-btn"
         title="撤销"
