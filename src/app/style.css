@@ -480,3 +480,6 @@ body {
 }
 .file-menu-item:hover { background: #e8f0fe; }
 .file-menu-item.danger { color: #c5221f; }
+
+.status-error { color: #c5221f; margin-left: 12px; }
+.status-notice { color: #1a73e8; margin-left: 12px; }

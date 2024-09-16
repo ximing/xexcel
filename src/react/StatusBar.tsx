@@ -1,5 +1,7 @@
 // 状态栏：左侧 就绪/编辑中；右侧对选区数字统计（忽略非数字，单格只显示计数）+ 缩放档位控件。
-import { useEffect, useReducer, useState } from 'react'
+import { useEffect, useReducer, useState, useSyncExternalStore } from 'react'
+import { getNotice, subscribeNotice } from '../app/notice'
+import { workbookStorage } from '../app/storage'
 import { forEachSelectionRange } from '../core/selection'
 import type { SheetState } from '../core/state'
 import { formatNumber } from '../formula/eval'
@@ -37,6 +39,8 @@ function collectStats(state: SheetState): { sum: number; count: number; single: 
 
 export function StatusBar({ view }: Props) {
   const state = useSheetState(view)
+  const saveStatus = useSyncExternalStore(workbookStorage.subscribeStatus, workbookStorage.getStatus)
+  const notice = useSyncExternalStore(subscribeNotice, getNotice)
   // 编辑器开/关不产生事务，靠 MutationObserver 监听 view.dom 子节点（.xcell-editor 挂载/移除）刷新
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0)
   useEffect(() => {
@@ -57,6 +61,8 @@ export function StatusBar({ view }: Props) {
   return (
     <div className="status-bar">
       <span>{isEditing() ? '编辑中' : '就绪'}</span>
+      {saveStatus.error ? <span className="status-error">自动保存失败</span> : null}
+      {notice ? <span className="status-notice">{notice}</span> : null}
       <span className="status-right">
         <span>{stats}</span>
         <span className="status-zoom-wrap">

@@ -9,7 +9,14 @@ import { SheetTabBar } from '../react/SheetTabBar'
 import { StatusBar } from '../react/StatusBar'
 import { Toolbar } from '../react/Toolbar'
 import { EditorView } from '../view/editorview'
-import { createDemoState } from './demo'
+import { workbookStorage } from './storage'
+import { createDemoState, createStateFromWorkbook } from './demo'
+
+// 启动：有存档以存档建初始 state（恢复非用户操作，不可撤销，不走事务）
+function initialState() {
+  const wb = workbookStorage.load()
+  return wb ? createStateFromWorkbook(wb) : createDemoState()
+}
 
 export function App() {
   const mountRef = useRef<HTMLDivElement>(null)
@@ -17,11 +24,18 @@ export function App() {
 
   useEffect(() => {
     // React 侧经 useSheetState(subscribe) 感知 state 变化，无需宿主 dispatch 回调
-    const v = new EditorView(mountRef.current!, { state: createDemoState() })
+    const v = new EditorView(mountRef.current!, { state: initialState() })
     setView(v)
     v.focus()
     if (import.meta.env.DEV) (window as unknown as { __xcell: EditorView }).__xcell = v
+    // dispatch 后防抖自动保存；getter 延迟取值，只序列化防抖窗口末态
+    const unsub = v.subscribe(() => workbookStorage.schedule(() => v.state.doc))
+    const onUnload = () => workbookStorage.flush()
+    window.addEventListener('beforeunload', onUnload)
     return () => {
+      window.removeEventListener('beforeunload', onUnload)
+      unsub()
+      workbookStorage.flush()
       setView(null)
       v.destroy()
     }

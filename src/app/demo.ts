@@ -45,5 +45,9 @@ export function createDemoState(): SheetState {
   set(1, 8, '=ROUND(H2,1)')
 
   wb = wb.setSheet(wb.active, sheet)
+  return createStateFromWorkbook(wb)
+}
+
+export function createStateFromWorkbook(wb: Workbook): SheetState {
   return SheetState.create({ doc: wb, plugins: [history(), ...builtinPlugins()] })
 }
