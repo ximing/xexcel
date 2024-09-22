@@ -33,12 +33,17 @@ __xcell.state.activeSheet.getCell(19,1)?.raw
 
 ```js
 // Toolbar「文件」→「清除浏览器存档」→ confirm 自动确认
-window.confirm = () => true
-[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
-[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent.includes('清除')).click()
-localStorage.getItem('xexcel.workbook')
+// React 状态更新异步：点按钮后需等菜单渲染；点菜单项后需等 StatusBar 渲染
+await (async () => {
+  window.confirm = () => true
+  ;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
+  await new Promise(r=>setTimeout(r,300))
+  ;[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent.includes('清除')).click()
+  await new Promise(r=>setTimeout(r,500))
+})()
+;[localStorage.getItem('xexcel.workbook'), document.querySelector('.status-notice')?.textContent]
 ```
-【预期】null；StatusBar 显示「已清除浏览器存档」提示（.status-notice）
+【预期】[null, '已清除浏览器存档']（存档已删；StatusBar 提示已渲染）
 
 ```js
 location.reload(); await new Promise(r=>setTimeout(r,800))
@@ -62,13 +67,16 @@ window.__dl = null
 const oc = URL.createObjectURL.bind(URL)
 URL.createObjectURL = (b) => { window.__dl = b; return oc(b) }
 ;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
+await new Promise(r=>setTimeout(r,300))
 ;[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent==='导出 CSV').click()
 await new Promise(r=>setTimeout(r,300))
+// blob.text() 解码时会剥离 UTF-8 BOM，BOM 须用 arrayBuffer 验字节
 const txt = await window.__dl.text()
+const buf = new Uint8Array(await window.__dl.arrayBuffer())
 URL.createObjectURL = oc
-/^﻿/.test(txt) && txt.includes('"含,逗号"') && txt.includes('"含""引号') && txt.includes('=B2*2')
+buf[0]===0xEF && buf[1]===0xBB && buf[2]===0xBF && txt.includes('"含,逗号"') && txt.includes('"含""引号') && txt.includes('=B2*2')
 ```
-【预期】true（BOM + 转义 + 公式原文）
+【预期】true（BOM 字节 EF BB BF 经 arrayBuffer 校验 + 转义 + 公式原文）
 
 ## 4. CSV 导入
 
@@ -87,6 +95,7 @@ document.createElement = (tag, ...rest) => {
   return el
 }
 ;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
+await new Promise(r=>setTimeout(r,300))
 ;[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent.includes('打开 CSV')).click()
 await new Promise(r=>setTimeout(r,500))
 document.createElement = oce
