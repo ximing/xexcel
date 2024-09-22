@@ -20,6 +20,7 @@ export class WorkbookStorage {
   private pending: (() => Workbook) | null = null
   private timer: ReturnType<typeof setTimeout> | null = null
   private status: SaveStatus = { error: null, savedAt: null }
+  private suspended = false
   private readonly listeners = new Set<() => void>()
 
   constructor(
@@ -50,6 +51,7 @@ export class WorkbookStorage {
   }
 
   saveNow(wb: Workbook): void {
+    if (this.suspended) return
     try {
       const savedAt = new Date().toISOString()
       this.storage.setItem(STORAGE_KEY, serializeWorkbook(wb, savedAt))
@@ -61,6 +63,7 @@ export class WorkbookStorage {
 
   // getter 延迟到触发时取值：防抖窗口内的连续编辑只序列化最终 state
   schedule(getWorkbook: () => Workbook): void {
+    if (this.suspended) return
     this.pending = getWorkbook
     if (this.timer !== null) clearTimeout(this.timer)
     this.timer = setTimeout(() => this.flush(), this.debounceMs)
@@ -82,6 +85,18 @@ export class WorkbookStorage {
     } catch {
       // 忽略
     }
+  }
+
+  // 清除存档并挂起自动保存：取消挂起的防抖 timer/pending，本页面生命周期内不再写入
+  // （模块级 latch，刷新即复位；防止「清除」被后续 dispatch 的防抖复活）
+  suspend(): void {
+    if (this.timer !== null) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
+    this.pending = null
+    this.clear()
+    this.suspended = true
   }
 
   subscribeStatus = (cb: () => void): (() => void) => {

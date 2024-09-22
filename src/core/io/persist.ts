@@ -32,8 +32,16 @@ export function deserializeWorkbook(json: string): Workbook {
     throw new PersistError(`存档版本不符: ${String((env as Envelope | null)?.version)}`)
   }
   try {
-    return Workbook.fromJSON(env.workbook)
+    const wb = Workbook.fromJSON(env.workbook)
+    // 结构合法但语义空/不自洽的载荷 fromJSON 不抛错，需校验最小不变式
+    if (wb.order.length === 0) throw new PersistError('存档无工作表')
+    if (!wb.order.includes(wb.active)) throw new PersistError(`活动表不在 order 中: ${wb.active}`)
+    for (const id of wb.order) {
+      if (!wb.sheets.has(id)) throw new PersistError(`order 中的表缺少数据: ${id}`)
+    }
+    return wb
   } catch (e) {
+    if (e instanceof PersistError) throw e
     throw new PersistError('存档数据损坏: ' + (e as Error).message)
   }
 }

@@ -41,4 +41,24 @@ describe('core/io/persist', () => {
     const bad = JSON.stringify({ version: PERSIST_VERSION, savedAt: 'x', workbook: { nope: 1 } })
     expect(() => deserializeWorkbook(bad)).toThrow(PersistError)
   })
+
+  it('语义损坏信封（order 空/active 缺席）抛 PersistError', () => {
+    const bad = JSON.stringify({
+      version: PERSIST_VERSION,
+      savedAt: '2026-08-02T00:00:00.000Z',
+      workbook: { order: [], active: 's1', names: [], sheets: {} },
+    })
+    expect(() => deserializeWorkbook(bad)).toThrow(PersistError)
+  })
+
+  it('active 不在 order 中抛 PersistError', () => {
+    const good = Workbook.create({ rowCount: 3, colCount: 3 })
+    const j = good.toJSON() as { order: string[]; active: string; sheets: Record<string, unknown> }
+    const bad = JSON.stringify({
+      version: PERSIST_VERSION,
+      savedAt: 'x',
+      workbook: { ...j, active: 's999' },
+    })
+    expect(() => deserializeWorkbook(bad)).toThrow(PersistError)
+  })
 })

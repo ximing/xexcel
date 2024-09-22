@@ -27,7 +27,13 @@ export function FileMenu({ view }: Props) {
     const file = await pickFile('.csv,text/csv')
     if (!file) return
     if (file.size > CSV_MAX_BYTES && !window.confirm(`文件 ${Math.round(file.size / 1024 / 1024)}MB，较大，确定导入？`)) return
-    const grid = csvToGrid(await readFileText(file))
+    let grid
+    try {
+      grid = csvToGrid(await readFileText(file))
+    } catch {
+      showNotice('文件读取失败')
+      return
+    }
     if (isGridEmpty(grid)) {
       showNotice('CSV 文件为空')
       return
@@ -46,7 +52,7 @@ export function FileMenu({ view }: Props) {
 
   const clearStorage = (): void => {
     if (!window.confirm('清除浏览器中的自动存档？当前内容刷新后将不再恢复。')) return
-    workbookStorage.clear()
+    workbookStorage.suspend()
     showNotice('已清除浏览器存档，刷新后生效')
     view.focus()
   }

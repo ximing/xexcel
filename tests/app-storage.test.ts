@@ -91,4 +91,40 @@ describe('app/storage', () => {
     st.clear()
     expect(s.dump.has(STORAGE_KEY)).toBe(false)
   })
+
+  it('suspend 删除存档后 schedule/saveNow 不再写入', () => {
+    const s = memStorage()
+    const st = new WorkbookStorage(s, 1000)
+    st.saveNow(mkWb())
+    st.suspend()
+    expect(s.dump.has(STORAGE_KEY)).toBe(false)
+    st.saveNow(mkWb())
+    st.schedule(() => mkWb())
+    vi.advanceTimersByTime(2000)
+    st.flush()
+    expect(s.dump.has(STORAGE_KEY)).toBe(false)
+  })
+
+  it('suspend 取消已挂起的防抖 timer：到点不写回', () => {
+    const s = memStorage()
+    const st = new WorkbookStorage(s, 1000)
+    st.schedule(() => mkWb())
+    st.suspend()
+    vi.advanceTimersByTime(2000)
+    expect(s.dump.has(STORAGE_KEY)).toBe(false)
+  })
+
+  it('语义损坏存档（结构合法、语义空）走 .corrupt 备份路径返回 null', () => {
+    const s = memStorage()
+    const bad = JSON.stringify({
+      version: 1,
+      savedAt: 'x',
+      workbook: { order: [], active: 's1', names: [], sheets: {} },
+    })
+    s.setItem(STORAGE_KEY, bad)
+    const st = new WorkbookStorage(s)
+    expect(st.load()).toBeNull()
+    expect(s.dump.get(STORAGE_KEY + '.corrupt')).toBe(bad)
+    expect(s.dump.has(STORAGE_KEY)).toBe(false)
+  })
 })
