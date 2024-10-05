@@ -1,13 +1,14 @@
 // src/core/io/xlsx.ts
 // Workbook ↔ xlsx 映射（exceljs 装配层）。纯映射无 DOM：vitest 走 node 入口，Vite 经 browser 字段走 dist bundle。
 import ExcelJS from 'exceljs'
-import { toA1 } from '../addr'
+import { CellRange, clampRange, parseRange, toA1 } from '../addr'
 import {
   Cell, CondFormatRule, FilterOp, FilterState, SheetData, Workbook,
 } from '../model'
+import { DAY_MS, EPOCH } from '../../formula/date'
 import {
-  XDiffStyle, cfStyleToExcel,
-  styleToExcelAlignment, styleToExcelBorders, styleToExcelFill, styleToExcelFont,
+  XDiffStyle, cfStyleFromExcel, cfStyleToExcel,
+  styleFromExcel, styleToExcelAlignment, styleToExcelBorders, styleToExcelFill, styleToExcelFont,
 } from './xlsx-style'
 
 // 导入尺寸下限（值同 src/react/csvImport.ts；core 不能 import react，本地重复）
@@ -231,4 +232,226 @@ export function workbookToExcelJS(wb: Workbook): ExcelJS.Workbook {
   }
   ewb.views = [{ activeTab: wb.order.indexOf(wb.active) } as ExcelJS.WorkbookView]
   return ewb
+}
+
+// ---- 导入 ----
+
+// exceljs 单元格值的结构镜像（只覆盖我们关心的形状）
+type XCellValue =
+  | null
+  | undefined
+  | string
+  | number
+  | boolean
+  | Date
+  | { formula?: string; sharedFormula?: string; result?: unknown }
+  | { richText: { text: string }[] }
+  | { error: string }
+  | { text: string; hyperlink?: string }
+
+// 值 → raw 文本；返回 null = 无值（样式可能仍在，由调用侧决定存否）
+function excelValueToRaw(value: XCellValue): string | null {
+  if (value === null || value === undefined) return null
+  if (value instanceof Date) return String((value.getTime() - EPOCH) / DAY_MS)
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
+  if ('richText' in value) return value.richText.map((t) => t.text).join('')
+  if ('error' in value) return String(value.error)
+  if ('formula' in value && value.formula) return '=' + value.formula
+  if ('sharedFormula' in value) {
+    // 共享公式从格无公式文本：退化为缓存值
+    const res = value.result
+    if (typeof res === 'number') return String(res)
+    if (typeof res === 'string') return res
+    console.warn('xlsx 导入：共享公式从格无缓存值，已跳过')
+    return null
+  }
+  if ('text' in value) return value.text
+  return null
+}
+
+const CF_OP_REVERSE: Record<string, FilterOp> = {
+  equal: 'eq',
+  notEqual: 'neq',
+  greaterThan: 'gt',
+  greaterThanOrEqual: 'gte',
+  lessThan: 'lt',
+  lessThanOrEqual: 'lte',
+  between: 'between',
+}
+
+interface XCfRuleIn {
+  type: string
+  operator?: string
+  formulae?: string[]
+  text?: string
+  style?: XDiffStyle
+}
+
+// containsText 回读无 text 字段，从 SEARCH("...",ANCHOR) 提取（"" 反转义）
+const SEARCH_RE = /SEARCH\("((?:[^"]|"")*)"/
+
+function cfRuleFromExcel(rule: XCfRuleIn, id: string, range: CellRange): CondFormatRule | null {
+  const style = cfStyleFromExcel(rule.style ?? {})
+  if (rule.type === 'cellIs') {
+    const op = rule.operator ? CF_OP_REVERSE[rule.operator] : undefined
+    if (!op) {
+      console.warn('xlsx 导入：不支持的 cellIs 操作符，规则已跳过', rule.operator)
+      return null
+    }
+    const out: CondFormatRule = { id, range, type: 'value', op, v1: rule.formulae?.[0] ?? '', style }
+    if (op === 'between') out.v2 = rule.formulae?.[1] ?? ''
+    return out
+  }
+  if (rule.type === 'containsText') {
+    let text = rule.text
+    if (text === undefined) {
+      const m = rule.formulae?.[0] ? SEARCH_RE.exec(rule.formulae[0]) : null
+      if (!m) {
+        console.warn('xlsx 导入：containsText 无法提取文本，规则已跳过')
+        return null
+      }
+      text = m[1].replace(/""/g, '"')
+    }
+    return { id, range, type: 'textContains', text, style }
+  }
+  console.warn('xlsx 导入：不支持的条件格式类型，规则已跳过', rule.type)
+  return null
+}
+
+function sheetFromExcelWS(ws: ExcelJS.Worksheet): SheetData {
+  // 内容边界（含 styled 空格；防整列样式文件，截断警告）
+  let maxRow = 0
+  let maxCol = 0
+  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber > MAX_IMPORT_ROWS) {
+      console.warn('xlsx 导入：行数超过上限，已截断', MAX_IMPORT_ROWS)
+      return
+    }
+    maxRow = Math.max(maxRow, rowNumber)
+    row.eachCell({ includeEmpty: true }, (_c, colNumber) => {
+      if (colNumber <= MAX_IMPORT_COLS) maxCol = Math.max(maxCol, colNumber)
+    })
+  })
+  const rowCount = Math.max(maxRow, IMPORT_MIN_ROWS)
+  const colCount = Math.max(maxCol, IMPORT_MIN_COLS)
+  let sheet = SheetData.create({ rowCount, colCount })
+
+  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber > rowCount) return
+    row.eachCell({ includeEmpty: true }, (xc, colNumber) => {
+      if (colNumber > colCount) return
+      const raw = excelValueToRaw(xc.value as XCellValue)
+      let style = styleFromExcel({
+        font: xc.font as never,
+        fill: xc.fill as never,
+        alignment: xc.alignment as never,
+        border: xc.border as never,
+      })
+      // numFmt：'General' 视为无；Date 且无 numFmt 时补默认日期格式
+      let numFmt = xc.numFmt && xc.numFmt !== 'General' ? xc.numFmt : undefined
+      if (xc.value instanceof Date && !numFmt) numFmt = 'yyyy/m/d'
+      if (numFmt) style = { ...(style ?? {}), numFmt }
+      if (raw === null && !style) return
+      sheet = sheet.setCell(rowNumber - 1, colNumber - 1, {
+        raw: raw ?? '',
+        ...(style ? { style } : {}),
+      })
+    })
+  })
+
+  const clamp = (r: CellRange): CellRange => clampRange(r, rowCount, colCount)
+  const merges: CellRange[] = []
+  for (const ref of (ws.model.merges as string[] | undefined) ?? []) {
+    const r = parseRange(ref)
+    if (r) merges.push(clamp(r))
+  }
+  if (merges.length) sheet = sheet.setMerges(merges)
+
+  const view = (ws.views ?? []).find((v) => v.state === 'frozen') as
+    | { xSplit?: number; ySplit?: number }
+    | undefined
+  if (view && ((view.ySplit ?? 0) > 0 || (view.xSplit ?? 0) > 0)) {
+    sheet = sheet.setFrozen(
+      Math.min(view.ySplit ?? 0, rowCount - 1),
+      Math.min(view.xSplit ?? 0, colCount - 1),
+    )
+  }
+
+  const hiddenRows: number[] = []
+  const hiddenCols: number[] = []
+  // 行高/隐藏从 model.rows 读：eachRow(includeEmpty:false) 会跳过只有 height/hidden 的无值行
+  const modelRows = (ws.model as { rows?: { number: number; height?: number; hidden?: boolean }[] }).rows ?? []
+  for (const r of modelRows) {
+    if (r.number > rowCount) continue
+    if (r.height) sheet = sheet.setRowHeight(r.number - 1, Math.round(r.height / PT_PER_PX))
+    if (r.hidden) hiddenRows.push(r.number - 1)
+  }
+  // 列宽/隐藏从 model.cols 读：columnCount 只反映内容边界，纯样式列在其外；
+  // 无显式宽度的隐藏列带默认 width（isCustomWidth=false），不得当作自定义列宽
+  const modelCols = (ws.model as {
+    cols?: { min: number; max: number; width?: number; isCustomWidth?: boolean; hidden?: boolean }[]
+  }).cols ?? []
+  for (const c of modelCols) {
+    for (let n = c.min; n <= Math.min(c.max, colCount); n++) {
+      if (c.hidden) hiddenCols.push(n - 1)
+      if (c.isCustomWidth && c.width) {
+        sheet = sheet.setColWidth(n - 1, Math.round(c.width * COL_CHAR_PX + COL_PAD_PX))
+      }
+    }
+  }
+  if (hiddenRows.length || hiddenCols.length) sheet = sheet.withHidden(hiddenRows, hiddenCols)
+
+  // 筛选：exceljs 回读只有 ref 字符串 → range-only（criteria 不可得）
+  if (ws.autoFilter) {
+    const ref = typeof ws.autoFilter === 'string' ? ws.autoFilter : `${ws.autoFilter.from}:${ws.autoFilter.to}`
+    const range = parseRange(ref)
+    if (range) sheet = sheet.setFilter({ range: clamp(range), criteria: {} })
+  }
+
+  const rules: CondFormatRule[] = []
+  let cfSeq = 1
+  // exceljs 类型未声明 conditionalFormattings，整体强转（同 smoke 测试写法）
+  const cfBlocks = (ws.model as never as { conditionalFormattings?: { ref: string; rules: XCfRuleIn[] }[] })
+    .conditionalFormattings ?? []
+  for (const block of cfBlocks) {
+    for (const refPart of String(block.ref).split(/\s+/)) {
+      const range = parseRange(refPart)
+      if (!range) continue
+      for (const rule of block.rules) {
+        const mapped = cfRuleFromExcel(rule, `cf${cfSeq}`, clamp(range))
+        if (mapped) {
+          rules.push(mapped)
+          cfSeq++
+        }
+      }
+    }
+  }
+  if (rules.length) sheet = sheet.setCondFormats(rules)
+
+  return sheet
+}
+
+// exceljs workbook → Workbook：sheet id 顺序 s1..sN，active=第一张
+export function excelJSToWorkbook(ewb: ExcelJS.Workbook): Workbook {
+  if (ewb.worksheets.length === 0) throw new Error('xlsx 中没有工作表')
+  let wb = Workbook.create({ rowCount: 1, colCount: 1 })
+  ewb.worksheets.forEach((ws, i) => {
+    const data = sheetFromExcelWS(ws)
+    if (i === 0) {
+      wb = wb.setSheet('s1', data)
+      wb = wb.renameSheet('s1', ws.name)
+    } else {
+      wb = wb.addSheet(`s${i + 1}`, data, undefined, ws.name)
+    }
+  })
+  return wb
+}
+
+// 二进制 → Workbook 一步入口（FileMenu 用）
+export async function parseXlsx(data: Uint8Array): Promise<Workbook> {
+  const ewb = new ExcelJS.Workbook()
+  await ewb.xlsx.load(data as never)
+  return excelJSToWorkbook(ewb)
 }
