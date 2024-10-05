@@ -99,6 +99,11 @@ export class WorkbookStorage {
     this.suspended = true
   }
 
+  // 解除挂起（xlsx 导入完成后恢复自动保存；不补保存，等下一次编辑的 schedule 触发）
+  resume(): void {
+    this.suspended = false
+  }
+
   subscribeStatus = (cb: () => void): (() => void) => {
     this.listeners.add(cb)
     return () => this.listeners.delete(cb)

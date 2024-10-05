@@ -114,6 +114,32 @@ describe('app/storage', () => {
     expect(s.dump.has(STORAGE_KEY)).toBe(false)
   })
 
+  describe('suspend/resume', () => {
+    it('suspend 后 schedule/saveNow 均不写；resume 后恢复', () => {
+      const s = memStorage()
+      const st = new WorkbookStorage(s, 1000)
+      const wb = mkWb()
+      st.suspend()
+      st.schedule(() => wb)
+      st.saveNow(wb)
+      expect(s.dump.has(STORAGE_KEY)).toBe(false)
+      st.resume()
+      st.schedule(() => wb)
+      st.flush()
+      expect(s.dump.has(STORAGE_KEY)).toBe(true)
+    })
+
+    it('suspend 幂等；resume 不补保存（无 pending 时不写）', () => {
+      const s = memStorage()
+      const st = new WorkbookStorage(s, 1000)
+      st.suspend()
+      st.suspend()
+      st.resume()
+      st.flush()
+      expect(s.dump.has(STORAGE_KEY)).toBe(false)
+    })
+  })
+
   it('语义损坏存档（结构合法、语义空）走 .corrupt 备份路径返回 null', () => {
     const s = memStorage()
     const bad = JSON.stringify({
