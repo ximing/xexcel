@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { csvBaseName, fileMenuItems, isGridEmpty } from '../src/react/filemenu'
 
 describe('fileMenuItems', () => {
-  it('三项：打开 CSV / 导出 CSV / 清除存档（danger）', () => {
+  it('五项：打开 CSV / 打开 xlsx / 导出 CSV / 导出 xlsx / 清除存档（danger）', () => {
     expect(fileMenuItems()).toEqual([
       { id: 'openCsv', label: '打开 CSV…', danger: false },
+      { id: 'openXlsx', label: '打开 xlsx…', danger: false },
       { id: 'exportCsv', label: '导出 CSV', danger: false },
+      { id: 'exportXlsx', label: '导出 xlsx', danger: false },
       { id: 'clearStorage', label: '清除浏览器存档', danger: true },
     ])
   })

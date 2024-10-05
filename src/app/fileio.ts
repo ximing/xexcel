@@ -15,6 +15,10 @@ export function readFileText(file: File): Promise<string> {
   return file.text()
 }
 
+export function readFileArrayBuffer(file: File): Promise<ArrayBuffer> {
+  return file.arrayBuffer()
+}
+
 export function downloadBlob(name: string, blob: Blob): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

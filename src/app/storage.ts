@@ -87,8 +87,9 @@ export class WorkbookStorage {
     }
   }
 
-  // 清除存档并挂起自动保存：取消挂起的防抖 timer/pending，本页面生命周期内不再写入
-  // （模块级 latch，刷新即复位；防止「清除」被后续 dispatch 的防抖复活）
+  // 清除存档并挂起自动保存：取消挂起的防抖 timer/pending，挂起期间不再写入，
+  // resume() 可解除挂起；挂起标志为模块级内存态，刷新页面即复位
+  // （防止「清除」被后续 dispatch 的防抖复活）
   suspend(): void {
     if (this.timer !== null) {
       clearTimeout(this.timer)

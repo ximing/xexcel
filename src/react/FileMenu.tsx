@@ -1,15 +1,18 @@
 // src/react/FileMenu.tsx
-// 「文件」下拉：打开 CSV（新建 sheet 导入，可撤销）/ 导出 CSV / 清除浏览器存档。
+// 「文件」下拉：打开 CSV（新建 sheet 导入，可撤销）/ 打开 xlsx（整簿替换，不可撤销）/ 导出 CSV / 导出 xlsx / 清除浏览器存档。
 import { useState } from 'react'
-import { downloadBlob, pickFile, readFileText } from '../app/fileio'
+import { createStateFromWorkbook } from '../app/demo'
+import { downloadBlob, pickFile, readFileArrayBuffer, readFileText } from '../app/fileio'
 import { showNotice } from '../app/notice'
 import { workbookStorage } from '../app/storage'
 import { csvToGrid, sheetToCSV } from '../core/io/csv'
+import { parseXlsx, workbookToExcelJS } from '../core/io/xlsx'
 import type { EditorView } from '../view/editorview'
 import { buildImportTr } from './csvImport'
 import {
   CSV_MAX_BYTES,
   CSV_MAX_ROWS,
+  XLSX_MAX_BYTES,
   csvBaseName,
   FileMenuId,
   fileMenuItems,
@@ -50,6 +53,42 @@ export function FileMenu({ view }: Props) {
     view.focus()
   }
 
+  const openXlsx = async (): Promise<void> => {
+    if (!window.confirm('打开 xlsx 将替换当前表格内容，浏览器存档将被覆盖。继续？')) return
+    const file = await pickFile('.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    if (!file) return
+    if (file.size > XLSX_MAX_BYTES && !window.confirm(`文件 ${Math.round(file.size / 1024 / 1024)}MB，较大，确定导入？`)) return
+    // 先挂起自动保存：导入期间（含 updateState 触发的订阅）不写存档
+    workbookStorage.suspend()
+    try {
+      const wb = await parseXlsx(new Uint8Array(await readFileArrayBuffer(file)))
+      view.updateState(createStateFromWorkbook(wb)) // 同启动恢复路径，不可撤销
+      showNotice(`已打开 ${file.name}`)
+    } catch {
+      showNotice('文件无法解析')
+    } finally {
+      workbookStorage.resume()
+    }
+    view.focus()
+  }
+
+  const exportXlsx = async (): Promise<void> => {
+    try {
+      const ewb = workbookToExcelJS(view.state.doc)
+      const buf = await ewb.xlsx.writeBuffer()
+      const name = view.state.doc.names.get(view.state.doc.active) ?? 'workbook'
+      downloadBlob(
+        `${name}.xlsx`,
+        new Blob([buf as BlobPart], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }),
+      )
+    } catch {
+      showNotice('导出失败')
+    }
+    view.focus()
+  }
+
   const clearStorage = (): void => {
     if (!window.confirm('清除浏览器中的自动存档？当前内容刷新后将不再恢复。')) return
     workbookStorage.suspend()
@@ -60,7 +99,9 @@ export function FileMenu({ view }: Props) {
   const run = (id: FileMenuId): void => {
     setOpen(false)
     if (id === 'openCsv') void openCsv()
+    else if (id === 'openXlsx') void openXlsx()
     else if (id === 'exportCsv') exportCsv()
+    else if (id === 'exportXlsx') void exportXlsx()
     else clearStorage()
   }
 
