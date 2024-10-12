@@ -4,7 +4,7 @@
 先注入 m3c.md 的 `window.W` helper。每步后附【预期】，失败即终止并回报。
 localStorage 键：`xexcel.workbook`。行列索引 0-based。
 
-## 0. 通用准备（每次刷新页面后都要重注）
+## 0a. 清档刷新（仅首次执行一次）
 
 ```js
 // 清空旧存档，刷新从默认 demo 表起
@@ -12,8 +12,11 @@ localStorage.removeItem('xexcel.workbook'); location.reload()
 ```
 【预期】页面正常打开，A1='产品'（demo 表）
 
+## 0b. 注入 helper/stub（每次刷新页面后都要重注）
+
+先重注 m3c.md 的 `window.W` helper，再执行：
+
 ```js
-// 刷新后：重注 m3c.md 的 window.W，再注入本脚本通用 stub
 // 1) 捕获 pickFile 动态创建的 input：存入 window.__lastInput，并把 click 置空，
 //    防止真实文件对话框弹出（喂文件走 CDP，不经系统对话框）
 // 2) 记录原始引用，结尾恢复
@@ -27,9 +30,11 @@ document.createElement = (tag, ...rest) => {
 }
 window.confirm = () => true // 默认放行；场景 5 自行替换
 window.__archiveBefore = localStorage.getItem('xexcel.workbook')
-'ok'
+W.read(0, 0)?.raw
 ```
-【预期】'ok'
+【预期】'产品'（W helper 与 stub 注入成功，demo 表可读）
+
+注意：注入后勿打开含 input 的 UI（如查找栏），避免 `__lastInput` 被覆盖。
 
 菜单操作约定（React 异步：点「文件」后等 300ms 再点菜单项）：
 
@@ -198,7 +203,7 @@ const wb = __xcell.state.doc
 ```
 【预期】[['数据','空表'], '标题', '验收标记']
 
-**刷新后必须重注「0. 通用准备」的 W helper + createElement/confirm stub**，再继续场景 4。
+**刷新后必须重注 0b（W helper + createElement/confirm stub）**，再继续场景 4。
 
 ---
 
