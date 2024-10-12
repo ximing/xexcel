@@ -72,8 +72,10 @@ export function FileMenu({ view }: Props) {
     } finally {
       workbookStorage.resume()
     }
-    // 导入成功立即落档（须在 resume 之后：suspended 时 saveNow 是 no-op）
+    // 落档均须在 resume 之后（suspended 时 saveNow 是 no-op）：
+    // 成功 → 立即写入新 workbook；失败 → 补写当前 doc（pause 清掉的 pending 防抖可能含最后 <1s 的在途编辑）
     if (opened) workbookStorage.saveNow(opened)
+    else workbookStorage.saveNow(view.state.doc)
     view.focus()
   }
 
