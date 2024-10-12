@@ -7,6 +7,7 @@ import { showNotice } from '../app/notice'
 import { workbookStorage } from '../app/storage'
 import { csvToGrid, sheetToCSV } from '../core/io/csv'
 import { parseXlsx, workbookToExcelJS } from '../core/io/xlsx'
+import type { Workbook } from '../core/model'
 import type { EditorView } from '../view/editorview'
 import { buildImportTr } from './csvImport'
 import {
@@ -58,17 +59,21 @@ export function FileMenu({ view }: Props) {
     const file = await pickFile('.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     if (!file) return
     if (file.size > XLSX_MAX_BYTES && !window.confirm(`文件 ${Math.round(file.size / 1024 / 1024)}MB，较大，确定导入？`)) return
-    // 先挂起自动保存：导入期间（含 updateState 触发的订阅）不写存档
-    workbookStorage.suspend()
+    // 先暂停自动保存：导入期间（含 updateState 触发的订阅）不写存档；不清存档，失败时现场与存档都不动
+    workbookStorage.pause()
+    let opened: Workbook | null = null
     try {
       const wb = await parseXlsx(new Uint8Array(await readFileArrayBuffer(file)))
       view.updateState(createStateFromWorkbook(wb)) // 同启动恢复路径，不可撤销
+      opened = wb
       showNotice(`已打开 ${file.name}`)
     } catch {
       showNotice('文件无法解析')
     } finally {
       workbookStorage.resume()
     }
+    // 导入成功立即落档（须在 resume 之后：suspended 时 saveNow 是 no-op）
+    if (opened) workbookStorage.saveNow(opened)
     view.focus()
   }
 

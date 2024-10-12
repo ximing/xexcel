@@ -100,6 +100,16 @@ export class WorkbookStorage {
     this.suspended = true
   }
 
+  // 仅暂停自动保存（xlsx 导入期间防竞态；不清存档，导入失败现场与存档都不动）
+  pause(): void {
+    if (this.timer !== null) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
+    this.pending = null
+    this.suspended = true
+  }
+
   // 解除挂起（xlsx 导入完成后恢复自动保存；不补保存，等下一次编辑的 schedule 触发）
   resume(): void {
     this.suspended = false

@@ -140,6 +140,40 @@ describe('app/storage', () => {
     })
   })
 
+  describe('pause', () => {
+    it('pause 不清存档：既有存档保留', () => {
+      const s = memStorage()
+      const st = new WorkbookStorage(s, 1000)
+      st.saveNow(mkWb())
+      st.pause()
+      expect(s.dump.has(STORAGE_KEY)).toBe(true)
+    })
+
+    it('pause 期间 schedule/saveNow 不写，且取消已挂起的防抖 timer', () => {
+      const s = memStorage()
+      const st = new WorkbookStorage(s, 1000)
+      const wb = mkWb().renameSheet('s1', '旧名')
+      st.schedule(() => wb)
+      st.pause()
+      vi.advanceTimersByTime(2000)
+      expect(s.dump.has(STORAGE_KEY)).toBe(false)
+      st.schedule(() => wb)
+      st.saveNow(wb)
+      expect(s.dump.has(STORAGE_KEY)).toBe(false)
+    })
+
+    it('resume 后恢复自动保存', () => {
+      const s = memStorage()
+      const st = new WorkbookStorage(s, 1000)
+      const wb = mkWb()
+      st.pause()
+      st.resume()
+      st.schedule(() => wb)
+      st.flush()
+      expect(s.dump.has(STORAGE_KEY)).toBe(true)
+    })
+  })
+
   it('语义损坏存档（结构合法、语义空）走 .corrupt 备份路径返回 null', () => {
     const s = memStorage()
     const bad = JSON.stringify({
