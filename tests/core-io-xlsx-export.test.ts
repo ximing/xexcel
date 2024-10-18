@@ -57,6 +57,19 @@ describe('buildAutoFilter', () => {
     const only: FilterState = { range, criteria: {} }
     expect(buildAutoFilter(only, sheet)).toEqual({ from: 'A1', to: 'C6' })
   })
+  it('criteria 键越出 range（负值/超列宽）→ 跳过该列', () => {
+    const sheet = sheetWith([[1, 0, 'a'], [2, 0, 'b']])
+    const filter: FilterState = {
+      range,
+      criteria: {
+        [-1]: { type: 'condition', field: 'num', op: 'gt', v1: '5' },
+        5: { type: 'values', excluded: [] },
+        0: { type: 'values', excluded: ['b'] },
+      },
+    }
+    const af = buildAutoFilter(filter, sheet)
+    expect(af.filters).toEqual([{ column: 0, filters: ['a'] }])
+  })
 })
 
 describe('cfRuleToExcel', () => {

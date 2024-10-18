@@ -78,6 +78,8 @@ export function buildAutoFilter(filter: FilterState, sheet: SheetData): XAutoFil
   const cols: XAutoFilterColumn[] = []
   for (const [key, crit] of Object.entries(filter.criteria)) {
     const column = Number(key) - filter.range.sc
+    // criteria 键在 range 之外（负值或超出列宽）→ 跳过该列，防负 column 写进 autoFilter
+    if (column < 0 || column > filter.range.ec - filter.range.sc) continue
     if (crit.type === 'values') {
       const excluded = new Set(crit.excluded)
       const seen = new Set<string>()
