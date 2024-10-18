@@ -3,10 +3,8 @@ import ExcelJS from 'exceljs'
 import { describe, expect, it } from 'vitest'
 import { Workbook } from '../src/core/model'
 import { DAY_MS, EPOCH } from '../src/formula/date'
-import { excelJSToWorkbook, parseXlsx, registerExcelJS, workbookToExcelJS } from '../src/core/io/xlsx'
+import { excelJSToWorkbook, parseXlsx, workbookToExcelJS } from '../src/core/io/xlsx'
 import { SheetData } from '../src/core/model'
-
-registerExcelJS(ExcelJS)
 
 // 直接装配 exceljs workbook → 导入
 async function importOf(build: (wb: ExcelJS.Workbook) => void): Promise<Workbook> {

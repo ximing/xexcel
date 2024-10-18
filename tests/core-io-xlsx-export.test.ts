@@ -1,10 +1,7 @@
 // tests/core-io-xlsx-export.test.ts
-import ExcelJS from 'exceljs'
 import { describe, expect, it } from 'vitest'
 import { FilterState, SheetData, Workbook } from '../src/core/model'
-import { buildAutoFilter, cellValueToExcel, cfRuleToExcel, registerExcelJS, workbookToExcelJS } from '../src/core/io/xlsx'
-
-registerExcelJS(ExcelJS)
+import { buildAutoFilter, cellValueToExcel, cfRuleToExcel, workbookToExcelJS } from '../src/core/io/xlsx'
 
 describe('cellValueToExcel', () => {
   it('公式去 = 前缀；TRUE/FALSE 转布尔；数字串转 number；其余原文', () => {

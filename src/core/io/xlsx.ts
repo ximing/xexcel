@@ -1,6 +1,6 @@
 // src/core/io/xlsx.ts
-// Workbook ↔ xlsx 映射（exceljs 装配层）。纯映射无 DOM；exceljs 运行时经 registerExcelJS 注入。
-import type ExcelJS from 'exceljs'
+// Workbook ↔ xlsx 映射（exceljs 装配层）。纯映射无 DOM：vitest 走 node 入口，Vite 经 browser 字段走 dist bundle。
+import ExcelJS from 'exceljs'
 import { CellRange, clampRange, parseRange, toA1 } from '../addr'
 import {
   Cell, CondFormatRule, FilterOp, FilterState, SheetData, Workbook,
@@ -23,17 +23,6 @@ export const MAX_IMPORT_COLS = 500
 const PT_PER_PX = 0.75
 const COL_CHAR_PX = 7
 const COL_PAD_PX = 5
-
-// exceljs 运行时注入点：浏览器经 vendor script + app 层 register；测试直接 register。
-// （vite pre-bundle 的 exceljs 在浏览器 load 挂死，故不走模块 import）
-let exceljsRef: typeof ExcelJS | null = null
-export function registerExcelJS(x: typeof ExcelJS): void {
-  exceljsRef = x
-}
-function requireExcelJS(): typeof ExcelJS {
-  if (!exceljsRef) throw new Error('exceljs 未注册（app 启动或测试须先 registerExcelJS）')
-  return exceljsRef
-}
 
 // ---- 值转换 ----
 
@@ -238,7 +227,7 @@ function sheetToExcelWS(ws: ExcelJS.Worksheet, sheet: SheetData): void {
 }
 
 export function workbookToExcelJS(wb: Workbook): ExcelJS.Workbook {
-  const ewb = new (requireExcelJS().Workbook)()
+  const ewb = new ExcelJS.Workbook()
   for (const id of wb.order) {
     const ws = ewb.addWorksheet(wb.names.get(id) ?? id)
     sheetToExcelWS(ws, wb.sheet(id))
@@ -464,7 +453,7 @@ export function excelJSToWorkbook(ewb: ExcelJS.Workbook): Workbook {
 
 // 二进制 → Workbook 一步入口（FileMenu 用）
 export async function parseXlsx(data: Uint8Array): Promise<Workbook> {
-  const ewb = new (requireExcelJS().Workbook)()
+  const ewb = new ExcelJS.Workbook()
   await ewb.xlsx.load(data as never)
   return excelJSToWorkbook(ewb)
 }
