@@ -4,6 +4,14 @@
 先注入 m3c.md 的 `window.W` helper。每步后附【预期】，失败即终止并回报。
 localStorage 键：`xexcel.workbook`。行列索引 0-based。
 
+## 前置（必读）：bringToFront 与防干扰
+
+- **必须 bringToFront**：Chrome 对隐藏标签页做 JS 定时器密集节流，exceljs 的异步解析在其中会
+  挂死（真实用户前台操作不受影响）。任何含 exceljs 异步（导入/导出）的场景执行前，用 CDP
+  `Page.bringToFront` 把验收 tab 置前台；步骤间若长时间停顿致 tab 失焦，重发一次。
+- **防用户误触**：bringToFront 会让 tab 出现在用户屏幕上，注意防用户误触干扰（实测中 A1 曾被
+  用户 IME 误输入）。断言前若发现 raw 被意外改动，先考虑外部干扰再判 bug。
+
 ## 0a. 清档刷新（仅首次执行一次）
 
 ```js
@@ -18,7 +26,7 @@ localStorage.removeItem('xexcel.workbook'); location.reload()
 
 ```js
 // 1) 捕获 pickFile 动态创建的 input：存入 window.__lastInput，并把 click 置空，
-//    防止真实文件对话框弹出（喂文件走 CDP，不经系统对话框）
+//    防止真实文件对话框弹出（喂文件走 base64 + DataTransfer，不经系统对话框）
 // 2) 记录原始引用，结尾恢复
 window.__origCreateElement = document.createElement.bind(document)
 window.__origConfirm = window.confirm
@@ -125,11 +133,11 @@ window.__namesBefore
 ```
 【预期】['Sheet1']（demo 单表）
 
-CDP 喂文件（依次执行）：
+喂文件（base64 + DataTransfer 主路径；CDP setFileInputFiles 对未挂 DOM 的 input 实测返回
+'Not allowed'，降级为附录 C 参考）：
 
-1. CDP `Page.enable`
-2. CDP `Page.setInterceptFileChooserDialog` `{enabled: true}`（双保险；input.click 已被 stub 为空，fileChooserOpened 事件不会来，不必等待）
-3. evaluate 点菜单（confirm 已是默认放行的 `() => true`）：
+1. 主 Agent 读 `/tmp/m4b-import.xlsx` → base64 串。
+2. evaluate 点菜单（confirm 已是默认放行的 `() => true`）：
 
 ```js
 ;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
@@ -140,11 +148,24 @@ await new Promise(r=>setTimeout(r,300))
 ```
 【预期】true（pickFile 的动态 input 已被捕获）
 
-4. evaluate `window.__lastInput`（returnByValue: false）拿到 objectId
-5. CDP `DOM.setFileInputFiles` `{files: ['/tmp/m4b-import.xlsx'], objectId: <上一步 objectId>}`
-   （会触发 input 的 change 事件 → pickFile resolve）
-6. CDP `Page.setInterceptFileChooserDialog` `{enabled: false}`
-7. evaluate 等待导入完成并断言：
+3. evaluate 构造 File 并手动触发 onchange（`<b64>` 替换为第 1 步的 base64 串）：
+
+```js
+const bin = atob('<b64>')
+const u8 = new Uint8Array(bin.length)
+for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i)
+const f = new File([u8], 'm4b-import.xlsx',
+  { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+const dt = new DataTransfer(); dt.items.add(f)
+const inp = window.__lastInput
+inp.files = dt.files
+inp.onchange?.()
+'fed'
+```
+【预期】'fed'
+
+4. evaluate 等待导入完成并断言（**notice 断言须在喂文件后 5s 内执行**：多步 evaluate 往返后
+   notice 可能已过期，过期则该子项按跳过处理，勿误判失败）：
 
 ```js
 await new Promise(r=>setTimeout(r,800))
@@ -171,7 +192,7 @@ evaluatorFor(__xcell.state.doc).get(__xcell.state.doc.active, 1, 1)
   __xcell.state.selection.activeCell, document.querySelector('.status-notice')?.textContent]
 ```
 【预期】[true, 1, {row:0,col:0}, '已打开 m4b-import.xlsx']
-（合并 D1:E2；冻结首行；选区在 A1；StatusBar 提示）
+（合并 D1:E2；冻结首行；选区在 A1；StatusBar 提示，5s TTL 内有效）
 
 ---
 
@@ -209,11 +230,24 @@ const wb = __xcell.state.doc
 
 ## 4. 损坏文件（接场景 3，已重注 stub）
 
-```bash
-printf 'garbage' > /tmp/m4b-bad.xlsx
-```
+喂文件走场景 2 的 base64 主路径。损坏内容仅 7 字节（等价 `printf 'garbage'`），base64 直接内联。
+先点菜单（同场景 2 第 2 步，确认 `window.__lastInput` 已捕获），然后：
 
-CDP 喂文件（同场景 2 的步骤 1-6，文件路径换 `/tmp/m4b-bad.xlsx`），然后：
+```js
+const bin = atob('Z2FyYmFnZQ==') // 'garbage'
+const u8 = new Uint8Array(bin.length)
+for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i)
+const f = new File([u8], 'm4b-bad.xlsx',
+  { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+const dt = new DataTransfer(); dt.items.add(f)
+const inp = window.__lastInput
+inp.files = dt.files
+inp.onchange?.()
+'fed'
+```
+【预期】'fed'
+
+然后（notice 断言须在喂文件后 5s 内执行）：
 
 ```js
 await new Promise(r=>setTimeout(r,800))
@@ -351,23 +385,16 @@ EOF
 node /tmp/m4b-verify-export.cjs
 ```
 
-## 附录 C：CDP 不可用时的喂文件备用方案（m4a 式）
+## 附录 C：CDP 喂文件参考路径（实测失败留档）
 
-若 webbridge 无法发 CDP：主 Agent 读 `/tmp/m4b-import.xlsx` → base64 → evaluate 在页面内
-构造 File 并直接触发捕获的 input 的 onchange（跳过 setInterceptFileChooserDialog）：
+原设计主路径，实测 `DOM.setFileInputFiles` 对 pickFile 动态创建且未挂 DOM 的 input 返回
+`Not allowed`，已降级为参考；场景 2/4 以 base64 + DataTransfer 为主路径。留档步骤：
 
-```js
-// <b64> 为文件内容的 base64 串（主 Agent 读盘后填入）
-const bin = atob('<b64>')
-const u8 = new Uint8Array(bin.length)
-for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i)
-const f = new File([u8], 'm4b-import.xlsx',
-  { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-const dt = new DataTransfer(); dt.items.add(f)
-const inp = window.__lastInput
-inp.files = dt.files
-inp.onchange?.()
-'fed'
-```
-【预期】'fed'，后续断言同场景 2 步骤 7（注意备用方案 file.name 固定为 'm4b-import.xlsx'，
-notice 断言不变）
+1. CDP `Page.enable`
+2. CDP `Page.setInterceptFileChooserDialog` `{enabled: true}`
+3. evaluate 点菜单（文件 → 打开 xlsx…），`window.__lastInput` 捕获 input
+4. evaluate `window.__lastInput`（returnByValue: false）拿 objectId
+5. CDP `DOM.setFileInputFiles` `{files: ['/tmp/m4b-import.xlsx'], objectId}` —— 此步实测失败
+6. CDP `Page.setInterceptFileChooserDialog` `{enabled: false}`
+
+若未来 pickFile 把 input 挂进 DOM（或 Chrome 放开该限制），此路径可复用。
