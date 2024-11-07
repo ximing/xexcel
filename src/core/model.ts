@@ -57,6 +57,12 @@ export type CondFormatRule =
   | { id: string; range: CellRange; type: 'textContains'; text: string; style: CFStyle }
   | { id: string; range: CellRange; type: 'duplicate'; style: CFStyle }
 
+// ---- 数据验证 ----
+export type ValidationRule =
+  | { id: string; range: CellRange; type: 'numRange'; op: FilterOp; v1: string; v2?: string }
+  | { id: string; range: CellRange; type: 'textLen'; op: FilterOp; v1: string; v2?: string }
+  | { id: string; range: CellRange; type: 'list'; items: string[] }
+
 interface SheetParts {
   rowCount: number
   colCount: number
@@ -70,6 +76,7 @@ interface SheetParts {
   hiddenCols: number[]
   filter?: FilterState
   condFormats: CondFormatRule[]
+  validations: ValidationRule[]
 }
 
 export class SheetData {
@@ -82,6 +89,7 @@ export class SheetData {
   readonly hiddenCols: number[]
   readonly filter?: FilterState
   readonly condFormats: CondFormatRule[]
+  readonly validations: ValidationRule[]
   private readonly _hiddenRowSet: Set<number>
   private readonly _hiddenColSet: Set<number>
   private readonly _cells: Map<number, Map<number, Cell>>
@@ -98,6 +106,7 @@ export class SheetData {
     this.hiddenCols = parts.hiddenCols
     this.filter = parts.filter
     this.condFormats = parts.condFormats
+    this.validations = parts.validations
     this._hiddenRowSet = new Set(parts.hiddenRows)
     this._hiddenColSet = new Set(parts.hiddenCols)
     this._cells = parts.cells
@@ -119,6 +128,7 @@ export class SheetData {
       hiddenCols: this.hiddenCols,
       filter: this.filter,
       condFormats: this.condFormats,
+      validations: this.validations,
     }
   }
 
@@ -139,6 +149,7 @@ export class SheetData {
       hiddenRows: [],
       hiddenCols: [],
       condFormats: [],
+      validations: [],
     })
   }
 
@@ -226,6 +237,11 @@ export class SheetData {
   // 整体替换条件格式规则（数组序即优先级）
   setCondFormats(rules: CondFormatRule[]): SheetData {
     return SheetData.fromParts({ ...this._parts, condFormats: rules })
+  }
+
+  // 整体替换数据验证规则（数组无优先级语义，命中任一规则即校验）
+  setValidations(rules: ValidationRule[]): SheetData {
+    return SheetData.fromParts({ ...this._parts, validations: rules })
   }
 
   insertRows(index: number, count: number): SheetData {
@@ -344,6 +360,14 @@ export class SheetData {
       }
       return out
     }
+    const remapValidations = (rules: ValidationRule[]): ValidationRule[] => {
+      const out: ValidationRule[] = []
+      for (const rule of rules) {
+        const nr = remapRangeLocal(rule.range)
+        if (nr) out.push({ ...rule, range: nr })
+      }
+      return out
+    }
     return SheetData.fromParts({
       rowCount: this.rowCount + (axis === 'row' ? delta : 0),
       colCount: this.colCount + (axis === 'col' ? delta : 0),
@@ -355,6 +379,7 @@ export class SheetData {
       hiddenCols: axis === 'col' ? remapIndices(this.hiddenCols) : [...this.hiddenCols],
       filter: remapFilter(this.filter),
       condFormats: remapCondFormats(this.condFormats),
+      validations: remapValidations(this.validations),
       // 冻结设置：delete 时裁掉落在删除区内的冻结行/列（冻结边界随内容走），insert 与另一轴不动
       frozenRows:
         axis === 'row' && mode === 'delete'
@@ -410,6 +435,7 @@ export class SheetData {
       hiddenCols: this.hiddenCols,
       filter: this.filter,
       condFormats: this.condFormats,
+      validations: this.validations,
     }
   }
 
@@ -427,6 +453,7 @@ export class SheetData {
       hiddenCols?: number[]
       filter?: FilterState
       condFormats?: CondFormatRule[]
+      validations?: ValidationRule[]
     }
     const cells = new Map<number, Map<number, Cell>>()
     for (const [row, cols] of Object.entries(j.cells ?? {})) {
@@ -447,6 +474,7 @@ export class SheetData {
       hiddenCols: j.hiddenCols ?? [],
       filter: j.filter,
       condFormats: j.condFormats ?? [],
+      validations: j.validations ?? [],
     })
   }
 }

@@ -1,7 +1,7 @@
 import { CellRange, normalizeRange } from './addr'
-import { Cell, CellStyle, CondFormatRule, FilterState, SheetConfig, SheetData, SheetId, Workbook } from './model'
+import { Cell, CellStyle, CondFormatRule, FilterState, SheetConfig, SheetData, SheetId, ValidationRule, Workbook } from './model'
 import { Selection } from './selection'
-import { PatchStyleStep, ResizeStep, RestoreStyleStep, SetCellsStep, SetCondFormatsStep, SetFilterStep, SetFreezeStep, SetHiddenStep, SetMergesStep, Step, StructureStep } from './steps'
+import { PatchStyleStep, ResizeStep, RestoreStyleStep, SetCellsStep, SetCondFormatsStep, SetFilterStep, SetFreezeStep, SetHiddenStep, SetMergesStep, SetValidationsStep, Step, StructureStep } from './steps'
 import { InsertSheetStep, MoveSheetStep, RemoveSheetStep, RenameSheetStep, SetActiveSheetStep } from './steps'
 import type { PluginKey } from './plugin'
 import type { SheetState } from './state'
@@ -114,6 +114,11 @@ export class Transaction {
   // 整体替换条件格式规则
   setCondFormats(rules: CondFormatRule[]): this {
     return this._pushStep(new SetCondFormatsStep(this.activeSheetId, rules))
+  }
+
+  // 整体替换数据验证规则
+  setValidations(rules: ValidationRule[]): this {
+    return this._pushStep(new SetValidationsStep(this.activeSheetId, rules))
   }
 
   // 插入/删除当前表的行列（公式级联由 StructureStep 内处理）

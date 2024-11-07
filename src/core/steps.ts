@@ -1,5 +1,5 @@
 import { CellRange, normalizeRange, toA1 } from './addr'
-import { Cell, CellStyle, CondFormatRule, FilterState, SheetData, SheetId, Workbook } from './model'
+import { Cell, CellStyle, CondFormatRule, FilterState, SheetData, SheetId, ValidationRule, Workbook } from './model'
 
 export interface StepResult { ok: boolean; doc?: Workbook; failed?: string }
 
@@ -395,6 +395,7 @@ export interface StructureRestore {
   hiddenCols: number[] // 同上
   filter: FilterState | undefined // delete 模式：目标表完整 filter 原文（SheetData 不可变，浅引用即可）
   condFormats: CondFormatRule[] // delete 模式：目标表完整 condFormats 原文；insert 模式：空
+  validations: ValidationRule[] // delete 模式：目标表完整 validations 原文；insert 模式：空
 }
 
 // 插入/删除行列：物理重索引 + 全簿公式级联（经注入的 cascade）。
@@ -453,6 +454,7 @@ export class StructureStep extends Step {
         d = d.withHidden(this.restore.hiddenRows, this.restore.hiddenCols)
         d = d.setFilter(this.restore.filter)
         d = d.setCondFormats(this.restore.condFormats ?? []) // 旧历史 JSON 无此字段
+        d = d.setValidations(this.restore.validations ?? []) // 旧历史 JSON 无此字段
       }
       out = out.setSheet(spec.sheet, d)
       return { ok: true, doc: out }
@@ -497,6 +499,7 @@ export class StructureStep extends Step {
     let hiddenCols: number[] = []
     let filter: FilterState | undefined
     let condFormats: CondFormatRule[] = []
+    let validations: ValidationRule[] = []
     // delete 模式：删除区内的格/行高列宽/隐藏标记物理丢失，原文全部入恢复项（级联只覆盖公式文本）；
     // merges 与隐藏数组记录目标表完整原文（undo 整体恢复）
     if (this.spec.mode === 'delete') {
@@ -521,6 +524,7 @@ export class StructureStep extends Step {
       hiddenCols = [...data.hiddenCols]
       filter = data.filter
       condFormats = [...data.condFormats]
+      validations = [...data.validations]
     }
     if (cascadeFn) {
       const nameSpec: StructureSpecName = {
@@ -540,7 +544,7 @@ export class StructureStep extends Step {
         })
       }
     }
-    return new StructureStep(this.spec, { cells, sizes, merges, hiddenRows, hiddenCols, filter, condFormats })
+    return new StructureStep(this.spec, { cells, sizes, merges, hiddenRows, hiddenCols, filter, condFormats, validations })
   }
 
   toJSON(): unknown {
@@ -690,6 +694,31 @@ export class SetCondFormatsStep extends Step {
   }
 }
 
+// 整体替换数据验证规则（invert=旧值快照）
+export class SetValidationsStep extends Step {
+  constructor(readonly sheet: SheetId, readonly rules: ValidationRule[]) {
+    super()
+  }
+
+  apply(doc: Workbook): StepResult {
+    let data: SheetData
+    try {
+      data = doc.sheet(this.sheet)
+    } catch {
+      return { ok: false, failed: `sheet not found: ${this.sheet}` }
+    }
+    return { ok: true, doc: doc.setSheet(this.sheet, data.setValidations(this.rules)) }
+  }
+
+  invert(beforeDoc: Workbook): Step {
+    return new SetValidationsStep(this.sheet, [...beforeDoc.sheet(this.sheet).validations])
+  }
+
+  toJSON(): unknown {
+    return { type: 'setValidations', sheet: this.sheet, rules: this.rules }
+  }
+}
+
 export function stepFromJSON(json: any): Step {
   switch (json?.type) {
     case 'setCells':
@@ -722,6 +751,8 @@ export function stepFromJSON(json: any): Step {
       return new SetFilterStep(json.sheet, json.filter)
     case 'setCondFormats':
       return new SetCondFormatsStep(json.sheet, json.rules)
+    case 'setValidations':
+      return new SetValidationsStep(json.sheet, json.rules)
     default:
       throw new Error(`unknown step type: ${json?.type}`)
   }

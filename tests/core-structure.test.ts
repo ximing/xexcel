@@ -153,7 +153,7 @@ describe('StructureStep', () => {
   })
   it('restore 负载越界 → failed（restore cell out of bounds）', () => {
     const d0 = mk() // 10 行 5 列
-    const base = { sizes: [], merges: [], hiddenRows: [], hiddenCols: [], filter: undefined, condFormats: [] }
+    const base = { sizes: [], merges: [], hiddenRows: [], hiddenCols: [], filter: undefined, condFormats: [], validations: [] }
     const spec = { sheet: 's1', axis: 'row', index: 2, count: 1, mode: 'delete' } as const
     // 逆操作实例（restore 非 null）：执行方向翻转为 insert（10 → 11 行），row 99 仍越界
     const r = new StructureStep(spec, { ...base, cells: [{ sheet: 's1', row: 99, col: 0, cell: { raw: 'x' } }] }).apply(d0)
