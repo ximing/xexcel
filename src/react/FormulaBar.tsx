@@ -3,6 +3,8 @@
 // F5：输入 =… 时画布高亮被引区域（refHighlightKey meta）+ 函数名补全下拉。
 import { useEffect, useRef, useState } from 'react'
 import { toA1 } from '../core/addr'
+import { validateInput } from '../core/validation'
+import { showNotice } from '../app/notice'
 import { functionNames } from '../formula/eval'
 import { normalizedCell } from '../formula/input'
 import { completionCandidates } from '../formula/rangeRefs'
@@ -48,6 +50,12 @@ export function FormulaBar({ view }: Props) {
 
   const commit = (): void => {
     if (textRef.current !== rawRef.current) {
+      // 数据验证：拒绝则不提交（输入框内容保留，用户可继续修改）；未变更文本失焦不校验
+      const reason = validateInput(state.activeSheet.validations, row, col, textRef.current)
+      if (reason) {
+        showNotice(reason)
+        return
+      }
       const oldCell = state.activeSheet.getCell(row, col)
       const next = normalizedCell(textRef.current, oldCell)
       view.dispatch(view.state.tr.setCell(row, col, next.raw, next.style))

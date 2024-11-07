@@ -4,6 +4,7 @@
 // F5：编辑 =… 公式时画布高亮被引区域（refHighlightKey meta）；函数名补全下拉。
 import type { CellAddr } from '../core/addr'
 import { singleCell } from '../core/selection'
+import { notifyValidationReject, validateInput } from '../core/validation'
 import { functionNames } from '../formula/eval'
 import { normalizedCell } from '../formula/input'
 import { completionCandidates } from '../formula/rangeRefs'
@@ -82,6 +83,15 @@ export function closeEditor(commit: boolean): void {
 function finish(commit: boolean, next?: CellAddr): void {
   const s = session
   if (!s || s.done) return
+  // 数据验证：提交前先校验，拒绝则不拆会话（编辑框保持打开）
+  if (commit) {
+    const reason = validateInput(s.view.state.activeSheet.validations, s.addr.row, s.addr.col, s.el.value)
+    if (reason) {
+      notifyValidationReject(reason)
+      s.el.focus() // blur 路径拒绝后焦点回到编辑框（对齐 Excel）
+      return
+    }
+  }
   s.done = true
   session = null
   const text = s.el.value
