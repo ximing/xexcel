@@ -14,6 +14,8 @@ import { evaluatorFor } from '../formula/engine'
 import { computeSortEntries, sortBlockedByMerges } from '../formula/sort'
 import { SortDialog } from './SortDialog'
 import { CondFormatDialog, canCondFormat } from './CondFormatDialog'
+import { ValidationDialog } from './ValidationDialog'
+import { canValidation } from './validationRules'
 // 显式 .tsx 扩展名：macOS 大小写不敏感 FS 下 './FileMenu' 会被误解析到 filemenu.ts
 import { FileMenu } from './FileMenu.tsx'
 
@@ -28,6 +30,7 @@ export function Toolbar({ view }: Props) {
   const fp = state.getField(formatPainterKey) as FormatPainterState | null | undefined
   const [showSort, setShowSort] = useState(false)
   const [showCF, setShowCF] = useState(false)
+  const [showValidation, setShowValidation] = useState(false)
   const [showBorder, setShowBorder] = useState(false)
   const [borderLine, setBorderLine] = useState<BorderLineStyle>('thin')
   const [borderColor, setBorderColor] = useState('#000000')
@@ -548,6 +551,10 @@ export function Toolbar({ view }: Props) {
         条件
       </button>
       {showCF && <CondFormatDialog view={view} onClose={() => setShowCF(false)} />}
+      <button className="tool-btn" title="数据验证" disabled={!canValidation(state)} onClick={() => setShowValidation(true)}>
+        验证
+      </button>
+      {showValidation && <ValidationDialog view={view} onClose={() => setShowValidation(false)} />}
       <button
         className="tool-btn"
         title="重置选中行/列尺寸为默认"
