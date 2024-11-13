@@ -1,9 +1,9 @@
 // src/core/io/xlsx.ts
 // Workbook ↔ xlsx 映射（exceljs 装配层）。纯映射无 DOM：vitest 走 node 入口，Vite 经 browser 字段走 dist bundle。
 import ExcelJS from 'exceljs'
-import { CellRange, clampRange, parseRange, toA1 } from '../addr'
+import { CellRange, clampRange, fromA1, parseRange, toA1 } from '../addr'
 import {
-  Cell, CondFormatRule, FilterOp, FilterState, SheetData, Workbook,
+  Cell, CondFormatRule, FilterOp, FilterState, SheetData, ValidationRule, Workbook,
 } from '../model'
 import { DAY_MS, EPOCH } from '../../formula/date'
 import {
@@ -224,6 +224,14 @@ function sheetToExcelWS(ws: ExcelJS.Worksheet, sheet: SheetData): void {
     const block = cfRuleToExcel(rule, i + 1)
     if (block) ws.addConditionalFormatting(block as never)
   })
+  for (const rule of sheet.validations) {
+    const dv = validationToExcel(rule)
+    // exceljs d.ts 未声明 dataValidations（运行时存在），结构化补型（同 dv-smoke 写法）
+    if (dv) {
+      ;(ws as never as { dataValidations: { add(ref: string, opts: unknown): void } })
+        .dataValidations.add(dv.ref, dv.opts)
+    }
+  }
 }
 
 export function workbookToExcelJS(wb: Workbook): ExcelJS.Workbook {
@@ -319,6 +327,114 @@ function cfRuleFromExcel(rule: XCfRuleIn, id: string, range: CellRange): CondFor
     return { id, range, type: 'textContains', text, style }
   }
   console.warn('xlsx 导入：不支持的条件格式类型，规则已跳过', rule.type)
+  return null
+}
+
+// ---- 数据验证映射 ----
+
+const DV_OP_MAP = CF_OP_MAP // 同一套 equal/notEqual/greaterThan/... 映射
+
+export interface XDValidation {
+  ref: string
+  opts: { type: string; operator?: string; formulae: (string | number)[]; allowBlank: boolean }
+}
+
+export function validationToExcel(rule: ValidationRule): XDValidation | null {
+  const ref = `${toA1(rule.range.sr, rule.range.sc)}:${toA1(rule.range.er, rule.range.ec)}`
+  if (rule.type === 'list') {
+    // Excel list 字面量：带引号逗号串；含逗号/引号的项不支持 → 跳过规则
+    if (rule.items.some((i) => i.includes(',') || i.includes('"'))) {
+      console.warn('xlsx 导出：序列项含逗号/引号，规则已跳过')
+      return null
+    }
+    return { ref, opts: { type: 'list', formulae: [`"${rule.items.join(',')}"`], allowBlank: true } }
+  }
+  const operator = DV_OP_MAP[rule.op]
+  if (!operator) {
+    console.warn('xlsx 导出：不支持的验证操作符，规则已跳过', rule.op)
+    return null
+  }
+  const formulae = rule.op === 'between' ? [rule.v1, rule.v2 ?? ''] : [rule.v1]
+  return {
+    ref,
+    opts: { type: rule.type === 'numRange' ? 'decimal' : 'textLength', operator, formulae, allowBlank: true },
+  }
+}
+
+interface XDVRule {
+  type: string
+  operator?: string
+  formulae?: (string | number)[]
+}
+
+const DV_OP_REVERSE = CF_OP_REVERSE // equal→eq 等
+
+// 按地址展开 model → 同签名矩形合并回规则
+export function validationsFromExcelWS(ws: ExcelJS.Worksheet): ValidationRule[] {
+  const model = ((ws as never as { dataValidations?: { model?: Record<string, XDVRule> } })
+    .dataValidations?.model) ?? {}
+  // 签名分组
+  const groups = new Map<string, { rule: XDVRule; addrs: { row: number; col: number }[] }>()
+  for (const [addr, dv] of Object.entries(model)) {
+    const a = fromA1(addr)
+    if (!a) continue
+    const sig = `${dv.type}|${dv.operator ?? ''}|${JSON.stringify(dv.formulae ?? [])}`
+    const g = groups.get(sig) ?? { rule: dv, addrs: [] }
+    g.addrs.push(a)
+    groups.set(sig, g)
+  }
+  const out: ValidationRule[] = []
+  let seq = 1
+  for (const { rule, addrs } of groups.values()) {
+    const rows = addrs.map((a) => a.row)
+    const cols = addrs.map((a) => a.col)
+    const sr = Math.min(...rows), er = Math.max(...rows)
+    const sc = Math.min(...cols), ec = Math.max(...cols)
+    // 地址集合恰为完整矩形 → 单 range；否则逐格 range（保底不丢规则）
+    const ranges: CellRange[] =
+      addrs.length === (er - sr + 1) * (ec - sc + 1)
+        ? [{ sr, sc, er, ec }]
+        : addrs.map((a) => ({ sr: a.row, sc: a.col, er: a.row, ec: a.col }))
+    for (const range of ranges) {
+      const mapped = dvRuleFromExcel(rule, `v${seq}`, range)
+      if (mapped) {
+        out.push(mapped)
+        seq++
+      }
+    }
+  }
+  return out
+}
+
+function dvRuleFromExcel(dv: XDVRule, id: string, range: CellRange): ValidationRule | null {
+  const f = (dv.formulae ?? []).map(String)
+  if (dv.type === 'decimal' || dv.type === 'whole') {
+    const op = dv.operator ? DV_OP_REVERSE[dv.operator] : undefined
+    if (!op) {
+      console.warn('xlsx 导入：不支持的验证操作符，规则已跳过', dv.operator)
+      return null
+    }
+    const out: ValidationRule = { id, range, type: 'numRange', op, v1: f[0] ?? '' }
+    if (op === 'between') out.v2 = f[1] ?? ''
+    return out
+  }
+  if (dv.type === 'textLength') {
+    const op = dv.operator ? DV_OP_REVERSE[dv.operator] : undefined
+    if (!op) {
+      console.warn('xlsx 导入：不支持的验证操作符，规则已跳过', dv.operator)
+      return null
+    }
+    const out: ValidationRule = { id, range, type: 'textLen', op, v1: f[0] ?? '' }
+    if (op === 'between') out.v2 = f[1] ?? ''
+    return out
+  }
+  if (dv.type === 'list') {
+    const raw = f[0] ?? ''
+    const m = /^"(.*)"$/.exec(raw)
+    const items = (m ? m[1] : raw).split(',').map((s) => s.trim()).filter((s) => s !== '')
+    return { id, range, type: 'list', items }
+  }
+  console.warn('xlsx 导入：不支持的验证类型，规则已跳过', dv.type)
   return null
 }
 
@@ -431,6 +547,10 @@ function sheetFromExcelWS(ws: ExcelJS.Worksheet): SheetData {
     }
   }
   if (rules.length) sheet = sheet.setCondFormats(rules)
+
+  const dvs = validationsFromExcelWS(ws)
+  // 真实 Excel 常对整列设验证（展开后远超内容边界），同 merge/CF 一律 clamp 到 sheet 边界
+  if (dvs.length) sheet = sheet.setValidations(dvs.map((r) => ({ ...r, range: clamp(r.range) })))
 
   return sheet
 }
