@@ -28,7 +28,10 @@ export function isEditing(): boolean {
 }
 
 export function openEditor(view: EditorView, addr: CellAddr, initialText?: string): void {
-  if (session) closeEditor(true)
+  if (session) {
+    closeEditor(true)
+    if (session) return // 验证拒绝：原会话存活，忽略重开（防僵尸双编辑器）
+  }
   const cell = view.state.activeSheet.getCell(addr.row, addr.col)
   const r = view.cellViewportRect(addr.row, addr.col)
   // 编辑器字号 = 格样式字号 × zoom，与画布几何缩放一致

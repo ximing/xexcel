@@ -48,13 +48,14 @@ export function FormulaBar({ view }: Props) {
     )
   }
 
-  const commit = (): void => {
+  // 返回值：false = 验证拒绝（调用方不得 blur/移焦，否则 blur 二次 commit 双 notice）
+  const commit = (): boolean => {
     if (textRef.current !== rawRef.current) {
       // 数据验证：拒绝则不提交（输入框内容保留，用户可继续修改）；未变更文本失焦不校验
       const reason = validateInput(state.activeSheet.validations, row, col, textRef.current)
       if (reason) {
         showNotice(reason)
-        return
+        return false
       }
       const oldCell = state.activeSheet.getCell(row, col)
       const next = normalizedCell(textRef.current, oldCell)
@@ -64,6 +65,7 @@ export function FormulaBar({ view }: Props) {
     setCompletion([])
     setSelIndex(-1)
     setHl('') // 清画布引用高亮
+    return true
   }
 
   // 接受补全：末尾标识符 token 替换为 NAME(
@@ -131,8 +133,7 @@ export function FormulaBar({ view }: Props) {
             }
             if (e.key === 'Enter') {
               e.preventDefault()
-              commit()
-              view.focus() // 焦点回表格（input 随之 blur，commit 因 rawRef 已同步而幂等）
+              if (commit()) view.focus() // 焦点回表格（input 随之 blur，commit 因 rawRef 已同步而幂等）；拒绝则保持焦点
             } else if (e.key === 'Escape') {
               e.preventDefault()
               textRef.current = rawRef.current

@@ -209,6 +209,23 @@ export default async function run({ assertEq }) {
     }
   }
 
+  // ---- 场景 7：拒绝后 dblclick 另一格不建第二编辑器（I-1 僵尸编辑器回归）----
+  async function s7() {
+    await ev(`window.__setRules([{ id: 'v1', range: { sr: 15, sc: 0, er: 15, ec: 0 }, type: 'numRange', op: 'between', v1: '1', v2: '9' }]); return 1`)
+    assertEq(await ev(`return window.__typeCell(15, 0, '99')`), 'open', 'S7 非法输入被拒（编辑器保持打开）')
+    // dblclick 另一格 B16：走 openEditor 重开路径（closeEditor(true) 被拒 → 原会话存活 → 不得再开）
+    await ev(`
+      const p = W.cellXY(15, 1)
+      window.__xcell.stage.content.dispatchEvent(new MouseEvent('dblclick', {
+        bubbles: true, cancelable: true, view: window, clientX: p.clientX, clientY: p.clientY }))
+      return 1`)
+    assertEq(await ev(`return document.querySelectorAll('textarea.xcell-editor').length`), 1, 'S7 拒绝后 dblclick 不得建第二编辑器')
+    assertEq(await ev(`return W.read(15, 1)`), null, 'S7 dblclick 目标格 raw 未写入')
+    // 收尾：合法值提交，编辑器关闭
+    assertEq(await ev(`return window.__typeContinue('5')`), 'closed', 'S7 合法值放行收尾')
+    assertEq(await ev(`return W.read(15, 0)?.raw`), '5', 'S7 A16 raw 写入')
+  }
+
   await freshPage()
   await installPageTools()
   const scenarios = [
@@ -218,6 +235,7 @@ export default async function run({ assertEq }) {
     ['4 对话框配置+删除+undo', s4],
     ['5 xlsx 往返', s5],
     ['6 公式/清空跳过', s6],
+    ['7 拒绝后 dblclick 无双编辑器', s7],
   ]
   for (const [name, fn] of scenarios) {
     try {

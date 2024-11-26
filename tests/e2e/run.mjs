@@ -24,7 +24,13 @@ export function assertEq(actual, expected, label) {
 }
 
 const only = process.argv.slice(2)
-const names = (only.length ? only : Object.keys(suites)).filter((n) => suites[n])
+// 未知 suite 名立即报错退出（防静默 0/0 误判通过）
+const unknown = only.filter((n) => !suites[n])
+if (unknown.length) {
+  console.error(`未知 suite: ${unknown.join(', ')}（可用: ${Object.keys(suites).join(', ')}）`)
+  process.exit(1)
+}
+const names = only.length ? only : Object.keys(suites)
 let pass = 0, fail = 0
 await ensureApp()
 for (const name of names) {
