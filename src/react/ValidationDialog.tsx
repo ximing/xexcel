@@ -8,6 +8,7 @@ import type { EditorView } from '../view/editorview'
 import { useSheetState } from './bridge'
 import {
   nextValidationId,
+  normalizeRuleRange,
   parseItems,
   rangeText,
   ruleInvalid,
@@ -86,7 +87,7 @@ export function ValidationDialog({ view, onClose }: Props) {
   const anyInvalid = draft.some((_, i) => invalid(i))
   const commit = (): void => {
     const rules = draft.map((r, i) => {
-      const range = parseRangeA1(texts[i])!
+      const range = normalizeRuleRange(parseRangeA1(texts[i])!, state.activeSheet)
       return r.type === 'list' ? { ...r, range, items: parseItems(itemTexts[i]) } : { ...r, range }
     })
     view.dispatch(view.state.tr.setValidations(rules))

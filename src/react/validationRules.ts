@@ -1,5 +1,5 @@
 // 数据验证对话框纯逻辑（组件外可单测）。
-import { parseRangeA1, toA1 } from '../core/addr'
+import { CellRange, clampRange, parseRangeA1, toA1 } from '../core/addr'
 import { FilterOp, ValidationRule } from '../core/model'
 import type { SheetState } from '../core/state'
 
@@ -24,12 +24,24 @@ export function rangeText(r: { sr: number; sc: number; er: number; ec: number })
 }
 
 // 非法判定：范围解析失败；numRange/textLen 的 v1 非数字；between 的 v2 非数字；list items 全空
+// between 且 v1>v2（上下界倒置）亦非法
 export function ruleInvalid(rule: ValidationRule, text: string): boolean {
   if (parseRangeA1(text) === null) return true
   if (rule.type === 'list') return rule.items.length === 0
   if (!Number.isFinite(Number(rule.v1)) || rule.v1.trim() === '') return true
-  if (rule.op === 'between' && ((rule.v2 ?? '').trim() === '' || !Number.isFinite(Number(rule.v2)))) return true
+  if (rule.op === 'between') {
+    if ((rule.v2 ?? '').trim() === '' || !Number.isFinite(Number(rule.v2))) return true
+    if (Number(rule.v1) > Number(rule.v2)) return true
+  }
   return false
+}
+
+// 提交前把解析出的 range 收进表界（防越界规则写入 doc）
+export function normalizeRuleRange(
+  range: { sr: number; sc: number; er: number; ec: number },
+  sheet: { rowCount: number; colCount: number },
+): CellRange {
+  return clampRange(range, sheet.rowCount, sheet.colCount)
 }
 
 // 序列输入框解析：逗号/中文逗号分隔，逐项 trim，去空

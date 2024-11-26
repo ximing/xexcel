@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SheetData, ValidationRule, Workbook } from '../src/core/model'
 import { excelJSToWorkbook, parseXlsx, workbookToExcelJS } from '../src/core/io/xlsx'
 
@@ -71,5 +71,27 @@ describe('xlsx dataValidations 映射', () => {
     expect(rules).toHaveLength(1)
     // 内容仅 1 行 → rowCount=IMPORT_MIN_ROWS(100)，er clamp 到 99
     expect(rules[0].range).toEqual({ sr: 0, sc: 0, er: 99, ec: 0 })
+  })
+
+  it('导入：between 缺第二个公式时警告并跳过（numRange/textLen）', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const ewb = new ExcelJS.Workbook()
+      const ws = ewb.addWorksheet('S')
+      ws.getCell('A1').value = 1
+      dvs(ws).add('A1:A2', { type: 'whole', operator: 'between', formulae: ['5'] })
+      dvs(ws).add('B1:B2', { type: 'textLength', operator: 'between', formulae: ['3'] })
+      // 对照组：完整 between 不受影响
+      dvs(ws).add('C1:C2', { type: 'whole', operator: 'between', formulae: ['1', '9'] })
+      const buf = await ewb.xlsx.writeBuffer()
+      const wb2 = new ExcelJS.Workbook()
+      await wb2.xlsx.load(buf)
+      const rules = excelJSToWorkbook(wb2).sheet('s1').validations
+      expect(rules).toHaveLength(1)
+      expect(rules[0]).toMatchObject({ type: 'numRange', op: 'between', v1: '1', v2: '9' })
+      expect(warn).toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
   })
 })

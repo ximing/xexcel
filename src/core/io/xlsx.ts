@@ -414,6 +414,10 @@ function dvRuleFromExcel(dv: XDVRule, id: string, range: CellRange): ValidationR
       console.warn('xlsx 导入：不支持的验证操作符，规则已跳过', dv.operator)
       return null
     }
+    if (op === 'between' && f[1] === undefined) {
+      console.warn('xlsx 导入：between 验证缺少第二个公式，规则已跳过', dv.formulae)
+      return null
+    }
     const out: ValidationRule = { id, range, type: 'numRange', op, v1: f[0] ?? '' }
     if (op === 'between') out.v2 = f[1] ?? ''
     return out
@@ -422,6 +426,10 @@ function dvRuleFromExcel(dv: XDVRule, id: string, range: CellRange): ValidationR
     const op = dv.operator ? DV_OP_REVERSE[dv.operator] : undefined
     if (!op) {
       console.warn('xlsx 导入：不支持的验证操作符，规则已跳过', dv.operator)
+      return null
+    }
+    if (op === 'between' && f[1] === undefined) {
+      console.warn('xlsx 导入：between 验证缺少第二个公式，规则已跳过', dv.formulae)
       return null
     }
     const out: ValidationRule = { id, range, type: 'textLen', op, v1: f[0] ?? '' }
