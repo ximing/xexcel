@@ -91,6 +91,9 @@ function finish(commit: boolean, next?: CellAddr): void {
     const reason = validateInput(s.view.state.activeSheet.validations, s.addr.row, s.addr.col, s.el.value)
     if (reason) {
       notifyValidationReject(reason)
+      // blur 路径：mousedown 的选区 tr 已先提交到目标格，须把选区派回编辑格（对齐 Excel 锚定）。
+      // 选区 tr 无 steps 本就不入历史，无需 addToHistory meta（同 selection 插件惯例）
+      s.view.dispatch(s.view.state.tr.setSelection(singleCell(s.addr.row, s.addr.col)))
       s.el.focus() // blur 路径拒绝后焦点回到编辑框（对齐 Excel）
       return
     }

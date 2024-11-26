@@ -226,6 +226,21 @@ export default async function run({ assertEq }) {
     assertEq(await ev(`return W.read(15, 0)?.raw`), '5', 'S7 A16 raw 写入')
   }
 
+  // ---- 场景 8：blur 拒绝后选区回锚编辑格（M-1 选区漂移回归）----
+  async function s8() {
+    await ev(`window.__setRules([{ id: 'v1', range: { sr: 16, sc: 2, er: 16, ec: 2 }, type: 'numRange', op: 'between', v1: '1', v2: '9' }]); return 1`)
+    assertEq(await ev(`return window.__typeCell(16, 2, '99')`), 'open', 'S8 C17 非法输入被拒（编辑器保持打开）')
+    // 点击另一格 E17：mousedown 选区 tr 先提交到 E17 → blur 提交被拒 → 选区须回锚 C17
+    await ev(`W.click(16, 4); return 1`)
+    assertEq(await ev(`return document.querySelectorAll('textarea.xcell-editor').length`), 1, 'S8 blur 拒绝后编辑器仍在')
+    assertEq(await ev(`const a = W.sel().activeCell; return { row: a.row, col: a.col }`), { row: 16, col: 2 }, 'S8 选区 activeCell 回锚编辑格 C17')
+    assertEq(await ev(`return document.activeElement.classList.contains('xcell-editor')`), true, 'S8 焦点回编辑器')
+    assertEq(await ev(`return W.read(16, 4)`), null, 'S8 点击目标格 E17 raw 未写入')
+    // 收尾：合法值提交，编辑器关闭
+    assertEq(await ev(`return window.__typeContinue('5')`), 'closed', 'S8 合法值放行收尾')
+    assertEq(await ev(`return W.read(16, 2)?.raw`), '5', 'S8 C17 raw 写入')
+  }
+
   await freshPage()
   await installPageTools()
   const scenarios = [
@@ -236,6 +251,7 @@ export default async function run({ assertEq }) {
     ['5 xlsx 往返', s5],
     ['6 公式/清空跳过', s6],
     ['7 拒绝后 dblclick 无双编辑器', s7],
+    ['8 blur 拒绝后选区回锚编辑格', s8],
   ]
   for (const [name, fn] of scenarios) {
     try {
