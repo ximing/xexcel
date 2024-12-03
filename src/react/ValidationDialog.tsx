@@ -7,6 +7,7 @@ import { selectionRange } from '../core/selection'
 import type { EditorView } from '../view/editorview'
 import { useSheetState } from './bridge'
 import {
+  describeRule,
   nextValidationId,
   normalizeRuleRange,
   parseItems,
@@ -112,7 +113,14 @@ export function ValidationDialog({ view, onClose }: Props) {
         <div className="cf-rules">
           {draft.length === 0 && <div className="cf-empty">暂无规则</div>}
           {draft.map((rule, i) => (
-            <div className={'cf-row' + (invalid(i) ? ' invalid' : '')} key={rule.id}>
+            <div
+              className={'cf-row' + (invalid(i) ? ' invalid' : '')}
+              key={rule.id}
+              // hover 显示完整规则描述（list 以 items 文本草稿实时解析为准）
+              title={describeRule(
+                rule.type === 'list' ? { ...rule, items: parseItems(itemTexts[i]) } : rule,
+              )}
+            >
               <input
                 className="cf-range"
                 title="应用范围（A1 表示法）"
