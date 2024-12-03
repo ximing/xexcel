@@ -1,6 +1,6 @@
 // tests/core-io-xlsx-import.test.ts
 import ExcelJS from 'exceljs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Workbook } from '../src/core/model'
 import { DAY_MS, EPOCH } from '../src/formula/date'
 import { excelJSToWorkbook, parseXlsx, workbookToExcelJS } from '../src/core/io/xlsx'
@@ -165,5 +165,56 @@ describe('全量往返（export → writeBuffer → load → import）', () => {
     expect(rules).toHaveLength(2)
     expect(rules[0]).toMatchObject({ type: 'value', op: 'gte', v1: '10', style: { color: '#ff0000', bold: true } })
     expect(rules[1]).toMatchObject({ type: 'textContains', text: '标', style: { bg: '#ffff00' } })
+  })
+})
+
+describe('导入截断警告（warn-once）', () => {
+  // limits 注入点用小上限构造超界文件（生产缺省取 MAX_IMPORT_ROWS/COLS 常量），测试保持 ms 级
+  it('行超上限只警告一次，且带截断行数', () => {
+    const ewb = new ExcelJS.Workbook()
+    const ws = ewb.addWorksheet('S')
+    for (let r = 1; r <= 110; r++) ws.getCell(r, 1).value = r
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const wb = excelJSToWorkbook(ewb, { maxRows: 105 })
+      const rowWarns = spy.mock.calls.filter((c) => String(c[0]).includes('行数超过上限'))
+      expect(rowWarns).toHaveLength(1)
+      expect(rowWarns[0][1]).toBe(105)
+      expect(String(rowWarns[0][2])).toContain('5')
+      expect(wb.sheet('s1').rowCount).toBe(105)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('列超上限只警告一次，且带截断列数', () => {
+    const ewb = new ExcelJS.Workbook()
+    const ws = ewb.addWorksheet('S')
+    for (let c = 1; c <= 108; c++) ws.getCell(1, c).value = c
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const wb = excelJSToWorkbook(ewb, { maxCols: 105 })
+      const colWarns = spy.mock.calls.filter((c) => String(c[0]).includes('列数超过上限'))
+      expect(colWarns).toHaveLength(1)
+      expect(colWarns[0][1]).toBe(105)
+      expect(String(colWarns[0][2])).toContain('3')
+      expect(wb.sheet('s1').colCount).toBe(105)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('未超界时无截断警告（缺省上限即常量）', () => {
+    const ewb = new ExcelJS.Workbook()
+    const ws = ewb.addWorksheet('S')
+    ws.getCell('A1').value = 'x'
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      excelJSToWorkbook(ewb)
+      const truncWarns = spy.mock.calls.filter((c) => String(c[0]).includes('超过上限'))
+      expect(truncWarns).toHaveLength(0)
+    } finally {
+      spy.mockRestore()
+    }
   })
 })

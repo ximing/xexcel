@@ -446,20 +446,36 @@ function dvRuleFromExcel(dv: XDVRule, id: string, range: CellRange): ValidationR
   return null
 }
 
-function sheetFromExcelWS(ws: ExcelJS.Worksheet): SheetData {
+// 导入截断上限（可注入，测试用小上限；生产调用方不传，缺省取常量）
+export interface XlsxImportLimits {
+  maxRows?: number
+  maxCols?: number
+}
+
+function sheetFromExcelWS(ws: ExcelJS.Worksheet, limits?: XlsxImportLimits): SheetData {
+  const maxRows = limits?.maxRows ?? MAX_IMPORT_ROWS
+  const maxCols = limits?.maxCols ?? MAX_IMPORT_COLS
   // 内容边界（含 styled 空格；防整列样式文件，截断警告）
   let maxRow = 0
   let maxCol = 0
+  // 超界只记边界，循环结束后各 warn 一次（避免每超界行/格刷一条）
+  let maxRowSeen = 0
+  let maxColSeen = 0
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber > MAX_IMPORT_ROWS) {
-      console.warn('xlsx 导入：行数超过上限，已截断', MAX_IMPORT_ROWS)
-      return
-    }
+    maxRowSeen = Math.max(maxRowSeen, rowNumber)
+    if (rowNumber > maxRows) return
     maxRow = Math.max(maxRow, rowNumber)
     row.eachCell({ includeEmpty: true }, (_c, colNumber) => {
-      if (colNumber <= MAX_IMPORT_COLS) maxCol = Math.max(maxCol, colNumber)
+      maxColSeen = Math.max(maxColSeen, colNumber)
+      if (colNumber <= maxCols) maxCol = Math.max(maxCol, colNumber)
     })
   })
+  if (maxRowSeen > maxRows) {
+    console.warn('xlsx 导入：行数超过上限，已截断', maxRows, `，忽略尾部 ${maxRowSeen - maxRows} 行`)
+  }
+  if (maxColSeen > maxCols) {
+    console.warn('xlsx 导入：列数超过上限，已截断', maxCols, `，忽略右侧 ${maxColSeen - maxCols} 列`)
+  }
   const rowCount = Math.max(maxRow, IMPORT_MIN_ROWS)
   const colCount = Math.max(maxCol, IMPORT_MIN_COLS)
   let sheet = SheetData.create({ rowCount, colCount })
@@ -564,11 +580,11 @@ function sheetFromExcelWS(ws: ExcelJS.Worksheet): SheetData {
 }
 
 // exceljs workbook → Workbook：sheet id 顺序 s1..sN，active=第一张
-export function excelJSToWorkbook(ewb: ExcelJS.Workbook): Workbook {
+export function excelJSToWorkbook(ewb: ExcelJS.Workbook, limits?: XlsxImportLimits): Workbook {
   if (ewb.worksheets.length === 0) throw new Error('xlsx 中没有工作表')
   let wb = Workbook.create({ rowCount: 1, colCount: 1 })
   ewb.worksheets.forEach((ws, i) => {
-    const data = sheetFromExcelWS(ws)
+    const data = sheetFromExcelWS(ws, limits)
     if (i === 0) {
       wb = wb.setSheet('s1', data)
       wb = wb.renameSheet('s1', ws.name)
