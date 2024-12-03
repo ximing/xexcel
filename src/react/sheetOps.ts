@@ -2,7 +2,9 @@
 // 空表跳过删除确认；删 active 表重置选区到 A1；重名 alert 不派发。
 import { nextSheetId, nextSheetName, SheetData, SheetId } from '../core/model'
 import { singleCell } from '../core/selection'
+import { isValidSheetName, SHEET_NAME_MAX_LEN } from '../core/sheetname'
 import type { EditorView } from '../view/editorview'
+import { showNotice } from '../app/notice'
 
 // 空表判定：usedRange 为单格且该格无内容（usedRange 对空表返回全 0）
 export function isSheetEmpty(data: SheetData): boolean {
@@ -37,6 +39,11 @@ export function renameSheet(view: EditorView, id: SheetId, name: string): void {
   const st = view.state
   const trimmed = name.trim()
   if (trimmed === '' || trimmed === st.doc.names.get(id)) return
+  // 非法输入拒绝 + 提示（对齐 Excel 弹错），不自动改写
+  if (!isValidSheetName(trimmed)) {
+    showNotice(`无效的工作表名称：不能包含 * ? : \\ / [ ]，且不超过 ${SHEET_NAME_MAX_LEN} 个字符`)
+    return
+  }
   const dup = [...st.doc.names.entries()].some(
     ([other, n]) => other !== id && n.toLowerCase() === trimmed.toLowerCase(),
   )

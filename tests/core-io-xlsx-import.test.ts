@@ -218,3 +218,20 @@ describe('导入截断警告（warn-once）', () => {
     }
   })
 })
+
+describe('导入 sheet 名净化', () => {
+  // exceljs 公共 API 拒收非法名，经内部字段模拟外部文件的脏名
+  it('非法字符名净化为 _；重名去重加序号；超长截断 31', () => {
+    const ewb = new ExcelJS.Workbook()
+    const a = ewb.addWorksheet('t1')
+    const b = ewb.addWorksheet('t2')
+    const c = ewb.addWorksheet('t3')
+    ;(a as never as { _name: string })._name = 'a/b*?'
+    ;(b as never as { _name: string })._name = 'a_b__'
+    ;(c as never as { _name: string })._name = 'x'.repeat(40)
+    const wb = excelJSToWorkbook(ewb)
+    expect(wb.names.get('s1')).toBe('a_b__')
+    expect(wb.names.get('s2')).toBe('a_b__ (2)')
+    expect(wb.names.get('s3')).toBe('x'.repeat(31))
+  })
+})

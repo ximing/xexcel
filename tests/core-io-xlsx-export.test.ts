@@ -137,4 +137,13 @@ describe('workbookToExcelJS 装配', () => {
     expect(cf[0].ref).toBe('A1:A10')
     expect(cf[0].rules[0].operator).toBe('greaterThan')
   })
+
+  it('非法/超长 sheet 名导出前净化，addWorksheet 不 throw；净化后重名去重', () => {
+    let wb = Workbook.create({ rowCount: 1, colCount: 1 })
+    wb = wb.renameSheet('s1', 'a/b*?')
+    wb = wb.addSheet('s2', SheetData.create({ rowCount: 10, colCount: 5 }), undefined, 'a_b__')
+    wb = wb.addSheet('s3', SheetData.create({ rowCount: 10, colCount: 5 }), undefined, 'x'.repeat(40))
+    const ewb = workbookToExcelJS(wb)
+    expect(ewb.worksheets.map((w) => w.name)).toEqual(['a_b__', 'a_b__ (2)', 'x'.repeat(31)])
+  })
 })

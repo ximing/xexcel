@@ -6,6 +6,7 @@ import {
   Cell, CondFormatRule, FilterOp, FilterState, SheetData, ValidationRule, Workbook,
 } from '../model'
 import { DAY_MS, EPOCH } from '../../formula/date'
+import { sanitizeSheetName } from '../sheetname'
 import {
   XDiffStyle, cfStyleFromExcel, cfStyleToExcel,
   styleFromExcel, styleToExcelAlignment, styleToExcelBorders, styleToExcelFill, styleToExcelFont,
@@ -236,8 +237,12 @@ function sheetToExcelWS(ws: ExcelJS.Worksheet, sheet: SheetData): void {
 
 export function workbookToExcelJS(wb: Workbook): ExcelJS.Workbook {
   const ewb = new ExcelJS.Workbook()
+  // exceljs 对非法字符名直接 throw、>31 静默截断：统一净化 + 去重
+  const taken: string[] = []
   for (const id of wb.order) {
-    const ws = ewb.addWorksheet(wb.names.get(id) ?? id)
+    const name = sanitizeSheetName(wb.names.get(id) ?? id, taken)
+    taken.push(name)
+    const ws = ewb.addWorksheet(name)
     sheetToExcelWS(ws, wb.sheet(id))
   }
   ewb.views = [{ activeTab: wb.order.indexOf(wb.active) } as ExcelJS.WorkbookView]
@@ -583,13 +588,17 @@ function sheetFromExcelWS(ws: ExcelJS.Worksheet, limits?: XlsxImportLimits): She
 export function excelJSToWorkbook(ewb: ExcelJS.Workbook, limits?: XlsxImportLimits): Workbook {
   if (ewb.worksheets.length === 0) throw new Error('xlsx 中没有工作表')
   let wb = Workbook.create({ rowCount: 1, colCount: 1 })
+  // 外部文件 sheet 名可能含非法字符/超长/重名：净化并基于已收集名去重
+  const taken: string[] = []
   ewb.worksheets.forEach((ws, i) => {
     const data = sheetFromExcelWS(ws, limits)
+    const name = sanitizeSheetName(ws.name, taken)
+    taken.push(name)
     if (i === 0) {
       wb = wb.setSheet('s1', data)
-      wb = wb.renameSheet('s1', ws.name)
+      wb = wb.renameSheet('s1', name)
     } else {
-      wb = wb.addSheet(`s${i + 1}`, data, undefined, ws.name)
+      wb = wb.addSheet(`s${i + 1}`, data, undefined, name)
     }
   })
   return wb
