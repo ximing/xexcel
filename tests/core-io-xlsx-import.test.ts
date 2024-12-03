@@ -54,6 +54,45 @@ describe('excelJSToWorkbook 值映射', () => {
   })
 })
 
+describe('excelJSToWorkbook 特殊值形状', () => {
+  it('sharedFormula 从格退化为缓存值（数字/字符串）；无缓存值跳过并告警', async () => {
+    // exceljs 写共享公式：主格带 shareType/ref，从格写 { sharedFormula: 主格地址, result? }
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const wb = await importOf((ewb) => {
+        const ws = ewb.addWorksheet('S')
+        // exceljs d.ts 的 CellValue 联合未含 shareType/ref 写侧形状，结构化补型
+        ws.getCell('A1').value = { formula: 'B1*2', shareType: 'shared', ref: 'A1:A4', result: 10 } as never
+        ws.getCell('A2').value = { sharedFormula: 'A1', result: 20 }
+        ws.getCell('A3').value = { sharedFormula: 'A1', result: 'text-res' }
+        ws.getCell('A4').value = { sharedFormula: 'A1' }
+      })
+      const s = wb.sheet('s1')
+      expect(s.getCell(0, 0)?.raw).toBe('=B1*2')
+      expect(s.getCell(1, 0)?.raw).toBe('20')
+      expect(s.getCell(2, 0)?.raw).toBe('text-res')
+      // 无缓存值：无样式时整格跳过；有样式时 raw 为空串 —— 两种退化均不断言样式侧
+      expect(s.getCell(3, 0)?.raw ?? '').toBe('')
+      const warns = spy.mock.calls.filter((c) => String(c[0]).includes('共享公式从格'))
+      expect(warns).toHaveLength(1)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+  it('error 格 raw 为错误文本；hyperlink 格 raw 为 text', async () => {
+    const wb = await importOf((ewb) => {
+      const ws = ewb.addWorksheet('S')
+      ws.getCell('A1').value = { error: '#DIV/0!' }
+      ws.getCell('A2').value = { error: '#N/A' }
+      ws.getCell('B1').value = { text: 'link', hyperlink: 'https://example.com' }
+    })
+    const s = wb.sheet('s1')
+    expect(s.getCell(0, 0)?.raw).toBe('#DIV/0!')
+    expect(s.getCell(1, 0)?.raw).toBe('#N/A')
+    expect(s.getCell(0, 1)?.raw).toBe('link')
+  })
+})
+
 describe('excelJSToWorkbook 结构映射', () => {
   it('合并/冻结/隐藏/尺寸/筛选(range-only)/样式', async () => {
     const wb = await importOf((ewb) => {
@@ -121,6 +160,10 @@ describe('全量往返（export → writeBuffer → load → import）', () => {
       raw: ' bordered ',
       style: { border: { top: { style: 'thin' }, bottom: { style: 'double', color: '#0000ff' } } },
     })
+    s1 = s1.setCell(3, 0, {
+      raw: 'font',
+      style: { fontFamily: 'Consolas', fontSize: 16, italic: true, underline: true, strikethrough: true },
+    })
     s1 = s1.setMerges([{ sr: 4, sc: 0, er: 5, ec: 1 }])
     s1 = s1.setFrozen(1, 1)
     s1 = s1.setRowHeight(2, 36)
@@ -133,6 +176,9 @@ describe('全量往返（export → writeBuffer → load → import）', () => {
       { id: 'cf1', range: { sr: 1, sc: 1, er: 9, ec: 1 }, type: 'value', op: 'gte', v1: '10', style: { color: '#ff0000', bold: true } },
       { id: 'cf2', range: { sr: 0, sc: 0, er: 9, ec: 0 }, type: 'textContains', text: '标', style: { bg: '#ffff00' } },
     ])
+    // 隐藏行/列须有内容才能落盘（exceljs 不写空行）
+    s1 = s1.setHidden('row', [2], true)
+    s1 = s1.setHidden('col', [1], true)
     let wb = Workbook.create({ rowCount: 1, colCount: 1 })
     wb = wb.setSheet('s1', s1)
     wb = wb.renameSheet('s1', '数据')
@@ -153,6 +199,11 @@ describe('全量往返（export → writeBuffer → load → import）', () => {
       top: { style: 'thin' },
       bottom: { style: 'double', color: '#0000ff' },
     })
+    expect(s.getCell(3, 0)?.style).toMatchObject({
+      fontFamily: 'Consolas', fontSize: 16, italic: true, underline: true, strikethrough: true,
+    })
+    expect(s.hiddenRows).toEqual([2])
+    expect(s.hiddenCols).toEqual([1])
     expect(s.merges).toEqual([{ sr: 4, sc: 0, er: 5, ec: 1 }])
     expect(s.frozenRows).toBe(1)
     expect(s.frozenCols).toBe(1)
