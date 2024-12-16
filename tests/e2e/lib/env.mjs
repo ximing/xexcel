@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { bringToFront, cmd, evaluateJS } from './bridge.mjs'
+import { bringToFront, cmd, evaluateJS, getSession, setSession } from './bridge.mjs'
 import { HELPER_SOURCE } from './helper.js'
 
 const APP = process.env.E2E_APP || 'http://localhost:5180'
@@ -41,7 +41,15 @@ export async function ensureApp() {
       if (i === 59) throw new Error('dev server 启动超时')
     }
   }
-  await cmd('navigate', { url: APP, newTab: true, group_title: 'xexcel e2e 回归' })
+  // session tab 绑定可能腐坏（浏览器侧 tab 已关，daemon 仍记旧 id → navigate 报
+  // No tab with given id）：换新 session 重试一次，仍失败则原样抛出
+  try {
+    await cmd('navigate', { url: APP, newTab: true, group_title: 'xexcel e2e 回归' })
+  } catch (e) {
+    setSession(`${getSession()}-${Date.now() % 100000}`)
+    console.warn(`navigate 失败（${e.message}），换新 session ${getSession()} 重试`)
+    await cmd('navigate', { url: APP, newTab: true, group_title: 'xexcel e2e 回归' })
+  }
   await new Promise(r => setTimeout(r, 2500))
   await bringToFront()
 }
