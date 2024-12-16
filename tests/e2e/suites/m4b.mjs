@@ -4,20 +4,10 @@
 import { readFileSync } from 'node:fs'
 import ExcelJS from 'exceljs'
 import { bringToFront, evaluateJS } from '../lib/bridge.mjs'
-import { feedFile, freshPage } from '../lib/env.mjs'
-import { HELPER_SOURCE } from '../lib/helper.js'
+import { feedFile, freshPage, pollUntil, reload } from '../lib/env.mjs'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const ev = (code) => evaluateJS(code)
-const reinject = () => ev(`return (()=>{ ${HELPER_SOURCE} })()`)
-
-// 刷新 + 重注 helper/stub（前提：存档已落盘；清档刷新走 freshPage）
-async function reload() {
-  await ev(`location.reload(); 'ok'`)
-  await sleep(2500)
-  await bringToFront()
-  await reinject()
-}
 
 // 点「文件」→ 菜单项（React 异步：点按钮后等 300ms 再点菜单项）
 async function clickMenu(includes) {
@@ -27,16 +17,6 @@ async function clickMenu(includes) {
     ;[...document.querySelectorAll('.file-menu-item')].find((b) => b.textContent.includes(${JSON.stringify(includes)})).click()
     await new Promise((r) => setTimeout(r, 300))
     return true`)
-}
-
-// 轮询页面条件（exceljs 解析在节流 tab 内可达 ~5s，固定 sleep 不可靠）
-async function pollUntil(predCode, label, timeoutMs = 20000) {
-  const t0 = Date.now()
-  for (;;) {
-    if (await ev(`return !!(${predCode})`)) return
-    if (Date.now() - t0 > timeoutMs) throw new Error(`超时等待: ${label}`)
-    await sleep(400)
-  }
 }
 
 export default async function run({ assertEq }) {

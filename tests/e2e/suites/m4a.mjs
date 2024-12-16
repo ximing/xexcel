@@ -1,34 +1,14 @@
 // M4a 持久化 e2e suite（6 场景；叙述版见 tests/e2e/m4a.md）。
 // 页面内经 __xcell + W helper 驱动；CSV 导入走 harness feedFile（base64+DataTransfer 主路径）。
 import { bringToFront, evaluateJS } from '../lib/bridge.mjs'
-import { feedFile, freshPage } from '../lib/env.mjs'
-import { HELPER_SOURCE } from '../lib/helper.js'
+import { feedFile, freshPage, pollUntil, reinject, reload } from '../lib/env.mjs'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const ev = (code) => evaluateJS(code)
-const reinject = () => ev(`return (()=>{ ${HELPER_SOURCE} })()`)
-
-// 刷新 + 重注 helper（前提：存档已落盘、无未 flush 编辑；清档刷新走 freshPage）
-async function reload() {
-  await ev(`location.reload(); 'ok'`)
-  await sleep(2500)
-  await bringToFront()
-  await reinject()
-}
 
 function assertIncludes(hay, needle, label) {
   if (typeof hay !== 'string' || !hay.includes(needle)) {
     throw new Error(`${label}\n  应含: ${needle}\n  实际: ${JSON.stringify(hay)}`)
-  }
-}
-
-// 轮询页面条件（节流 tab 内防抖/定时器延迟不可靠，固定 sleep 会抖动）
-async function pollUntil(predCode, label, timeoutMs = 20000) {
-  const t0 = Date.now()
-  for (;;) {
-    if (await ev(`return !!(${predCode})`)) return
-    if (Date.now() - t0 > timeoutMs) throw new Error(`超时等待: ${label}`)
-    await sleep(400)
   }
 }
 

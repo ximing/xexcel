@@ -5,6 +5,29 @@ import { HELPER_SOURCE } from './helper.js'
 const APP = process.env.E2E_APP || 'http://localhost:5180'
 let devProc = null
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// 重注 helper/stub（suite 内刷新页面后必须重注）
+export const reinject = () => evaluateJS(`return (()=>{ ${HELPER_SOURCE} })()`)
+
+// 刷新 + 重注 helper（前提：存档已落盘、无未 flush 编辑；清档刷新走 freshPage）
+export async function reload() {
+  await evaluateJS(`location.reload(); 'ok'`)
+  await sleep(2500)
+  await bringToFront()
+  await reinject()
+}
+
+// 轮询页面条件（节流 tab 内防抖/定时器延迟不可靠，固定 sleep 会抖动）
+export async function pollUntil(predCode, label, timeoutMs = 20000) {
+  const t0 = Date.now()
+  for (;;) {
+    if (await evaluateJS(`return !!(${predCode})`)) return
+    if (Date.now() - t0 > timeoutMs) throw new Error(`超时等待: ${label}`)
+    await sleep(400)
+  }
+}
+
 export async function ensureApp() {
   // daemon 可达性
   try { await cmd('list_tabs') } catch { throw new Error('kimi-webbridge daemon 不可达（~/.kimi-webbridge/bin/kimi-webbridge start）') }
@@ -37,7 +60,7 @@ export async function freshPage() {
     'ok'`)
   await new Promise(r => setTimeout(r, 2500))
   await bringToFront()
-  return evaluateJS(`return (()=>{ ${HELPER_SOURCE} })()`)
+  return reinject()
 }
 
 // 喂文件主路径（M4b 实测）：base64 → DataTransfer → 手动 onchange
