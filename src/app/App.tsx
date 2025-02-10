@@ -8,6 +8,7 @@ import { FormulaBar } from '../react/FormulaBar'
 import { SheetTabBar } from '../react/SheetTabBar'
 import { StatusBar } from '../react/StatusBar'
 import { Toolbar } from '../react/Toolbar'
+import { ConfirmHost } from '../react/ui/ConfirmHost'
 import { EditorView } from '../view/editorview'
 import { workbookStorage } from './storage'
 import { createDemoState, createStateFromWorkbook } from './demo'
@@ -52,6 +53,7 @@ export function App() {
       {view ? <StatusBar view={view} /> : null}
       {view ? <FilterDropdown view={view} /> : null}
       {view ? <ContextMenu view={view} /> : null}
+      <ConfirmHost />
     </div>
   )
 }
