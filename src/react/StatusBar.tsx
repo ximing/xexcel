@@ -1,5 +1,5 @@
 // 状态栏：左侧 就绪/编辑中；右侧对选区数字统计（忽略非数字，单格只显示计数）+ 缩放档位控件。
-import { useEffect, useReducer, useState, useSyncExternalStore } from 'react'
+import { useEffect, useReducer, useSyncExternalStore } from 'react'
 import { getNotice, subscribeNotice } from '../app/notice'
 import { workbookStorage } from '../app/storage'
 import { forEachSelectionRange } from '../core/selection'
@@ -11,6 +11,9 @@ import type { EditorView } from '../view/editorview'
 import { zoomKey } from '../view/types'
 import { ZOOM_LEVELS, zoomOf } from '../view/zoom'
 import { useSheetState } from './bridge'
+import { Button } from './ui/Button'
+import { Dropdown } from './ui/Dropdown'
+import type { MenuEntry } from './ui/Menu'
 
 interface Props {
   view: EditorView
@@ -54,43 +57,41 @@ export function StatusBar({ view }: Props) {
     ? `计数: ${count}`
     : `求和: ${formatNumber(sum)}　平均: ${count ? formatNumber(sum / count) : '-'}　计数: ${count}`
 
-  // 缩放档位：点击百分比弹出档位菜单；zoom 非文档态（addToHistory:false）
+  // 缩放档位：点击百分比向上弹出档位菜单；zoom 非文档态（addToHistory:false）
   const zoom = zoomOf(state, state.doc.active)
-  const [showZoom, setShowZoom] = useState(false)
+  const zoomEntries: MenuEntry[] = ZOOM_LEVELS.map((z) => ({
+    id: String(z),
+    label: `${z * 100}%`,
+    active: z === zoom,
+    onSelect: () => {
+      const field = (view.state.getField(zoomKey) as Record<string, number> | null) ?? {}
+      view.dispatch(
+        view.state.tr
+          .setMeta(zoomKey, { ...field, [view.state.doc.active]: z })
+          .setMeta('addToHistory', false),
+      )
+    },
+  }))
 
   return (
-    <div className="status-bar">
-      <span>{isEditing() ? '编辑中' : '就绪'}</span>
-      {saveStatus.error ? <span className="status-error">自动保存失败</span> : null}
-      {notice ? <span className="status-notice">{notice}</span> : null}
-      <span className="status-right">
+    <div className="flex h-6 flex-none items-center justify-between border-t border-line bg-surface-2 px-3 text-xs text-ink-2">
+      <span className="flex items-center">
+        <span>{isEditing() ? '编辑中' : '就绪'}</span>
+        {saveStatus.error ? <span className="ml-3 text-danger-deep">自动保存失败</span> : null}
+        {notice ? <span className="ml-3 text-primary">{notice}</span> : null}
+      </span>
+      <span className="flex items-center gap-3">
         <span>{stats}</span>
-        <span className="status-zoom-wrap">
-          <button className="status-zoom" onClick={() => setShowZoom(!showZoom)}>
-            {Math.round(zoom * 100)}%
-          </button>
-          {showZoom && (
-            <div className="zoom-menu">
-              {ZOOM_LEVELS.map((z) => (
-                <button
-                  key={z}
-                  className={'zoom-item' + (z === zoom ? ' active' : '')}
-                  onClick={() => {
-                    const field = (view.state.getField(zoomKey) as Record<string, number> | null) ?? {}
-                    view.dispatch(
-                      view.state.tr
-                        .setMeta(zoomKey, { ...field, [view.state.doc.active]: z })
-                        .setMeta('addToHistory', false),
-                    )
-                    setShowZoom(false)
-                  }}
-                >
-                  {z * 100}%
-                </button>
-              ))}
-            </div>
+        <Dropdown
+          side="up"
+          align="right"
+          trigger={(_open, toggle) => (
+            <Button variant="ghost" size="sm" onClick={toggle}>
+              {Math.round(zoom * 100)}%
+            </Button>
           )}
-        </span>
+          entries={zoomEntries}
+        />
       </span>
     </div>
   )

@@ -1,3 +1,5 @@
+import type { KeyboardEvent } from 'react'
+
 interface Props {
   value: string
   onChange: (v: string) => void
@@ -6,9 +8,11 @@ interface Props {
   width?: number
   autoFocus?: boolean
   onEnter?: () => void
+  // 需要 Shift+Enter / Escape 等组合键时的完整事件透传（先于 onEnter 触发）
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
 }
 
-export function TextInput({ value, onChange, placeholder, invalid, width, autoFocus, onEnter }: Props) {
+export function TextInput({ value, onChange, placeholder, invalid, width, autoFocus, onEnter, onKeyDown }: Props) {
   return (
     <input
       className={[
@@ -20,7 +24,10 @@ export function TextInput({ value, onChange, placeholder, invalid, width, autoFo
       placeholder={placeholder}
       autoFocus={autoFocus}
       onChange={(e) => onChange(e.target.value)}
-      onKeyDown={onEnter ? (e) => { if (e.key === 'Enter') onEnter() } : undefined}
+      onKeyDown={(e) => {
+        onKeyDown?.(e)
+        if (!e.defaultPrevented && onEnter && e.key === 'Enter') onEnter()
+      }}
     />
   )
 }

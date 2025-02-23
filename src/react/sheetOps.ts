@@ -1,10 +1,11 @@
 // 工作表增/删/改名共用逻辑（SheetTabBar 与右键菜单共用）。
-// 空表跳过删除确认；删 active 表重置选区到 A1；重名 alert 不派发。
+// 空表跳过删除确认；删 active 表重置选区到 A1；重名 notice 不派发。
 import { nextSheetId, nextSheetName, SheetData, SheetId } from '../core/model'
 import { singleCell } from '../core/selection'
 import { isValidSheetName, SHEET_NAME_MAX_LEN } from '../core/sheetname'
 import type { EditorView } from '../view/editorview'
 import { showNotice } from '../app/notice'
+import { askConfirm } from './ui/confirmStore'
 
 // 空表判定：usedRange 为单格且该格无内容（usedRange 对空表返回全 0）
 export function isSheetEmpty(data: SheetData): boolean {
@@ -23,14 +24,23 @@ export function addSheet(view: EditorView): void {
   view.focus()
 }
 
-export function removeSheet(view: EditorView, id: SheetId, name: string): void {
+export async function removeSheet(view: EditorView, id: SheetId, name: string): Promise<void> {
   const st = view.state
   if (st.doc.order.length <= 1) return
   if (!isSheetEmpty(st.doc.sheet(id))) {
-    if (!window.confirm(`确定删除工作表「${name}」？可通过撤销恢复。`)) return
+    const ok = await askConfirm({
+      title: '删除工作表',
+      body: `确定删除工作表「${name}」？可通过撤销恢复。`,
+      danger: true,
+      confirmLabel: '删除',
+    })
+    if (!ok) return
   }
-  const tr = st.tr.removeSheet(id)
-  if (id === st.doc.active) tr.setSelection(singleCell(0, 0))
+  // 确认框挂起期间可能有其他编辑，事务基于最新 state 重建
+  const cur = view.state
+  if (cur.doc.order.length <= 1 || !cur.doc.order.includes(id)) return
+  const tr = cur.tr.removeSheet(id)
+  if (id === cur.doc.active) tr.setSelection(singleCell(0, 0))
   view.dispatch(tr)
   view.focus()
 }
@@ -48,7 +58,7 @@ export function renameSheet(view: EditorView, id: SheetId, name: string): void {
     ([other, n]) => other !== id && n.toLowerCase() === trimmed.toLowerCase(),
   )
   if (dup) {
-    window.alert(`工作表名称重复：${trimmed}`)
+    showNotice(`工作表名称重复：${trimmed}`)
     return
   }
   view.dispatch(st.tr.renameSheet(id, trimmed))

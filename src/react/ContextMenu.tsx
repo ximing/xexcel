@@ -2,6 +2,7 @@
 // 剪切/复制经 execCommand 触发 proxy 的 copy/cut 事件（clipboard 插件接管）；
 // 粘贴经 navigator.clipboard.readText 后走 view.someProp('handlePaste')。
 import { Fragment, useEffect } from 'react'
+import { showNotice } from '../app/notice'
 import { selectionRange } from '../core/selection'
 import type { EditorView } from '../view/editorview'
 import { contextMenuKey, ContextMenuOpen, tabRenameKey } from '../view/types'
@@ -48,7 +49,7 @@ export function ContextMenu({ view }: { view: EditorView }) {
             if (t) view.someProp('handlePaste', (p) => p(view, t))
             view.focus()
           })
-          .catch(() => window.alert('无法读取剪贴板'))
+          .catch(() => showNotice('无法读取剪贴板'))
         break
       case 'insertRows':
         // 数量 = 选区行跨度（非整行选也按跨度，对齐 Excel）
@@ -106,7 +107,7 @@ export function ContextMenu({ view }: { view: EditorView }) {
         addSheet(view)
         break
       case 'tabRemove':
-        removeSheet(view, open.sheet!, st.doc.names.get(open.sheet!) ?? open.sheet!)
+        void removeSheet(view, open.sheet!, st.doc.names.get(open.sheet!) ?? open.sheet!)
         break
       case 'tabRename':
         // 改名输入态由 SheetTabBar 订阅 tabRenameKey 进入
@@ -129,7 +130,7 @@ export function ContextMenu({ view }: { view: EditorView }) {
 
   return (
     <div
-      className="ctx-overlay"
+      className="fixed inset-0 z-110"
       onMouseDown={close}
       onMouseUp={(e) => e.stopPropagation()} // 双保险：阻断 window 级 mouseup 穿透到 painter 等插件
       onContextMenu={(e) => {
@@ -138,15 +139,23 @@ export function ContextMenu({ view }: { view: EditorView }) {
       }}
     >
       <div
-        className="ctx-menu"
+        className="fixed flex min-w-40 flex-col rounded-md border border-line-strong bg-surface py-1 shadow-2"
         style={{ left: x, top: y }}
         onMouseDown={(e) => e.stopPropagation()}
         onMouseUp={(e) => e.stopPropagation()}
       >
         {items.map((it) => (
           <Fragment key={it.id}>
-            {it.sep ? <div className="ctx-sep" /> : null}
-            <button className="ctx-item" disabled={it.disabled} onClick={() => act(it.id)}>
+            {it.sep ? <div className="my-1 h-px bg-line" /> : null}
+            <button
+              type="button"
+              className={[
+                'h-7 px-4 text-left text-xs',
+                it.disabled ? 'cursor-default text-ink-disabled' : 'text-ink hover:bg-primary-soft',
+              ].join(' ')}
+              disabled={it.disabled}
+              onClick={() => act(it.id)}
+            >
               {it.label}
             </button>
           </Fragment>

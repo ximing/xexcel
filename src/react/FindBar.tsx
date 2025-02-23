@@ -2,6 +2,7 @@
 // 匹配显示文本与公式原文；逐个定位（选中 + ensureVisible，跨表切 active 不入 undo）；
 // 替换仅改 raw（经 normalizedCell 归一）；全部替换跨表合并为一个事务。
 import { useMemo, useState } from 'react'
+import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { singleCell } from '../core/selection'
 import { evaluatorFor } from '../formula/engine'
 import { findAll, FindMatch, FindQuery, indexAfterReplace, replaceInRaw } from '../formula/find'
@@ -9,6 +10,9 @@ import { normalizedCell } from '../formula/input'
 import type { EditorView } from '../view/editorview'
 import { findBarKey } from '../view/types'
 import { useSheetState } from './bridge'
+import { Button } from './ui/Button'
+import { IconButton } from './ui/IconButton'
+import { TextInput } from './ui/TextInput'
 
 export function FindBar({ view }: { view: EditorView }) {
   const state = useSheetState(view)
@@ -91,14 +95,14 @@ export function FindBar({ view }: { view: EditorView }) {
   }
 
   return (
-    <div className="find-bar">
-      <input
-        className="find-input"
+    <div className="flex items-center gap-1.5 border-b border-line-strong bg-surface-2 px-2 py-1 text-sm">
+      <TextInput
         placeholder="查找"
+        width={180}
         value={text}
         autoFocus
-        onChange={(e) => {
-          setText(e.target.value)
+        onChange={(v) => {
+          setText(v)
           setIdx(0)
         }}
         onKeyDown={(e) => {
@@ -108,28 +112,42 @@ export function FindBar({ view }: { view: EditorView }) {
           if (e.key === 'Escape') close()
         }}
       />
-      <span className="find-count">{text === '' ? '' : `${matches.length === 0 ? 0 : Math.min(idx + 1, matches.length)}/${matches.length}`}</span>
-      <button onClick={() => next(-1)}>↑</button>
-      <button onClick={() => next(1)}>↓</button>
-      <label><input type="checkbox" checked={caseSensitive} onChange={(e) => setCaseSensitive(e.target.checked)} />Aa</label>
-      <label><input type="checkbox" checked={wholeCell} onChange={(e) => setWholeCell(e.target.checked)} />整格</label>
-      <label><input type="checkbox" checked={wb} onChange={(e) => setWb(e.target.checked)} />全簿</label>
-      <button onClick={() => setShowReplace(!showReplace)}>替换</button>
-      <button onClick={close}>×</button>
+      <span className="min-w-10 text-xs text-ink-2">
+        {text === '' ? '' : `${matches.length === 0 ? 0 : Math.min(idx + 1, matches.length)}/${matches.length}`}
+      </span>
+      <IconButton icon={ChevronUp} tip="上一个" kbd="Shift+Enter" onClick={() => next(-1)} />
+      <IconButton icon={ChevronDown} tip="下一个" kbd="Enter" onClick={() => next(1)} />
+      <Button variant="ghost" size="sm" active={caseSensitive} onClick={() => setCaseSensitive(!caseSensitive)}>
+        区分大小写
+      </Button>
+      <Button variant="ghost" size="sm" active={wholeCell} onClick={() => setWholeCell(!wholeCell)}>
+        整个单元格
+      </Button>
+      <Button variant="ghost" size="sm" active={wb} onClick={() => setWb(!wb)}>
+        全工作簿
+      </Button>
+      <Button variant="ghost" size="sm" active={showReplace} onClick={() => setShowReplace(!showReplace)}>
+        替换
+      </Button>
+      <IconButton icon={X} tip="关闭" kbd="Esc" onClick={close} />
       {showReplace && (
         <>
-          <input
-            className="find-input"
+          <TextInput
             placeholder="替换为"
+            width={180}
             value={replacement}
-            onChange={(e) => setReplacement(e.target.value)}
+            onChange={setReplacement}
             onKeyDown={(e) => {
               if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') e.preventDefault()
               if (e.key === 'Escape') close()
             }}
           />
-          <button onClick={replaceCurrent}>替换当前</button>
-          <button onClick={replaceAll}>全部替换</button>
+          <Button variant="ghost" size="sm" onClick={replaceCurrent}>
+            替换当前
+          </Button>
+          <Button variant="ghost" size="sm" onClick={replaceAll}>
+            全部替换
+          </Button>
         </>
       )}
     </div>

@@ -5,11 +5,14 @@
 // 各 tab 中点算插入位并渲染指示线 → mouseup 派发 moveSheet；Esc 取消；
 // 拖拽结束后抑制紧随的 click（避免误触切换表）。
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { Plus, X } from 'lucide-react'
 import { singleCell } from '../core/selection'
 import type { EditorView } from '../view/editorview'
 import { contextMenuKey, tabRenameKey } from '../view/types'
 import { useSheetState } from './bridge'
 import { addSheet, removeSheet, renameSheet } from './sheetOps'
+import { Icon } from './ui/Icon'
+import { IconButton } from './ui/IconButton'
 
 interface Props {
   view: EditorView
@@ -122,21 +125,23 @@ export function SheetTabBar({ view }: Props) {
   }
 
   return (
-    <div className="sheet-tab-bar" ref={barRef}>
-      <button className="sheet-tab-add" title="新增工作表" onClick={() => addSheet(view)}>
-        +
-      </button>
+    <div
+      className="flex h-7 flex-none items-stretch gap-0.5 overflow-x-auto border-t border-line bg-surface-2 px-2 select-none"
+      ref={barRef}
+    >
+      <span className="flex items-center">
+        <IconButton icon={Plus} tip="新增工作表" onClick={() => addSheet(view)} />
+      </span>
       {state.doc.order.map((id, index) => {
         const name = state.doc.names.get(id) ?? id
         const active = id === state.doc.active
-        const indicator = drag && drag.ins === index ? (
-          <div className="sheet-tab-indicator" />
-        ) : null
+        const indicator =
+          drag && drag.ins === index ? <div className="my-0.5 w-0.5 flex-none self-stretch bg-primary" /> : null
         if (editingId === id) {
           return (
             <input
               key={id}
-              className="sheet-tab-input"
+              className="h-[22px] w-24 self-center rounded-md border border-primary bg-surface px-1.5 text-sm text-ink outline-none"
               value={draft}
               autoFocus
               onChange={(e) => setDraft(e.target.value)}
@@ -154,12 +159,17 @@ export function SheetTabBar({ view }: Props) {
             {indicator}
             <div
               data-sheet-id={id}
-              className={active ? 'sheet-tab active' : 'sheet-tab'}
+              className={[
+                'flex h-[26px] cursor-pointer items-center gap-1 self-end rounded-t-lg border border-b-0 px-2.5 whitespace-nowrap',
+                active
+                  ? 'border-line bg-surface font-semibold text-primary'
+                  : 'border-transparent text-ink-2 hover:bg-hover',
+              ].join(' ')}
               onMouseDown={(e) => {
                 // 新按压作废旧抑制标记（防拖拽 mouseup 落在非 tab 元素上时标记残留吞掉下次单击）
                 suppressClick.current = false
                 if (e.button !== 0) return
-                if ((e.target as HTMLElement).closest('.sheet-tab-close')) return
+                if ((e.target as HTMLElement).closest('[data-sheet-close]')) return
                 sessionRef.current = {
                   id,
                   from: index,
@@ -183,14 +193,16 @@ export function SheetTabBar({ view }: Props) {
               <span>{name}</span>
               {state.doc.order.length > 1 ? (
                 <button
-                  className="sheet-tab-close"
+                  type="button"
+                  data-sheet-close
+                  className="flex items-center rounded-sm p-0.5 text-ink-3 hover:bg-danger-soft hover:text-danger-deep"
                   title="删除工作表"
                   onClick={(e) => {
                     e.stopPropagation()
-                    removeSheet(view, id, name)
+                    void removeSheet(view, id, name)
                   }}
                 >
-                  ×
+                  <Icon icon={X} size={12} />
                 </button>
               ) : null}
             </div>
@@ -198,7 +210,7 @@ export function SheetTabBar({ view }: Props) {
         )
       })}
       {drag && drag.ins === state.doc.order.length ? (
-        <div className="sheet-tab-indicator" />
+        <div className="my-0.5 w-0.5 flex-none self-stretch bg-primary" />
       ) : null}
     </div>
   )
