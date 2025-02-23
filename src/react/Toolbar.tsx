@@ -1,5 +1,35 @@
-// 工具栏：撤销/重做 + 粗体/斜体/文字色/背景色/对齐。操作回走 view.dispatch(applyStylePatch)。
-import { useState } from 'react'
+// 工具栏：Lucide 图标钮 + 四个下拉归并（数字格式/行列/冻结/排序）+ 边框面板。
+// 一切写操作回走 view.dispatch / applyStylePatch；alert/confirm 已由 showNotice/askConfirm 替换。
+import { useRef, useState } from 'react'
+import {
+  AlignCenter,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignLeft,
+  AlignRight,
+  AlignStartVertical,
+  ArrowUpDown,
+  Baseline,
+  Bold,
+  Filter,
+  Grid2x2,
+  Hash,
+  Italic,
+  Merge,
+  PaintBucket,
+  Paintbrush,
+  Redo2,
+  Search,
+  Sheet,
+  ShieldCheck,
+  Snowflake,
+  Split,
+  Strikethrough,
+  SwatchBook,
+  Underline,
+  Undo2,
+  WrapText,
+} from 'lucide-react'
 import { applyStylePatch, mergeSelection, unmergeSelection } from '../core/commands'
 import { computeBorderStyles, BorderPreset } from '../core/border'
 import { selectionRange } from '../core/selection'
@@ -7,21 +37,59 @@ import { redo, redoDepth, undo, undoDepth } from '../core/history'
 import type { BorderLineStyle, CellStyle } from '../core/model'
 import type { SheetState } from '../core/state'
 import type { EditorView } from '../view/editorview'
+import { THEME } from '../view/theme'
 import { findBarKey, formatPainterKey, FormatPainterState } from '../view/types'
 import { useSheetState } from './bridge'
 import { adjustDecimals } from '../formula/format'
 import { evaluatorFor } from '../formula/engine'
 import { computeSortEntries, sortBlockedByMerges } from '../formula/sort'
+import { showNotice } from '../app/notice'
 import { SortDialog } from './SortDialog'
 import { CondFormatDialog, canCondFormat } from './CondFormatDialog'
 import { ValidationDialog } from './ValidationDialog'
 import { canValidation } from './validationRules'
 // 显式 .tsx 扩展名：macOS 大小写不敏感 FS 下 './FileMenu' 会被误解析到 filemenu.ts
 import { FileMenu } from './FileMenu.tsx'
+import { IconButton } from './ui/IconButton'
+import { Separator } from './ui/Separator'
+import { Select } from './ui/Select'
+import { Dropdown } from './ui/Dropdown'
+import { askConfirm } from './ui/confirmStore'
+import { buildFreezeItems, buildNumberFormatItems, buildRowColItems, buildSortItems } from './toolbarMenus'
 
 interface Props {
   view: EditorView
 }
+
+const FONT_SIZES = [10, 11, 12, 13, 14, 16, 18, 24]
+const FONT_FAMILIES = [
+  { value: '', label: '默认' },
+  { value: 'SimSun, serif', label: '宋体' },
+  { value: 'SimHei, sans-serif', label: '黑体' },
+  { value: 'monospace', label: '等宽' },
+]
+const BORDER_LINE_OPTIONS = [
+  { value: 'thin', label: '细线' },
+  { value: 'medium', label: '中线' },
+  { value: 'thick', label: '粗线' },
+  { value: 'dashed', label: '虚线' },
+  { value: 'dotted', label: '点线' },
+  { value: 'double', label: '双线' },
+  { value: 'hair', label: '极细' },
+  { value: 'mediumDashed', label: '中虚线' },
+]
+
+// 边框预设示意小格：outer 为外框类，inner 为是否画内十字线
+const BORDER_PRESETS: { p: BorderPreset; label: string; outer: string; inner: boolean }[] = [
+  { p: 'none', label: '无框', outer: 'border border-transparent', inner: false },
+  { p: 'all', label: '全框', outer: 'border border-ink-2', inner: true },
+  { p: 'outer', label: '外框', outer: 'border border-ink-2', inner: false },
+  { p: 'inner', label: '内框', outer: 'border border-transparent', inner: true },
+  { p: 'top', label: '上框线', outer: 'border-t-2 border-ink-2', inner: false },
+  { p: 'bottom', label: '下框线', outer: 'border-b-2 border-ink-2', inner: false },
+  { p: 'left', label: '左框线', outer: 'border-l-2 border-ink-2', inner: false },
+  { p: 'right', label: '右框线', outer: 'border-r-2 border-ink-2', inner: false },
+]
 
 export function Toolbar({ view }: Props) {
   const state = useSheetState(view)
@@ -31,9 +99,14 @@ export function Toolbar({ view }: Props) {
   const [showSort, setShowSort] = useState(false)
   const [showCF, setShowCF] = useState(false)
   const [showValidation, setShowValidation] = useState(false)
-  const [showBorder, setShowBorder] = useState(false)
+  // 边框面板应用预设后 remount Dropdown 以关闭面板
+  const [borderKey, setBorderKey] = useState(0)
   const [borderLine, setBorderLine] = useState<BorderLineStyle>('thin')
-  const [borderColor, setBorderColor] = useState('#000000')
+  const [borderColor, setBorderColor] = useState<string>(THEME.ink)
+  const colorRef = useRef<HTMLInputElement>(null)
+  const bgRef = useRef<HTMLInputElement>(null)
+  const textColor = active.color ?? THEME.ink
+  const bgColor = active.bg ?? THEME.surface
 
   const applyBorder = (preset: BorderPreset): void => {
     const sheet = view.state.activeSheet
@@ -41,19 +114,19 @@ export function Toolbar({ view }: Props) {
     const entries: ReturnType<typeof computeBorderStyles>[] = []
     for (const r of view.state.selection.ranges) entries.push(computeBorderStyles(sheet, r, preset, edge))
     view.dispatch(view.state.tr.setCellStyles(entries.flat()))
-    setShowBorder(false)
+    setBorderKey((k) => k + 1)
     view.focus()
   }
 
   const quickSort = (asc: boolean): void => {
     // 多区域选区拒绝（按钮已禁用，此处兜底）
     const m = sortRejection(view.state)
-    if (m) { window.alert(m); return }
+    if (m) { showNotice(m); return }
     const r = selectionRange(view.state.selection)
     if (r.sr === r.er) return
     const sheet = view.state.activeSheet
     if (sortBlockedByMerges(sheet, r)) {
-      window.alert('排序区域包含合并单元格，无法排序')
+      showNotice('排序区域包含合并单元格，无法排序')
       return
     }
     const entries = computeSortEntries(sheet, view.state.doc.active, evaluatorFor(view.state.doc), r, [{ col: r.sc, asc }], false)
@@ -64,38 +137,161 @@ export function Toolbar({ view }: Props) {
   const patch = (p: Partial<CellStyle>): void => {
     applyStylePatch(p)(view.state, (tr) => view.dispatch(tr))
   }
+  const patchFocus = (p: Partial<CellStyle>): void => {
+    patch(p)
+    view.focus()
+  }
+
+  const doMerge = async (): Promise<void> => {
+    const ranges = view.state.selection.ranges
+    if (ranges.every(r => r.sr === r.er && r.sc === r.ec)) return
+    let nonEmpty = 0
+    const sheet = view.state.activeSheet
+    for (const r of ranges) {
+      sheet.forEachInRange(r, (cell) => {
+        if (cell && cell.raw !== '') nonEmpty++
+      })
+    }
+    if (nonEmpty > 1 && !(await askConfirm({
+      title: '合并单元格',
+      body: '合并仅保留左上角的值，其余内容将被清除。',
+      confirmLabel: '合并',
+      danger: true,
+    }))) return
+    mergeSelection(view.state, (tr) => view.dispatch(tr))
+    view.focus()
+  }
+
+  const numFmtHandlers = {
+    thousands: () => patchFocus({ numFmt: '#,##0.00' }),
+    percent: () => patchFocus({ numFmt: '0%' }),
+    currency: () => patchFocus({ numFmt: '¥#,##0.00' }),
+    decInc: () => patchFocus({ numFmt: adjustDecimals(active.numFmt, 1) }),
+    decDec: () => patchFocus({ numFmt: adjustDecimals(active.numFmt, -1) }),
+  }
+
+  const rowColHandlers = {
+    insertRow: () => {
+      const r = selectionRange(view.state.selection)
+      view.dispatch(view.state.tr.structure('row', r.sr, r.er - r.sr + 1, 'insert'))
+      view.focus()
+    },
+    deleteRow: () => {
+      const r = selectionRange(view.state.selection)
+      view.dispatch(view.state.tr.structure('row', r.sr, r.er - r.sr + 1, 'delete'))
+      view.focus()
+    },
+    insertCol: () => {
+      const r = selectionRange(view.state.selection)
+      view.dispatch(view.state.tr.structure('col', r.sc, r.ec - r.sc + 1, 'insert'))
+      view.focus()
+    },
+    deleteCol: () => {
+      const r = selectionRange(view.state.selection)
+      view.dispatch(view.state.tr.structure('col', r.sc, r.ec - r.sc + 1, 'delete'))
+      view.focus()
+    },
+    hideRow: () => {
+      const r = selectionRange(view.state.selection)
+      const indices: number[] = []
+      for (let i = r.sr; i <= r.er; i++) indices.push(i)
+      view.dispatch(view.state.tr.setHidden('row', indices, true))
+      view.focus()
+    },
+    hideCol: () => {
+      const r = selectionRange(view.state.selection)
+      const indices: number[] = []
+      for (let i = r.sc; i <= r.ec; i++) indices.push(i)
+      view.dispatch(view.state.tr.setHidden('col', indices, true))
+      view.focus()
+    },
+    unhide: () => {
+      const r = selectionRange(view.state.selection)
+      const sheet = view.state.activeSheet
+      const rows = sheet.hiddenRows.filter((i) => i >= r.sr && i <= r.er)
+      const cols = sheet.hiddenCols.filter((i) => i >= r.sc && i <= r.ec)
+      const tr = view.state.tr
+      if (rows.length) tr.setHidden('row', rows, false)
+      if (cols.length) tr.setHidden('col', cols, false)
+      view.dispatch(tr)
+      view.focus()
+    },
+    resetSize: () => {
+      const r = selectionRange(view.state.selection)
+      const sheet = view.state.activeSheet
+      const tr = view.state.tr
+      if (r.sc === 0 && r.ec === sheet.colCount - 1) {
+        for (let i = r.sr; i <= r.er; i++) tr.resize('row', i, null)
+      } else if (r.sr === 0 && r.er === sheet.rowCount - 1) {
+        for (let i = r.sc; i <= r.ec; i++) tr.resize('col', i, null)
+      } else {
+        return
+      }
+      view.dispatch(tr)
+      view.focus()
+    },
+  }
+
+  const freezeHandlers = {
+    freezeRow: () => {
+      view.dispatch(view.state.tr.setFrozen(state.activeSheet.frozenRows === 1 && state.activeSheet.frozenCols === 0 ? 0 : 1, state.activeSheet.frozenCols))
+      view.focus()
+    },
+    freezeCol: () => {
+      view.dispatch(view.state.tr.setFrozen(state.activeSheet.frozenRows, state.activeSheet.frozenCols === 1 && state.activeSheet.frozenRows === 0 ? 0 : 1))
+      view.focus()
+    },
+    freezeTo: () => {
+      const { row: ar, col: ac } = view.state.selection.activeCell
+      view.dispatch(view.state.tr.setFrozen(ar, ac))
+      view.focus()
+    },
+    unfreeze: () => {
+      view.dispatch(view.state.tr.setFrozen(0, 0))
+      view.focus()
+    },
+  }
+
+  const sortHandlers = {
+    asc: () => quickSort(true),
+    desc: () => quickSort(false),
+    custom: () => setShowSort(true),
+  }
 
   return (
-    <div className="toolbar">
+    <div className="flex h-10 items-center gap-0.5 border-b border-line bg-surface px-2">
       <FileMenu view={view} />
-      <button
-        className="tool-btn"
-        title="撤销"
+      <Separator />
+      <IconButton
+        icon={Undo2}
+        tip="撤销"
+        kbd="Ctrl+Z"
         disabled={undoDepth(state) === 0}
         onClick={() => {
           undo(view.state, (tr) => view.dispatch(tr))
           view.focus()
         }}
-      >
-        ↩
-      </button>
-      <button
-        className="tool-btn"
-        title="重做"
+      />
+      <IconButton
+        icon={Redo2}
+        tip="重做"
+        kbd="Ctrl+Y"
         disabled={redoDepth(state) === 0}
         onClick={() => {
           redo(view.state, (tr) => view.dispatch(tr))
           view.focus()
         }}
-      >
-        ↪
-      </button>
-      <span className="tool-sep" />
-      <button
-        className={'tool-btn' + (fp ? ' active' : '')}
-        title="格式刷（单击取格式刷一次，双击锁定连刷，Esc 解除）"
-        onClick={() => {
-          if (fp) {
+      />
+      <Separator />
+      <IconButton
+        icon={Paintbrush}
+        tip="格式刷（单击刷一次，双击锁定连刷，Esc 解除）"
+        active={!!fp}
+        onClick={(e) => {
+          if (e.detail === 2) {
+            const src = { ...(view.state.activeSheet.getCell(row, col)?.style ?? {}) }
+            view.dispatch(view.state.tr.setMeta(formatPainterKey, { style: src, locked: true }).setMeta('addToHistory', false))
+          } else if (fp) {
             view.dispatch(view.state.tr.setMeta(formatPainterKey, null).setMeta('addToHistory', false))
           } else {
             const src = { ...(view.state.activeSheet.getCell(row, col)?.style ?? {}) }
@@ -103,424 +299,131 @@ export function Toolbar({ view }: Props) {
           }
           view.focus()
         }}
-        onDoubleClick={() => {
-          const src = { ...(view.state.activeSheet.getCell(row, col)?.style ?? {}) }
-          view.dispatch(view.state.tr.setMeta(formatPainterKey, { style: src, locked: true }).setMeta('addToHistory', false))
-          view.focus()
-        }}
-      >
-        刷
-      </button>
-      <button
-        className={'tool-btn' + (active.bold ? ' active' : '')}
-        title="加粗"
-        style={{ fontWeight: 'bold' }}
-        onClick={() => {
-          patch(active.bold ? { bold: undefined } : { bold: true })
-          view.focus()
-        }}
-      >
-        B
-      </button>
-      <button
-        className={'tool-btn' + (active.italic ? ' active' : '')}
-        title="斜体"
-        style={{ fontStyle: 'italic' }}
-        onClick={() => {
-          patch(active.italic ? { italic: undefined } : { italic: true })
-          view.focus()
-        }}
-      >
-        I
-      </button>
-      <span className="tool-sep" />
-      <input
-        className="tool-color"
-        type="color"
-        title="文字颜色"
-        defaultValue="#202124"
-        onChange={(e) => {
-          patch({ color: e.target.value })
-          view.focus()
-        }}
       />
-      <input
-        className="tool-color"
-        type="color"
-        title="背景颜色"
-        defaultValue="#ffffff"
-        onChange={(e) => {
-          patch({ bg: e.target.value })
-          view.focus()
-        }}
+      <IconButton icon={Bold} tip="加粗" active={!!active.bold} onClick={() => patchFocus(active.bold ? { bold: undefined } : { bold: true })} />
+      <IconButton icon={Italic} tip="斜体" active={!!active.italic} onClick={() => patchFocus(active.italic ? { italic: undefined } : { italic: true })} />
+      <IconButton icon={Underline} tip="下划线" active={!!active.underline} onClick={() => patchFocus(active.underline ? { underline: undefined } : { underline: true })} />
+      <IconButton icon={Strikethrough} tip="删除线" active={!!active.strikethrough} onClick={() => patchFocus(active.strikethrough ? { strikethrough: undefined } : { strikethrough: true })} />
+      <Select
+        tip="字号"
+        value={String(active.fontSize ?? 13)}
+        options={FONT_SIZES.map((s) => ({ value: String(s), label: String(s) }))}
+        onChange={(v) => patchFocus({ fontSize: Number(v) })}
       />
-      <span className="tool-sep" />
-      {(['left', 'center', 'right'] as const).map((a) => (
-        <button
-          key={a}
-          className={'tool-btn' + ((active.align ?? 'left') === a ? ' active' : '')}
-          title={{ left: '左对齐', center: '居中', right: '右对齐' }[a]}
-          onClick={() => {
-            patch({ align: a })
-            view.focus()
-          }}
-        >
-          {{ left: '左', center: '中', right: '右' }[a]}
-        </button>
-      ))}
-      <button
-        className={'tool-btn' + (active.wrap ? ' active' : '')}
-        title="自动换行"
-        onClick={() => {
-          patch({ wrap: active.wrap ? undefined : true })
-          view.focus()
-        }}
-      >
-        换行
-      </button>
-      {(['top', 'middle', 'bottom'] as const).map((v) => (
-        <button
-          key={v}
-          className={'tool-btn' + ((active.vAlign ?? 'bottom') === v ? ' active' : '')}
-          title={{ top: '顶端对齐', middle: '垂直居中', bottom: '底端对齐' }[v]}
-          onClick={() => {
-            patch({ vAlign: v })
-            view.focus()
-          }}
-        >
-          {{ top: '上', middle: '中', bottom: '下' }[v]}
-        </button>
-      ))}
-      <span className="tool-sep" />
-      <select
-        className="tool-select"
-        title="字号"
-        value={active.fontSize ?? 13}
-        onChange={(e) => {
-          patch({ fontSize: Number(e.target.value) })
-          view.focus()
-        }}
-      >
-        {[10, 11, 12, 13, 14, 16, 18, 24].map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </select>
-      <select
-        className="tool-select"
-        title="字体"
+      <Select
+        tip="字体"
         value={active.fontFamily ?? ''}
-        onChange={(e) => {
-          patch({ fontFamily: e.target.value || undefined })
-          view.focus()
-        }}
-      >
-        <option value="">默认</option>
-        <option value="SimSun, serif">宋体</option>
-        <option value="SimHei, sans-serif">黑体</option>
-        <option value="monospace">等宽</option>
-      </select>
-      <button
-        className={'tool-btn' + (active.underline ? ' active' : '')}
-        title="下划线"
-        style={{ textDecoration: 'underline' }}
-        onClick={() => {
-          patch(active.underline ? { underline: undefined } : { underline: true })
-          view.focus()
-        }}
-      >
-        U
-      </button>
-      <button
-        className={'tool-btn' + (active.strikethrough ? ' active' : '')}
-        title="删除线"
-        style={{ textDecoration: 'line-through' }}
-        onClick={() => {
-          patch(active.strikethrough ? { strikethrough: undefined } : { strikethrough: true })
-          view.focus()
-        }}
-      >
-        S
-      </button>
-      <span className="tool-sep" />
-      <button
-        className="tool-btn"
-        title="千分位"
-        onClick={() => {
-          patch({ numFmt: '#,##0.00' })
-          view.focus()
-        }}
-      >
-        ,
-      </button>
-      <button
-        className={'tool-btn' + (active.numFmt === '0%' ? ' active' : '')}
-        title="百分比"
-        onClick={() => {
-          patch({ numFmt: '0%' })
-          view.focus()
-        }}
-      >
-        %
-      </button>
-      <button
-        className="tool-btn"
-        title="货币"
-        onClick={() => {
-          patch({ numFmt: '¥#,##0.00' })
-          view.focus()
-        }}
-      >
-        ¥
-      </button>
-      <button
-        className="tool-btn"
-        title="增加小数位"
-        onClick={() => {
-          patch({ numFmt: adjustDecimals(active.numFmt, 1) })
-          view.focus()
-        }}
-      >
-        .0+
-      </button>
-      <button
-        className="tool-btn"
-        title="减少小数位"
-        onClick={() => {
-          patch({ numFmt: adjustDecimals(active.numFmt, -1) })
-          view.focus()
-        }}
-      >
-        .0-
-      </button>
-      <span className="tool-sep" />
-      <button
-        className="tool-btn"
-        title="合并单元格"
-        onClick={() => {
-          const ranges = view.state.selection.ranges
-          if (ranges.every(r => r.sr === r.er && r.sc === r.ec)) return
-          let nonEmpty = 0
-          const sheet = view.state.activeSheet
-          for (const r of ranges) {
-            sheet.forEachInRange(r, (cell) => {
-              if (cell && cell.raw !== '') nonEmpty++
-            })
-          }
-          if (nonEmpty > 1 && !window.confirm('合并仅保留左上角的值，其余内容将被清除。继续？')) return
-          mergeSelection(view.state, (tr) => view.dispatch(tr))
-          view.focus()
-        }}
-      >
-        合
-      </button>
-      <button
-        className="tool-btn"
-        title="拆分单元格"
+        options={FONT_FAMILIES}
+        onChange={(v) => patchFocus({ fontFamily: v || undefined })}
+      />
+      <span className="relative inline-flex">
+        <IconButton icon={Baseline} tip="文字颜色" onClick={() => colorRef.current?.click()} />
+        <span className="pointer-events-none absolute inset-x-1.5 bottom-1 h-0.5 rounded-full" style={{ background: textColor }} />
+        <input
+          ref={colorRef}
+          type="color"
+          aria-label="文字颜色"
+          className="sr-only"
+          value={textColor}
+          onChange={(e) => patchFocus({ color: e.target.value })}
+        />
+      </span>
+      <span className="relative inline-flex">
+        <IconButton icon={PaintBucket} tip="背景颜色" onClick={() => bgRef.current?.click()} />
+        <span className="pointer-events-none absolute inset-x-1.5 bottom-1 h-0.5 rounded-full" style={{ background: bgColor }} />
+        <input
+          ref={bgRef}
+          type="color"
+          aria-label="背景颜色"
+          className="sr-only"
+          value={bgColor}
+          onChange={(e) => patchFocus({ bg: e.target.value })}
+        />
+      </span>
+      <Separator />
+      {([['left', AlignLeft, '左对齐'], ['center', AlignCenter, '居中'], ['right', AlignRight, '右对齐']] as const).map(([a, icon, tip]) => (
+        <IconButton key={a} icon={icon} tip={tip} active={(active.align ?? 'left') === a} onClick={() => patchFocus({ align: a })} />
+      ))}
+      <IconButton icon={WrapText} tip="自动换行" active={!!active.wrap} onClick={() => patchFocus({ wrap: active.wrap ? undefined : true })} />
+      <Separator />
+      {([['top', AlignStartVertical, '顶端对齐'], ['middle', AlignCenterVertical, '垂直居中'], ['bottom', AlignEndVertical, '底端对齐']] as const).map(([v, icon, tip]) => (
+        <IconButton key={v} icon={icon} tip={tip} active={(active.vAlign ?? 'bottom') === v} onClick={() => patchFocus({ vAlign: v })} />
+      ))}
+      <Separator />
+      <Dropdown
+        trigger={(open, toggle) => <IconButton icon={Hash} tip="数字格式" active={open} onClick={toggle} />}
+        entries={buildNumberFormatItems(active.numFmt, numFmtHandlers)}
+      />
+      <Separator />
+      <IconButton icon={Merge} tip="合并单元格" onClick={() => void doMerge()} />
+      <IconButton
+        icon={Split}
+        tip="拆分单元格"
         onClick={() => {
           unmergeSelection(view.state, (tr) => view.dispatch(tr))
           view.focus()
         }}
-      >
-        拆
-      </button>
-      <span className="tool-sep" />
-      <span className="tool-border-wrap">
-        <button className="tool-btn" title="边框" onClick={() => setShowBorder(!showBorder)}>
-          框
-        </button>
-        {showBorder && (
-          <div className="tool-border-panel">
-            <div className="tool-border-presets">
-              {([
-                ['none', '无框'], ['all', '全框'], ['outer', '外框'], ['inner', '内框'],
-                ['top', '上'], ['bottom', '下'], ['left', '左'], ['right', '右'],
-              ] as [BorderPreset, string][]).map(([p, label]) => (
-                <button key={p} className="tool-btn" onClick={() => applyBorder(p)}>{label}</button>
-              ))}
-            </div>
-            <select
-              className="tool-select"
-              title="线型"
-              value={borderLine}
-              onChange={(e) => setBorderLine(e.target.value as BorderLineStyle)}
-            >
-              <option value="thin">细线</option>
-              <option value="medium">中线</option>
-              <option value="thick">粗线</option>
-              <option value="dashed">虚线</option>
-              <option value="dotted">点线</option>
-              <option value="double">双线</option>
-              <option value="hair">极细</option>
-              <option value="mediumDashed">中虚线</option>
-            </select>
+      />
+      <Dropdown key={borderKey} trigger={(open, toggle) => <IconButton icon={Grid2x2} tip="边框" active={open} onClick={toggle} />}>
+        <div className="flex w-56 flex-col gap-2 rounded-md border border-line-strong bg-surface p-2 shadow-2">
+          <div className="grid grid-cols-4 gap-1">
+            {BORDER_PRESETS.map(({ p, label, outer, inner }) => (
+              <button
+                key={p}
+                type="button"
+                aria-label={label}
+                title={label}
+                className="flex h-8 w-full items-center justify-center rounded-sm hover:bg-hover"
+                onClick={() => applyBorder(p)}
+              >
+                <span className={`h-7 w-7 rounded-sm ${outer}`}>
+                  {inner && (
+                    <span className="grid h-full w-full grid-cols-2 grid-rows-2">
+                      <span className="border-r border-b border-ink-2" />
+                      <span className="border-b border-ink-2" />
+                      <span className="border-r border-ink-2" />
+                      <span />
+                    </span>
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <Select tip="线型" value={borderLine} options={BORDER_LINE_OPTIONS} onChange={(v) => setBorderLine(v as BorderLineStyle)} />
             <input
-              className="tool-color"
               type="color"
-              title="边框颜色"
+              aria-label="边框颜色"
+              className="h-7 w-9 cursor-pointer rounded-md border border-line bg-surface p-0.5"
               value={borderColor}
               onChange={(e) => setBorderColor(e.target.value)}
             />
           </div>
-        )}
-      </span>
-      <button
-        className="tool-btn"
-        title="上方插入行（选中整行时按行数）"
-        disabled={!isFullRowSel(state)}
-        onClick={() => {
-          const r = selectionRange(view.state.selection)
-          view.dispatch(view.state.tr.structure('row', r.sr, r.er - r.sr + 1, 'insert'))
-          view.focus()
-        }}
-      >
-        +行
-      </button>
-      <button
-        className="tool-btn"
-        title="删除选中行"
-        disabled={!isFullRowSel(state)}
-        onClick={() => {
-          const r = selectionRange(view.state.selection)
-          view.dispatch(view.state.tr.structure('row', r.sr, r.er - r.sr + 1, 'delete'))
-          view.focus()
-        }}
-      >
-        -行
-      </button>
-      <button
-        className="tool-btn"
-        title="左侧插入列"
-        disabled={!isFullColSel(state)}
-        onClick={() => {
-          const r = selectionRange(view.state.selection)
-          view.dispatch(view.state.tr.structure('col', r.sc, r.ec - r.sc + 1, 'insert'))
-          view.focus()
-        }}
-      >
-        +列
-      </button>
-      <button
-        className="tool-btn"
-        title="删除选中列"
-        disabled={!isFullColSel(state)}
-        onClick={() => {
-          const r = selectionRange(view.state.selection)
-          view.dispatch(view.state.tr.structure('col', r.sc, r.ec - r.sc + 1, 'delete'))
-          view.focus()
-        }}
-      >
-        -列
-      </button>
-      <span className="tool-sep" />
-      <button
-        className={'tool-btn' + (state.activeSheet.frozenRows === 1 && state.activeSheet.frozenCols === 0 ? ' active' : '')}
-        title="冻结首行"
-        onClick={() => {
-          view.dispatch(view.state.tr.setFrozen(state.activeSheet.frozenRows === 1 && state.activeSheet.frozenCols === 0 ? 0 : 1, state.activeSheet.frozenCols))
-          view.focus()
-        }}
-      >
-        冻行
-      </button>
-      <button
-        className={'tool-btn' + (state.activeSheet.frozenCols === 1 && state.activeSheet.frozenRows === 0 ? ' active' : '')}
-        title="冻结首列"
-        onClick={() => {
-          view.dispatch(view.state.tr.setFrozen(state.activeSheet.frozenRows, state.activeSheet.frozenCols === 1 && state.activeSheet.frozenRows === 0 ? 0 : 1))
-          view.focus()
-        }}
-      >
-        冻列
-      </button>
-      <button
-        className="tool-btn"
-        title="冻结到当前选区（其上方与左侧）"
-        onClick={() => {
-          const { row, col } = view.state.selection.activeCell
-          view.dispatch(view.state.tr.setFrozen(row, col))
-          view.focus()
-        }}
-      >
-        冻至
-      </button>
-      <button
-        className="tool-btn"
-        title="取消冻结"
-        disabled={state.activeSheet.frozenRows === 0 && state.activeSheet.frozenCols === 0}
-        onClick={() => {
-          view.dispatch(view.state.tr.setFrozen(0, 0))
-          view.focus()
-        }}
-      >
-        解冻
-      </button>
-      <span className="tool-sep" />
-      <button
-        className="tool-btn"
-        title="隐藏选中行"
-        disabled={!isFullRowSel(state)}
-        onClick={() => {
-          const r = selectionRange(view.state.selection)
-          const indices: number[] = []
-          for (let row = r.sr; row <= r.er; row++) indices.push(row)
-          view.dispatch(view.state.tr.setHidden('row', indices, true))
-          view.focus()
-        }}
-      >
-        隐行
-      </button>
-      <button
-        className="tool-btn"
-        title="隐藏选中列"
-        disabled={!isFullColSel(state)}
-        onClick={() => {
-          const r = selectionRange(view.state.selection)
-          const indices: number[] = []
-          for (let col = r.sc; col <= r.ec; col++) indices.push(col)
-          view.dispatch(view.state.tr.setHidden('col', indices, true))
-          view.focus()
-        }}
-      >
-        隐列
-      </button>
-      <button
-        className="tool-btn"
-        title="取消隐藏（选区范围内的隐藏行列）"
-        disabled={!hasHiddenInSel(state)}
-        onClick={() => {
-          const r = selectionRange(view.state.selection)
-          const sheet = view.state.activeSheet
-          const rows = sheet.hiddenRows.filter((i) => i >= r.sr && i <= r.er)
-          const cols = sheet.hiddenCols.filter((i) => i >= r.sc && i <= r.ec)
-          const tr = view.state.tr
-          if (rows.length) tr.setHidden('row', rows, false)
-          if (cols.length) tr.setHidden('col', cols, false)
-          view.dispatch(tr)
-          view.focus()
-        }}
-      >
-        取消隐
-      </button>
-      <span className="tool-sep" />
-      <button className="tool-btn" title="按选区首列升序" disabled={!canSort(state)} onClick={() => quickSort(true)}>
-        A↓
-      </button>
-      <button className="tool-btn" title="按选区首列降序" disabled={!canSort(state)} onClick={() => quickSort(false)}>
-        Z↓
-      </button>
-      <button className="tool-btn" title="自定义排序" disabled={!canSort(state)} onClick={() => setShowSort(true)}>
-        排序
-      </button>
+        </div>
+      </Dropdown>
+      <Separator />
+      <Dropdown
+        trigger={(open, toggle) => <IconButton icon={Sheet} tip="行列操作" active={open} onClick={toggle} />}
+        entries={buildRowColItems({ fullRow: isFullRowSel(state), fullCol: isFullColSel(state), canUnhide: hasHiddenInSel(state) }, rowColHandlers)}
+      />
+      <Dropdown
+        trigger={(open, toggle) => <IconButton icon={Snowflake} tip="冻结" active={open} onClick={toggle} />}
+        entries={buildFreezeItems({ rows: state.activeSheet.frozenRows, cols: state.activeSheet.frozenCols }, freezeHandlers)}
+      />
+      <Separator />
+      <Dropdown
+        trigger={(open, toggle) => <IconButton icon={ArrowUpDown} tip="排序" active={open} onClick={toggle} />}
+        entries={buildSortItems(canSort(state), sortHandlers)}
+      />
       {showSort && state.selection.ranges.length === 1 && <SortDialog view={view} range={selectionRange(view.state.selection)} onClose={() => setShowSort(false)} />}
-      <button
-        className={'tool-btn' + (state.activeSheet.filter ? ' active' : '')}
-        title="自动筛选（对选区启用/清除全表筛选）"
+      <IconButton
+        icon={Filter}
+        tip="自动筛选（对选区启用/清除全表筛选）"
+        active={!!state.activeSheet.filter}
         disabled={!canFilter(state)}
         onClick={() => {
           const fm = filterRejection(view.state)
-          if (fm) { window.alert(fm); return }
+          if (fm) { showNotice(fm); return }
           const sheet = view.state.activeSheet
           if (sheet.filter) {
             view.dispatch(view.state.tr.setFilter(undefined))
@@ -528,53 +431,27 @@ export function Toolbar({ view }: Props) {
             const r = selectionRange(view.state.selection)
             const range = r.sr === r.er && r.sc === r.ec ? sheet.usedRange() : r
             if (range.er <= range.sr) {
-              window.alert('筛选区域至少需要两行（表头 + 数据）')
+              showNotice('筛选区域至少需要两行（表头 + 数据）')
               return
             }
             view.dispatch(view.state.tr.setFilter({ range, criteria: {} }))
           }
           view.focus()
         }}
-      >
-        筛
-      </button>
-      <button
-        className="tool-btn"
-        title="查找/替换（Ctrl+F）"
+      />
+      <IconButton
+        icon={Search}
+        tip="查找/替换"
+        kbd="Ctrl+F"
         onClick={() => {
           view.dispatch(view.state.tr.setMeta(findBarKey, true).setMeta('addToHistory', false))
         }}
-      >
-        查
-      </button>
-      <button className="tool-btn" title="条件格式" disabled={!canCondFormat(state)} onClick={() => setShowCF(true)}>
-        条件
-      </button>
+      />
+      <Separator />
+      <IconButton icon={SwatchBook} tip="条件格式" disabled={!canCondFormat(state)} onClick={() => setShowCF(true)} />
       {showCF && <CondFormatDialog view={view} onClose={() => setShowCF(false)} />}
-      <button className="tool-btn" title="数据验证" disabled={!canValidation(state)} onClick={() => setShowValidation(true)}>
-        验证
-      </button>
+      <IconButton icon={ShieldCheck} tip="数据验证" disabled={!canValidation(state)} onClick={() => setShowValidation(true)} />
       {showValidation && <ValidationDialog view={view} onClose={() => setShowValidation(false)} />}
-      <button
-        className="tool-btn"
-        title="重置选中行/列尺寸为默认"
-        onClick={() => {
-          const r = selectionRange(view.state.selection)
-          const sheet = view.state.activeSheet
-          const tr = view.state.tr
-          if (r.sc === 0 && r.ec === sheet.colCount - 1) {
-            for (let row = r.sr; row <= r.er; row++) tr.resize('row', row, null)
-          } else if (r.sr === 0 && r.er === sheet.rowCount - 1) {
-            for (let col = r.sc; col <= r.ec; col++) tr.resize('col', col, null)
-          } else {
-            return
-          }
-          view.dispatch(tr)
-          view.focus()
-        }}
-      >
-        重置
-      </button>
     </div>
   )
 }
