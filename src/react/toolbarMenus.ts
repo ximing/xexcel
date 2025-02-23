@@ -5,7 +5,7 @@ import type { MenuEntry } from './ui/Menu'
 export type MenuHandlers = Record<string, () => void>
 
 export function buildRowColItems(
-  sel: { fullRow: boolean; fullCol: boolean; canUnhide: boolean },
+  sel: { fullRow: boolean; fullCol: boolean; canUnhide: boolean; canReset: boolean },
   h: MenuHandlers,
 ): MenuEntry[] {
   return [
@@ -19,7 +19,7 @@ export function buildRowColItems(
     { id: 'hideCol', label: '隐藏选中列', disabled: !sel.fullCol, onSelect: h.hideCol },
     { id: 'unhide', label: '取消隐藏', disabled: !sel.canUnhide, onSelect: h.unhide },
     { sep: true },
-    { id: 'resetSize', label: '重置行高列宽', disabled: !sel.fullRow && !sel.fullCol, onSelect: h.resetSize },
+    { id: 'resetSize', label: '重置行高列宽', disabled: !sel.canReset, onSelect: h.resetSize },
   ]
 }
 

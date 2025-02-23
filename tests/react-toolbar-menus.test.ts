@@ -26,7 +26,7 @@ function active(entries: MenuEntry[], id: string): boolean {
 
 describe('buildRowColItems', () => {
   it('整行选区：行项可用、列项禁用', () => {
-    const m = buildRowColItems({ fullRow: true, fullCol: false, canUnhide: false }, H)
+    const m = buildRowColItems({ fullRow: true, fullCol: false, canUnhide: false, canReset: true }, H)
     expect(disabled(m, 'insertRow')).toBe(false)
     expect(disabled(m, 'deleteRow')).toBe(false)
     expect(disabled(m, 'insertCol')).toBe(true)
@@ -37,13 +37,19 @@ describe('buildRowColItems', () => {
     expect(disabled(m, 'resetSize')).toBe(false)
   })
   it('非整行整列：行列结构项全禁用，重置禁用，可取消隐藏', () => {
-    const m = buildRowColItems({ fullRow: false, fullCol: false, canUnhide: true }, H)
+    const m = buildRowColItems({ fullRow: false, fullCol: false, canUnhide: true, canReset: false }, H)
     expect(disabled(m, 'insertRow')).toBe(true)
     expect(disabled(m, 'insertCol')).toBe(true)
     expect(disabled(m, 'hideRow')).toBe(true)
     expect(disabled(m, 'hideCol')).toBe(true)
     expect(disabled(m, 'resetSize')).toBe(true)
     expect(disabled(m, 'unhide')).toBe(false)
+  })
+  it('全表选区（fullRow/fullCol 均为 false 但 canReset=true）：重置可用', () => {
+    const m = buildRowColItems({ fullRow: false, fullCol: false, canUnhide: false, canReset: true }, H)
+    expect(disabled(m, 'insertRow')).toBe(true)
+    expect(disabled(m, 'insertCol')).toBe(true)
+    expect(disabled(m, 'resetSize')).toBe(false)
   })
 })
 

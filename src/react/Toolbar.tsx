@@ -300,6 +300,7 @@ export function Toolbar({ view }: Props) {
           view.focus()
         }}
       />
+      <Separator />
       <IconButton icon={Bold} tip="加粗" active={!!active.bold} onClick={() => patchFocus(active.bold ? { bold: undefined } : { bold: true })} />
       <IconButton icon={Italic} tip="斜体" active={!!active.italic} onClick={() => patchFocus(active.italic ? { italic: undefined } : { italic: true })} />
       <IconButton icon={Underline} tip="下划线" active={!!active.underline} onClick={() => patchFocus(active.underline ? { underline: undefined } : { underline: true })} />
@@ -404,7 +405,7 @@ export function Toolbar({ view }: Props) {
       <Separator />
       <Dropdown
         trigger={(open, toggle) => <IconButton icon={Sheet} tip="行列操作" active={open} onClick={toggle} />}
-        entries={buildRowColItems({ fullRow: isFullRowSel(state), fullCol: isFullColSel(state), canUnhide: hasHiddenInSel(state) }, rowColHandlers)}
+        entries={buildRowColItems({ fullRow: isFullRowSel(state), fullCol: isFullColSel(state), canUnhide: hasHiddenInSel(state), canReset: canResetSize(state) }, rowColHandlers)}
       />
       <Dropdown
         trigger={(open, toggle) => <IconButton icon={Snowflake} tip="冻结" active={open} onClick={toggle} />}
@@ -464,6 +465,13 @@ function isFullRowSel(state: SheetState): boolean {
 function isFullColSel(state: SheetState): boolean {
   const r = selectionRange(state.selection)
   return r.sr === 0 && r.er === state.activeSheet.rowCount - 1 && !(r.sr === 0 && r.er === state.activeSheet.rowCount - 1 && r.sc === 0 && r.ec === state.activeSheet.colCount - 1)
+}
+
+// 重置准入：选区覆盖全部行或全部列（含全表选区）——与 resetSize 处理函数两分支准入一致
+function canResetSize(state: SheetState): boolean {
+  const r = selectionRange(state.selection)
+  const sheet = state.activeSheet
+  return (r.sc === 0 && r.ec === sheet.colCount - 1) || (r.sr === 0 && r.er === sheet.rowCount - 1)
 }
 
 function hasHiddenInSel(state: SheetState): boolean {
