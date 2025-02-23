@@ -1,6 +1,6 @@
 // F3 边框拖动移动：selborder mousedown 进入拖拽态；mousemove 画目标虚线框（dragPreviewKey）；
 // mouseup → cut 移动（SetCellsStep 写目标 raw+style + clearRange 清源，一个 Transaction 一次 undo）；
-// 源与目标相交 / 目标落 merge → 拒绝 + alert（沿用现有 window.alert 拒绝模式，见 react/sheetOps.ts 等）；
+// 源与目标相交 / 目标落 merge → 拒绝 + pluginNotice 提示（plugins 层不经 window.alert）；
 // 多区域仅移动活动区域（selectionRange(sel) = ranges[last]）。
 import { CellRange, clampRange, normalizeRange, rangesIntersect } from '../core/addr'
 import { Cell, SheetData } from '../core/model'
@@ -8,6 +8,7 @@ import { EditorViewLike, HitResult, Plugin } from '../core/plugin'
 import { rangeSelection, selectionRange } from '../core/selection'
 import type { EditorView } from '../view/editorview'
 import { dragPreviewKey } from '../view/types'
+import { pluginNotice } from './notify'
 
 // 纯函数：构造移动 entries（供单测）。源 raw+style 整体搬到目标偏移；公式不 shift（cut 语义）。
 export function buildMove(
@@ -81,7 +82,7 @@ export function dragmove(): Plugin {
         const sheet = v.state.activeSheet
         const { entries, clearSource, reject } = buildMove(sheet, S, preview)
         if (reject) {
-          window.alert('目标区域与源相交、落在合并区或超出表格边界，无法移动')
+          pluginNotice('目标区域与源相交、落在合并区或超出表格边界，无法移动')
           setPreview(v, null)
           return true
         }
