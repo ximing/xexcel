@@ -7,12 +7,14 @@ interface Props {
   invalid?: boolean
   width?: number
   autoFocus?: boolean
+  title?: string
   onEnter?: () => void
+  onBlur?: () => void
   // 需要 Shift+Enter / Escape 等组合键时的完整事件透传（先于 onEnter 触发）
   onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
 }
 
-export function TextInput({ value, onChange, placeholder, invalid, width, autoFocus, onEnter, onKeyDown }: Props) {
+export function TextInput({ value, onChange, placeholder, invalid, width, autoFocus, title, onEnter, onBlur, onKeyDown }: Props) {
   return (
     <input
       className={[
@@ -23,7 +25,9 @@ export function TextInput({ value, onChange, placeholder, invalid, width, autoFo
       value={value}
       placeholder={placeholder}
       autoFocus={autoFocus}
+      title={title}
       onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
       onKeyDown={(e) => {
         onKeyDown?.(e)
         if (!e.defaultPrevented && onEnter && e.key === 'Enter') onEnter()

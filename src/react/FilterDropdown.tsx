@@ -6,6 +6,9 @@ import { evaluatorFor } from '../formula/engine'
 import type { EditorView } from '../view/editorview'
 import { filterDropdownKey, FilterDropdownOpen } from '../view/types'
 import { useSheetState } from './bridge'
+import { Button } from './ui/Button'
+import { Select } from './ui/Select'
+import { TextInput } from './ui/TextInput'
 
 const TEXT_OPS: { op: FilterOp; label: string }[] = [
   { op: 'contains', label: '包含' },
@@ -113,69 +116,86 @@ export function FilterDropdown({ view }: { view: EditorView }) {
   const ops = draft.field === 'text' ? TEXT_OPS : NUM_OPS
 
   return (
-    <div className="dialog-backdrop" style={{ background: 'transparent' }} onClick={close}>
+    <div className="fixed inset-0 z-100" onClick={close}>
       <div
-        className="filter-panel"
+        className="fixed flex w-[260px] flex-col gap-1.5 rounded-lg border border-line-strong bg-surface p-2.5 shadow-3"
         style={{ left: Math.min(open.x, window.innerWidth - 280), top: Math.min(open.y, window.innerHeight - PANEL_MAX_H) }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="filter-tabs">
-          <button className={draft.mode === 'values' ? 'active' : ''} onClick={() => setDraft({ ...draft, mode: 'values' })}>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="sm" active={draft.mode === 'values'} onClick={() => setDraft({ ...draft, mode: 'values' })}>
             值列表
-          </button>
-          <button className={draft.mode === 'condition' ? 'active' : ''} onClick={() => setDraft({ ...draft, mode: 'condition' })}>
+          </Button>
+          <Button variant="ghost" size="sm" active={draft.mode === 'condition'} onClick={() => setDraft({ ...draft, mode: 'condition' })}>
             条件
-          </button>
+          </Button>
         </div>
         {draft.mode === 'values' ? (
           <>
-            <input
-              className="filter-search"
-              placeholder="搜索值"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <div className="filter-row">
-              <button onClick={() => setDraft({ ...draft, excluded: new Set() })}>全选</button>
-              <button onClick={() => setDraft({ ...draft, excluded: new Set(values) })}>清空</button>
+            <TextInput width={238} placeholder="搜索值" value={search} onChange={setSearch} />
+            <div className="flex items-center gap-1.5">
+              <Button variant="ghost" size="sm" onClick={() => setDraft({ ...draft, excluded: new Set() })}>
+                全选
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setDraft({ ...draft, excluded: new Set(values) })}>
+                清空
+              </Button>
             </div>
-            <div className="filter-values">
+            <div className="flex max-h-[180px] flex-col gap-0.5 overflow-y-auto">
               {shown.map((v) => (
-                <label key={v} className="filter-row">
+                <label key={v} className="flex h-6 items-center gap-1.5 text-sm">
                   <input type="checkbox" checked={!draft.excluded.has(v)} onChange={() => toggle(v)} />
                   <span>{v === '' ? '（空白）' : v}</span>
                 </label>
               ))}
-              {shown.length === 0 && <div className="filter-row">无匹配值</div>}
+              {shown.length === 0 && <div className="flex items-center text-sm text-ink-2">无匹配值</div>}
             </div>
           </>
         ) : (
           <>
-            <div className="filter-row">
-              <select value={draft.field} onChange={(e) => setDraft({ ...draft, field: e.target.value as 'text' | 'num', op: e.target.value === 'text' ? 'contains' : 'eq' })}>
-                <option value="text">文本</option>
-                <option value="num">数值</option>
-              </select>
-              <select value={draft.op} onChange={(e) => setDraft({ ...draft, op: e.target.value as FilterOp })}>
-                {ops.map((o) => (
-                  <option key={o.op} value={o.op}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+            <div className="flex items-center gap-1.5">
+              <Select
+                value={draft.field}
+                options={[
+                  { value: 'text', label: '文本' },
+                  { value: 'num', label: '数值' },
+                ]}
+                onChange={(v) => setDraft({ ...draft, field: v as 'text' | 'num', op: v === 'text' ? 'contains' : 'eq' })}
+              />
+              <Select
+                value={draft.op}
+                options={ops.map((o) => ({ value: o.op, label: o.label }))}
+                onChange={(v) => setDraft({ ...draft, op: v as FilterOp })}
+              />
             </div>
-            <div className="filter-row">
-              <input className="filter-search" placeholder="值" value={draft.v1} onChange={(e) => setDraft({ ...draft, v1: e.target.value })} />
+            <div className="flex items-center gap-1.5">
+              <TextInput
+                width={draft.op === 'between' ? 116 : 238}
+                placeholder="值"
+                value={draft.v1}
+                onChange={(v) => setDraft({ ...draft, v1: v })}
+              />
               {draft.op === 'between' && (
-                <input className="filter-search" placeholder="至" value={draft.v2} onChange={(e) => setDraft({ ...draft, v2: e.target.value })} />
+                <TextInput
+                  width={116}
+                  placeholder="至"
+                  value={draft.v2}
+                  onChange={(v) => setDraft({ ...draft, v2: v })}
+                />
               )}
             </div>
           </>
         )}
-        <div className="dialog-actions">
-          <button onClick={applyDraft}>确定</button>
-          <button onClick={() => applyFilter(undefined)}>清除该列</button>
-          <button onClick={close}>关闭</button>
+        <div className="mt-1 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => applyFilter(undefined)}>
+            清除该列
+          </Button>
+          <Button variant="outline" onClick={close}>
+            关闭
+          </Button>
+          <Button variant="primary" onClick={applyDraft}>
+            确定
+          </Button>
         </div>
       </div>
     </div>

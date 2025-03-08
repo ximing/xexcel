@@ -1,10 +1,14 @@
 // 自定义排序对话框：最多 3 个关键字（列 + 升/降），含表头勾选。
 // 纯受控 UI 态；确定时计算排序条目并 dispatch 一个事务。
 import { useState } from 'react'
+import { showNotice } from '../app/notice'
 import { CellRange, colName } from '../core/addr'
 import { evaluatorFor } from '../formula/engine'
 import { computeSortEntries, sortBlockedByMerges } from '../formula/sort'
 import type { EditorView } from '../view/editorview'
+import { Button } from './ui/Button'
+import { Dialog } from './ui/Dialog'
+import { Select } from './ui/Select'
 
 interface Props {
   view: EditorView
@@ -33,7 +37,7 @@ export function SortDialog({ view, range, onClose }: Props) {
     const active = keys.filter((k): k is { col: number; asc: boolean } => k.col !== null)
     const sheet = view.state.activeSheet
     if (sortBlockedByMerges(sheet, range)) {
-      window.alert('排序区域包含合并单元格，无法排序')
+      showNotice('排序区域包含合并单元格，无法排序')
       return
     }
     const entries = computeSortEntries(sheet, view.state.doc.active, evaluatorFor(view.state.doc), range, active, hasHeader)
@@ -43,57 +47,55 @@ export function SortDialog({ view, range, onClose }: Props) {
   }
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <div
-        className="dialog"
-        tabIndex={-1}
-        autoFocus
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
-        }}
-      >
-        <div className="dialog-title">自定义排序</div>
+    <Dialog
+      title="自定义排序"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            取消
+          </Button>
+          <Button variant="primary" onClick={apply}>
+            确定
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-2">
         {keys.map((k, i) => (
-          <div className="dialog-row" key={i}>
-            <span>{i === 0 ? '主要关键字' : `次要关键字 ${i}`}</span>
-            <select
+          <div className="flex items-center gap-2" key={i}>
+            <span className="text-sm">{i === 0 ? '主要关键字' : `次要关键字 ${i}`}</span>
+            <Select
               value={k.col === null ? '' : k.col}
-              onChange={(e) => {
+              options={[
+                ...(i > 0 ? [{ value: '', label: '（无）' }] : []),
+                ...cols.map((c) => ({ value: c, label: `${colName(c)} 列` })),
+              ]}
+              onChange={(v) => {
                 const next = [...keys]
-                next[i] = { ...k, col: e.target.value === '' ? null : Number(e.target.value) }
+                next[i] = { ...k, col: v === '' ? null : Number(v) }
                 setKeys(next)
               }}
-            >
-              {i > 0 && <option value="">（无）</option>}
-              {cols.map((c) => (
-                <option key={c} value={c}>
-                  {colName(c)} 列
-                </option>
-              ))}
-            </select>
-            <select
+            />
+            <Select
               value={k.asc ? 'asc' : 'desc'}
-              onChange={(e) => {
+              options={[
+                { value: 'asc', label: '升序' },
+                { value: 'desc', label: '降序' },
+              ]}
+              onChange={(v) => {
                 const next = [...keys]
-                next[i] = { ...k, asc: e.target.value === 'asc' }
+                next[i] = { ...k, asc: v === 'asc' }
                 setKeys(next)
               }}
-            >
-              <option value="asc">升序</option>
-              <option value="desc">降序</option>
-            </select>
+            />
           </div>
         ))}
-        <label className="dialog-row">
+        <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} />
           数据包含表头
         </label>
-        <div className="dialog-actions">
-          <button onClick={apply}>确定</button>
-          <button onClick={onClose}>取消</button>
-        </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
