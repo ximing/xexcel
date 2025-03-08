@@ -32,14 +32,13 @@ export default async function run({ assertEq }) {
     assertEq(await ev(`return __xcell.state.activeSheet.getCell(0, 0)?.raw ?? null`), '产品', 'S1 刷新后 A1 demo 数据也在存档')
   }
 
-  // ---- 场景 2：清除存档（helper stub 已置 confirm = () => true）----
+  // ---- 场景 2：清除存档（M5：React ConfirmDialog，菜单项点击后确认钮文案同为「清除」）----
   async function s2() {
     const r = await ev(`
-      ;[...document.querySelectorAll('.tool-btn')].find((b) => b.textContent === '文件').click()
-      await new Promise((r) => setTimeout(r, 300))
-      ;[...document.querySelectorAll('.file-menu-item')].find((b) => b.textContent.includes('清除')).click()
+      await window.__clickFileMenu('清除')
+      window.__clickDialogBtn('清除')
       await new Promise((r) => setTimeout(r, 500))
-      return [localStorage.getItem('xexcel.workbook'), document.querySelector('.status-notice')?.textContent ?? null]`)
+      return [localStorage.getItem('xexcel.workbook'), window.__notice()]`)
     assertEq(r[0], null, 'S2 存档已删')
     assertIncludes(r[1], '已清除浏览器存档', 'S2 StatusBar 提示')
     await reload()
@@ -59,10 +58,7 @@ export default async function run({ assertEq }) {
       window.__dl = null
       const oc = URL.createObjectURL.bind(URL)
       URL.createObjectURL = (b) => { window.__dl = b; return oc(b) }
-      ;[...document.querySelectorAll('.tool-btn')].find((b) => b.textContent === '文件').click()
-      await new Promise((r) => setTimeout(r, 300))
-      ;[...document.querySelectorAll('.file-menu-item')].find((b) => b.textContent === '导出 CSV').click()
-      await new Promise((r) => setTimeout(r, 300))
+      await window.__clickFileMenu('导出 CSV')
       if (!window.__dl) throw new Error('未捕获导出 Blob')
       // blob.text() 会剥离 UTF-8 BOM，BOM 须用 arrayBuffer 验字节
       const txt = await window.__dl.text()
@@ -81,10 +77,7 @@ export default async function run({ assertEq }) {
     const b64 = Buffer.from('姓名,数量\r\n苹果,3\r\n=B2*2,"含,逗号"\r\n', 'utf8').toString('base64')
     await ev(`
       window.__lastInput = null
-      ;[...document.querySelectorAll('.tool-btn')].find((b) => b.textContent === '文件').click()
-      await new Promise((r) => setTimeout(r, 300))
-      ;[...document.querySelectorAll('.file-menu-item')].find((b) => b.textContent.includes('打开 CSV')).click()
-      await new Promise((r) => setTimeout(r, 300))
+      await window.__clickFileMenu('打开 CSV')
       if (!window.__lastInput) throw new Error('未捕获 pickFile input')
       return true`)
     await feedFile(b64, '进货.csv')
@@ -103,7 +96,7 @@ export default async function run({ assertEq }) {
       const { evaluatorFor } = await import('/src/formula/engine.ts')
       return evaluatorFor(__xcell.state.doc).get(__xcell.state.doc.active, 2, 0)`),
       6, 'S4 公式复活计算值（B2=3 → =B2*2）')
-    await ev(`document.querySelector('.tool-btn[title="撤销"]').click(); return 1`)
+    await ev(`document.querySelector('button[aria-label="撤销"]').click(); return 1`)
     assertEq(await ev(`return __xcell.state.doc.order.length`), before, 'S4 undo 一步新 sheet 消失')
   }
 
@@ -138,7 +131,7 @@ export default async function run({ assertEq }) {
     let errText = null
     for (let i = 0; i < 50; i++) {
       await sleep(400)
-      errText = await ev(`return document.querySelector('.status-error')?.textContent ?? null`)
+      errText = await ev(`return window.__statusError()`)
       if (errText) break
     }
     await ev(`Storage.prototype.setItem = window.__ose; return 1`)

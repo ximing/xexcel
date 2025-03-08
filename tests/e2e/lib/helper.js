@@ -53,4 +53,36 @@ document.createElement = (tag, ...rest) => {
   return el
 }
 window.confirm = () => true
+// ---- M5 ui 组件化后的结构锚点（Tailwind 类/role/aria-label 即选择器）----
+// 状态栏 notice/error（状态栏根 div.h-6.bg-surface-2 内按文字色类取）
+window.__notice = () => document.querySelector('div.h-6.bg-surface-2 span.text-primary')?.textContent ?? null
+window.__statusError = () => document.querySelector('div.h-6.bg-surface-2 span.text-danger-deep')?.textContent ?? null
+// 公式栏输入框（公式栏根 div.h-8 内唯一 input）
+window.__formulaInput = () => document.querySelector('div.h-8 input')
+// 文件菜单：点触发器（aria-label="文件"）→ 等 300ms → 按文本点 menuitem
+window.__clickFileMenu = async (includes) => {
+  document.querySelector('button[aria-label="文件"]').click()
+  await new Promise((r) => setTimeout(r, 300))
+  const it = [...document.querySelectorAll('button[role="menuitem"]')].find((b) => b.textContent.includes(includes))
+  if (!it) throw new Error('文件菜单项未找到: ' + includes)
+  it.click()
+  await new Promise((r) => setTimeout(r, 300))
+  return true
+}
+// 对话框按钮按文本点击（Dialog 根 role="dialog"）
+window.__clickDialogBtn = (text) => {
+  const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent.includes(text))
+  if (!b) throw new Error('对话框按钮未找到: ' + text)
+  b.click()
+}
+// 工具栏 Dropdown 菜单项 disabled 读取：开触发器 → 读 → Esc 关
+window.__menuItemDisabled = async (triggerLabel, itemText) => {
+  document.querySelector('button[aria-label="' + triggerLabel + '"]').click()
+  await new Promise((r) => setTimeout(r, 300))
+  const it = [...document.querySelectorAll('button[role="menuitem"]')].find((b) => b.textContent.includes(itemText))
+  const d = it ? it.disabled : null
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  await new Promise((r) => setTimeout(r, 200))
+  return d
+}
 'helper-ready'`

@@ -9,14 +9,9 @@ import { feedFile, freshPage, pollUntil, reload } from '../lib/env.mjs'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const ev = (code) => evaluateJS(code)
 
-// 点「文件」→ 菜单项（React 异步：点按钮后等 300ms 再点菜单项）
+// 点「文件」→ 菜单项（M5：触发器 aria-label="文件"，项为 role="menuitem"；helper 内建 300ms 等待）
 async function clickMenu(includes) {
-  await ev(`
-    ;[...document.querySelectorAll('.tool-btn')].find((b) => b.textContent === '文件').click()
-    await new Promise((r) => setTimeout(r, 300))
-    ;[...document.querySelectorAll('.file-menu-item')].find((b) => b.textContent.includes(${JSON.stringify(includes)})).click()
-    await new Promise((r) => setTimeout(r, 300))
-    return true`)
+  await ev(`return window.__clickFileMenu(${JSON.stringify(includes)})`)
 }
 
 export default async function run({ assertEq }) {
@@ -48,9 +43,7 @@ export default async function run({ assertEq }) {
       window.__dl = null
       const oc = URL.createObjectURL.bind(URL)
       URL.createObjectURL = (b) => { window.__dl = b; return oc(b) }
-      ;[...document.querySelectorAll('.tool-btn')].find((b) => b.textContent === '文件').click()
-      await new Promise((r) => setTimeout(r, 300))
-      ;[...document.querySelectorAll('.file-menu-item')].find((b) => b.textContent === '导出 xlsx').click()
+      await window.__clickFileMenu('导出 xlsx')
       await new Promise((r) => setTimeout(r, 1200))
       if (!window.__dl) throw new Error('未捕获导出 Blob')
       const bytes = new Uint8Array(await window.__dl.arrayBuffer())
@@ -112,12 +105,15 @@ export default async function run({ assertEq }) {
       return window.__namesBefore`), ['Sheet1'], 'S2 导入前 demo 单表')
     await bringToFront()
     await clickMenu('打开 xlsx')
+    // M5：打开 xlsx 前置 ConfirmDialog（confirmLabel「打开」），确认后才创建 pickFile input
+    await ev(`window.__clickDialogBtn('打开'); return 1`)
+    await sleep(300)
     assertEq(await ev(`return !!window.__lastInput`), true, 'S2 pickFile input 已捕获')
     await feedFile(b64, 'm4b-import.xlsx')
     await bringToFront()
     // 导入完成标志：sheet 数变 2 或出现 notice（失败亦走 notice）；实测节流 tab 内解析 ~5s
     await pollUntil(
-      `__xcell.state.doc.order.length === 2 || document.querySelector('.status-notice')`,
+      `__xcell.state.doc.order.length === 2 || window.__notice()`,
       'S2 导入完成')
     // notice 断言须在完成后 5s TTL 内（隐藏 tab 定时器节流只会更晚过期，不会更早）
     assertEq(await ev(`
@@ -137,7 +133,7 @@ export default async function run({ assertEq }) {
     assertEq(await ev(`
       const sh = __xcell.state.activeSheet
       return [sh.merges.some((m) => m.sr === 0 && m.sc === 3 && m.er === 1 && m.ec === 4), sh.frozenRows,
-        __xcell.state.selection.activeCell, document.querySelector('.status-notice')?.textContent ?? null]`),
+        __xcell.state.selection.activeCell, window.__notice()]`),
       [true, 1, { row: 0, col: 0 }, '已打开 m4b-import.xlsx'], 'S2 合并 D1:E2 + 冻结首行 + 选区 A1 + notice')
   }
 
@@ -164,12 +160,14 @@ export default async function run({ assertEq }) {
     await bringToFront()
     await ev(`window.__lastInput = null; return 1`)
     await clickMenu('打开 xlsx')
+    await ev(`window.__clickDialogBtn('打开'); return 1`)
+    await sleep(300)
     assertEq(await ev(`return !!window.__lastInput`), true, 'S4 pickFile input 已捕获')
     await feedFile('Z2FyYmFnZQ==', 'm4b-bad.xlsx') // 'garbage' 7 字节
     await bringToFront()
-    await pollUntil(`document.querySelector('.status-notice')`, 'S4 失败 notice')
+    await pollUntil(`window.__notice()`, 'S4 失败 notice')
     assertEq(await ev(`
-      return [document.querySelector('.status-notice')?.textContent ?? null,
+      return [window.__notice(),
         __xcell.state.doc.names.get(__xcell.state.doc.active),
         __xcell.state.activeSheet.getCell(0, 0)?.raw ?? null,
         __xcell.state.activeSheet.getCell(3, 0)?.raw ?? null]`),
@@ -177,50 +175,43 @@ export default async function run({ assertEq }) {
     // 自动保存已恢复（导入失败后 resume 生效）
     await ev(`W.setCell(4, 0, '恢复标记'); return 1`)
     await pollUntil(`localStorage.getItem('xexcel.workbook')?.includes('恢复标记')`, 'S4 自动保存恢复落盘')
-    assertEq(await ev(`return document.querySelector('.status-error')?.textContent ?? null`),
+    assertEq(await ev(`return window.__statusError()`),
       null, 'S4 无自动保存失败提示')
   }
 
-  // ---- 场景 5：双 confirm 护栏 ----
+  // ---- 场景 5：双 ConfirmDialog 护栏（M5：window.confirm 已由 React askConfirm 替换）----
   async function s5() {
     // 先等上场景 notice 过期（5s TTL；隐藏 tab 定时器节流，固定 5s 等待不可靠，轮询至清空）
-    let notice = await ev(`return document.querySelector('.status-notice')?.textContent ?? null`)
+    let notice = await ev(`return window.__notice()`)
     for (let i = 0; i < 40 && notice !== null; i++) {
       await sleep(500)
-      notice = await ev(`return document.querySelector('.status-notice')?.textContent ?? null`)
+      notice = await ev(`return window.__notice()`)
     }
     assertEq(notice, null, 'S5 上场景 notice 已过期')
-    // 第一道 confirm 否决 → 不出现文件选择、内容不变
+    // 第一道护栏：ConfirmDialog 取消 → 不出现文件选择、内容不变
     assertEq(await ev(`
-      window.__confirmCalls = []
-      window.confirm = (msg) => { window.__confirmCalls.push(msg); return false }
       window.__lastInput = null
       window.__docBefore = __xcell.state.doc
-      ;[...document.querySelectorAll('.tool-btn')].find((b) => b.textContent === '文件').click()
+      await window.__clickFileMenu('打开 xlsx')
+      const dlg = document.querySelector('[role="dialog"]')
+      const hasDlg = !!dlg && dlg.textContent.includes('替换')
+      window.__clickDialogBtn('取消')
       await new Promise((r) => setTimeout(r, 300))
-      ;[...document.querySelectorAll('.file-menu-item')].find((b) => b.textContent.includes('打开 xlsx')).click()
-      await new Promise((r) => setTimeout(r, 300))
-      return [window.__confirmCalls.length, (window.__confirmCalls[0] ?? '').includes('替换'),
-        window.__lastInput, __xcell.state.doc === window.__docBefore]`),
-      [1, true, null, true], 'S5 confirm 否决：文案含「替换」+ input 未创建 + doc 同一引用')
-    // confirm 放行 + 取消文件选择 → 无动作无报错
+      return [hasDlg, window.__lastInput, __xcell.state.doc === window.__docBefore]`),
+      [true, null, true], 'S5 确认框取消：文案含「替换」+ input 未创建 + doc 同一引用')
+    // 第二道护栏：确认放行 + 取消文件选择 → 无动作无报错
     assertEq(await ev(`
-      window.confirm = (msg) => { window.__confirmCalls.push(msg); return true }
-      ;[...document.querySelectorAll('.tool-btn')].find((b) => b.textContent === '文件').click()
-      await new Promise((r) => setTimeout(r, 300))
-      ;[...document.querySelectorAll('.file-menu-item')].find((b) => b.textContent.includes('打开 xlsx')).click()
+      await window.__clickFileMenu('打开 xlsx')
+      window.__clickDialogBtn('打开')
       await new Promise((r) => setTimeout(r, 300))
       if (!window.__lastInput) throw new Error('未捕获 pickFile input')
       // 模拟用户在系统对话框点「取消」：pickFile 监听 cancel 事件（Chrome 113+）
       window.__lastInput.dispatchEvent(new Event('cancel'))
       await new Promise((r) => setTimeout(r, 500))
-      return [window.__confirmCalls.length, __xcell.state.doc === window.__docBefore,
-        document.querySelector('.status-notice')?.textContent ?? null,
-        document.querySelector('.status-error')?.textContent ?? null]`),
-      [2, true, null, null], 'S5 confirm 放行 + 取消选择：无动作无报错')
+      return [__xcell.state.doc === window.__docBefore, window.__notice(), window.__statusError()]`),
+      [true, null, null], 'S5 确认放行 + 取消选择：无动作无报错')
     assertEq(await ev(`
       document.createElement = window.__origCreateElement
-      window.confirm = window.__origConfirm
       return 'ok'`), 'ok', 'S5 收尾恢复 stub')
   }
 

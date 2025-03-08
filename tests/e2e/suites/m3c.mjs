@@ -24,7 +24,7 @@ async function installPageTools() {
     }
     // 公式栏按键（补全 ↑↓/Tab/Enter/Esc 走 React onKeyDown）
     window.__formulaKey = (k) => {
-      document.querySelector('input.formula-input')
+      window.__formulaInput()
         .dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }))
     }
     // 填充柄拖拽：mousedown 活动区域右下角 6px 方块（fillhandle 命中区），拖至目标格
@@ -100,7 +100,7 @@ export default async function run({ assertEq }) {
   async function f2_5() {
     await ev(`
       W.click(6, 0); W.click(6, 2, { ctrl: true }); W.click(6, 4, { ctrl: true })
-      document.querySelector('button[title="加粗"]').click()
+      document.querySelector('button[aria-label="加粗"]').click()
       return 1`)
     await sleep(150) // 等 React/事务 flush
     assertEq(await ev(`return [W.read(6,0)?.style?.bold ?? null, W.read(6,2)?.style?.bold ?? null, W.read(6,4)?.style?.bold ?? null]`),
@@ -127,18 +127,19 @@ export default async function run({ assertEq }) {
       W.dragSelect(6, 2, 8, 2, { ctrl: true })
       return 1`)
     await sleep(150) // 等 React 重渲染 disabled
+    // M5 下拉归并：升序项在「排序」Dropdown 内（需先开触发器）；筛选仍是独立 IconButton
+    assertEq(await ev(`return window.__menuItemDisabled('排序', '按选区首列升序')`),
+      true, 'F2.7 多区域时排序升序项禁用')
     assertEq(await ev(`
-      return [
-        document.querySelector('button[title="按选区首列升序"]').disabled,
-        document.querySelector('button[title="自动筛选（对选区启用/清除全表筛选）"]').disabled,
-      ]`), [true, true], 'F2.7 多区域时排序/筛选禁用')
+      return document.querySelector('button[aria-label="自动筛选（对选区启用/清除全表筛选）"]').disabled`),
+      true, 'F2.7 多区域时筛选禁用')
     await ev(`W.dragSelect(6, 0, 8, 0); return 1`)
     await sleep(150)
+    assertEq(await ev(`return window.__menuItemDisabled('排序', '按选区首列升序')`),
+      false, 'F2.7 单区域基线时排序可用')
     assertEq(await ev(`
-      return [
-        document.querySelector('button[title="按选区首列升序"]').disabled,
-        document.querySelector('button[title="自动筛选（对选区启用/清除全表筛选）"]').disabled,
-      ]`), [false, false], 'F2.7 单区域基线时可用')
+      return document.querySelector('button[aria-label="自动筛选（对选区启用/清除全表筛选）"]').disabled`),
+      false, 'F2.7 单区域基线时筛选可用')
   }
 
   // ---- F2.8 表头并集高亮 ----
@@ -181,27 +182,25 @@ export default async function run({ assertEq }) {
       ['5', '10'], 'F3.1 非活动区域 B11/C11 不动')
   }
 
-  // ---- F3.2 相交/merge 拒绝 alert ----
+  // ---- F3.2 相交/merge 拒绝 notice（M5：pluginNotice 走状态栏，替代 window.alert）----
   async function f3_2() {
     await ev(`
-      window.__lastAlert = null
       W.dragSelect(11, 1, 12, 2)
       W.dragMove(11, 1, 12, 2, 1, 0)
       return 1`)
-    assertEq(await ev(`return window.__lastAlert`),
-      '目标区域与源相交、落在合并区或超出表格边界，无法移动', 'F3.2 相交拒绝 alert')
+    assertEq(await ev(`return window.__notice()`),
+      '目标区域与源相交、落在合并区或超出表格边界，无法移动', 'F3.2 相交拒绝 notice')
     assertEq(await ev(`return W.read(11, 1)?.raw ?? null`), '5', 'F3.2 相交拒绝后 B11 不变')
     // merge 路径：追加合并区（0-based）E13:F13，D15 拖到目标 (12,4) 落合并区
     await ev(`
-      window.__lastAlert = null
       const V = window.__xcell
       V.dispatch(V.state.tr.setMerges([...V.state.activeSheet.merges, { sr: 12, sc: 4, er: 12, ec: 5 }]))
       W.setCell(14, 3, 'moveme')
       W.click(14, 3)
       W.dragMove(14, 3, 14, 3, -2, 1)
       return 1`)
-    assertEq(await ev(`return window.__lastAlert`),
-      '目标区域与源相交、落在合并区或超出表格边界，无法移动', 'F3.2 merge 拒绝 alert')
+    assertEq(await ev(`return window.__notice()`),
+      '目标区域与源相交、落在合并区或超出表格边界，无法移动', 'F3.2 merge 拒绝 notice')
     assertEq(await ev(`return W.read(14, 3)?.raw ?? null`), 'moveme', 'F3.2 merge 拒绝后源不变')
   }
 
@@ -211,13 +210,12 @@ export default async function run({ assertEq }) {
       const V = window.__xcell
       V.scrollY = 996 * 24
       V.render()
-      window.__lastAlert = null
       W.setCell(998, 0, 'rowOob1'); W.setCell(999, 0, 'rowOob2')
       W.dragSelect(998, 0, 999, 0)
       W.dragMove(998, 0, 999, 0, 1, 0)
       return 1`)
-    assertEq(await ev(`return window.__lastAlert`),
-      '目标区域与源相交、落在合并区或超出表格边界，无法移动', 'F3.3 越界拒绝 alert')
+    assertEq(await ev(`return window.__notice()`),
+      '目标区域与源相交、落在合并区或超出表格边界，无法移动', 'F3.3 越界拒绝 notice')
     assertEq(await ev(`return window.__xcell.state.activeSheet.rowCount`), 1000, 'F3.3 不扩表')
     assertEq(await ev(`return [W.read(998,0)?.raw ?? null, W.read(999,0)?.raw ?? null]`),
       ['rowOob1', 'rowOob2'], 'F3.3 不丢数据')
@@ -310,7 +308,7 @@ export default async function run({ assertEq }) {
   async function f5_1() {
     const r = await ev(`
       W.click(16, 1)
-      const inp = document.querySelector('input.formula-input')
+      const inp = window.__formulaInput()
       window.__setReactValue(inp, '=B16+C16')
       window.__xcell.render()
       const V = window.__xcell
@@ -335,11 +333,12 @@ export default async function run({ assertEq }) {
   // ---- F5.2 函数名补全下拉（↑↓/Tab/Enter/Esc）----
   async function f5_2() {
     const setInput = (v) => ev(`
-      window.__setReactValue(document.querySelector('input.formula-input'), ${JSON.stringify(v)})
+      window.__setReactValue(window.__formulaInput(), ${JSON.stringify(v)})
       return 1`)
+    // M5：补全下拉项为公式栏内 .cursor-pointer 行
     const readDD = () => ev(`
-      return [...document.querySelectorAll('.autocomplete div')].map((d) => d.textContent)`)
-    const readVal = () => ev(`return document.querySelector('input.formula-input').value`)
+      return [...document.querySelectorAll('div.h-8 .cursor-pointer')].map((d) => d.textContent)`)
+    const readVal = () => ev(`return window.__formulaInput().value`)
     // 前缀匹配出下拉
     await setInput('=SU')
     await sleep(150)

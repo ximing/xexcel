@@ -17,7 +17,7 @@ function assertIncludes(hay, needle, label) {
 async function installPageTools() {
   await ev(`
     window.__setRules = (rules) => window.__xcell.dispatch(window.__xcell.state.tr.setValidations(rules))
-    window.__notice = () => document.querySelector('.status-notice')?.textContent ?? null
+    // __notice/__statusError/__clickDialogBtn 等 M5 结构锚点已由 helper.js 注入
     window.__validations = () => window.__xcell.state.activeSheet.validations
     // React 受控 input 赋值：native setter + input 事件
     window.__setReactValue = (el, v) => {
@@ -46,15 +46,9 @@ async function installPageTools() {
     }
     // 公式栏路径：填值 + Enter 提交（拒绝时文本保留，可再次调用）
     window.__setFormula = (text) => {
-      const inp = document.querySelector('input.formula-input')
+      const inp = window.__formulaInput()
       window.__setReactValue(inp, text)
       inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
-    }
-    // 对话框按钮按文本点击
-    window.__clickDialogBtn = (text) => {
-      const b = [...document.querySelectorAll('.dialog-actions button')].find((x) => x.textContent.includes(text))
-      if (!b) throw new Error('对话框按钮未找到: ' + text)
-      b.click()
     }
     return 'tools-ready'`)
 }
@@ -109,12 +103,14 @@ export default async function run({ assertEq }) {
     await freshPage()
     await installPageTools()
     assertEq(await ev(`W.click(19, 3); const a = W.sel().activeCell; return { row: a.row, col: a.col }`), { row: 19, col: 3 }, 'S4 选中 D20')
-    await ev(`[...document.querySelectorAll('button.tool-btn')].find((b) => b.title === '数据验证').click(); return 1`)
+    await ev(`document.querySelector('button[aria-label="数据验证"]').click(); return 1`)
     await sleep(300)
     await ev(`window.__clickDialogBtn('添加规则'); return 1`)
     await sleep(150)
     assertEq(await ev(`
-      const vals = [...document.querySelectorAll('.cf-row .cf-value')]
+      // M5：行内 TextInput 无专用类，按 placeholder 在对话框内取数值/上界两输入框
+      const vals = [...document.querySelectorAll('[role="dialog"] input')]
+        .filter((x) => x.placeholder === '数值' || x.placeholder === '上界')
       if (vals.length !== 2) throw new Error('预期两个数值输入框，实际 ' + vals.length)
       window.__setReactValue(vals[0], '1')
       window.__setReactValue(vals[1], '9')
@@ -125,9 +121,14 @@ export default async function run({ assertEq }) {
       [{ range: { sr: 19, sc: 3, er: 19, ec: 3 }, type: 'numRange', op: 'between', v1: '1', v2: '9' }],
       'S4 对话框添加规则入 model')
     // 再开对话框删除
-    await ev(`[...document.querySelectorAll('button.tool-btn')].find((b) => b.title === '数据验证').click(); return 1`)
+    await ev(`document.querySelector('button[aria-label="数据验证"]').click(); return 1`)
     await sleep(300)
-    assertEq(await ev(`document.querySelector('.cf-row button[title="删除规则"]').click(); return 1`), 1, 'S4 删除规则行')
+    // M5：删除钮为行内 ×（Tooltip tip 不落在 DOM 属性上）
+    assertEq(await ev(`
+      const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent === '×')
+      if (!b) throw new Error('删除规则钮未找到')
+      b.click()
+      return 1`), 1, 'S4 删除规则行')
     await sleep(150)
     await ev(`window.__clickDialogBtn('确定'); return 1`)
     await sleep(150)
@@ -148,9 +149,7 @@ export default async function run({ assertEq }) {
       window.__dl = null
       window.__oc = URL.createObjectURL.bind(URL)
       URL.createObjectURL = (b) => { window.__dl = b; return window.__oc(b) }
-      ;[...document.querySelectorAll('.tool-btn')].find((b) => b.textContent === '文件').click()
-      await new Promise((r) => setTimeout(r, 300))
-      ;[...document.querySelectorAll('.file-menu-item')].find((b) => b.textContent === '导出 xlsx').click()
+      await window.__clickFileMenu('导出 xlsx')
       await new Promise((r) => setTimeout(r, 1200))
       if (!window.__dl) throw new Error('未捕获导出 Blob')
       const bytes = new Uint8Array(await window.__dl.arrayBuffer())
@@ -176,9 +175,9 @@ export default async function run({ assertEq }) {
     await bringToFront()
     await ev(`
       window.__lastInput = null
-      ;[...document.querySelectorAll('.tool-btn')].find((b) => b.textContent === '文件').click()
-      await new Promise((r) => setTimeout(r, 300))
-      ;[...document.querySelectorAll('.file-menu-item')].find((b) => b.textContent.includes('打开 xlsx')).click()
+      await window.__clickFileMenu('打开 xlsx')
+      // M5：前置 ConfirmDialog，确认「打开」后才创建 pickFile input
+      window.__clickDialogBtn('打开')
       await new Promise((r) => setTimeout(r, 300))
       if (!window.__lastInput) throw new Error('未捕获 pickFile input')
       return true`)
