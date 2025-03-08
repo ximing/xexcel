@@ -8,7 +8,7 @@ import { selectionRange } from '../core/selection'
 import type { SheetState } from '../core/state'
 import type { EditorView } from '../view/editorview'
 import { useSheetState } from './bridge'
-import { CFToggleKey, toggleCFStyle } from './cfstyle'
+import { CFToggleKey, toggleCFStyle, DEFAULT_CF_STYLE, COLOR_INPUT_FALLBACK_TEXT, COLOR_INPUT_FALLBACK_BG } from './cfstyle'
 import { Button } from './ui/Button'
 import { Dialog } from './ui/Dialog'
 import { Select } from './ui/Select'
@@ -102,7 +102,7 @@ export function CondFormatDialog({ view, onClose }: Props) {
         type: 'value',
         op: 'gt',
         v1: '',
-        style: { bg: '#ffc7ce', color: '#9c0006' },
+        style: { ...DEFAULT_CF_STYLE },
       },
     ])
     setTexts([...texts, rangeText(range)])
@@ -219,14 +219,14 @@ export function CondFormatDialog({ view, onClose }: Props) {
               className="h-7 w-7 shrink-0 cursor-pointer"
               type="color"
               title="文字颜色"
-              value={rule.style.color ?? '#000000'}
+              value={rule.style.color ?? COLOR_INPUT_FALLBACK_TEXT}
               onChange={(e) => update(i, { ...rule, style: { ...rule.style, color: e.target.value } })}
             />
             <input
               className="h-7 w-7 shrink-0 cursor-pointer"
               type="color"
               title="背景颜色"
-              value={rule.style.bg ?? '#ffffff'}
+              value={rule.style.bg ?? COLOR_INPUT_FALLBACK_BG}
               onChange={(e) => update(i, { ...rule, style: { ...rule.style, bg: e.target.value } })}
             />
             {STYLE_TOGGLES.map((t) => (

@@ -32,6 +32,9 @@ export function Tooltip({ tip, kbd, placement = 'auto', children }: Props) {
     setShow(false)
   }
 
+  // 空 tip 短路：直接渲染 children，不包 anchor 也不挂 hover 事件（避免空气泡）
+  if (tip === '') return <>{children}</>
+
   return (
     <span ref={anchor} className="inline-flex" onMouseEnter={open} onMouseLeave={close}>
       {children}
