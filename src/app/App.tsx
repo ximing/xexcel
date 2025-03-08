@@ -44,11 +44,11 @@ export function App() {
 
   // 固定槽位顺序渲染，保证 view 出现/消失时 grid 容器 DOM 节点不被重建
   return (
-    <div className="app-shell">
+    <div className="flex h-full flex-col">
       {view ? <Toolbar view={view} /> : null}
       {view ? <FormulaBar view={view} /> : null}
       {view ? <FindBar view={view} /> : null}
-      <div className="grid-container" ref={mountRef} />
+      <div className="relative min-h-0 flex-1" ref={mountRef} />
       {view ? <SheetTabBar view={view} /> : null}
       {view ? <StatusBar view={view} /> : null}
       {view ? <FilterDropdown view={view} /> : null}

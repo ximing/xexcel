@@ -12,9 +12,6 @@ import type { EditorView } from '../view/editorview'
 import { refHighlightKey } from '../view/types'
 import { useSheetState } from './bridge'
 
-const FONT_STACK =
-  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-
 interface Props {
   view: EditorView
 }
@@ -84,11 +81,13 @@ export function FormulaBar({ view }: Props) {
   }
 
   return (
-    <div className="formula-bar">
-      <div className="name-box">{toA1(row, col)}</div>
-      <div style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex' }}>
+    <div className="flex h-8 items-stretch border-b border-line bg-surface">
+      <div className="flex w-20 items-center justify-center border-r border-line text-ink-2">
+        {toA1(row, col)}
+      </div>
+      <div className="relative flex min-w-0 flex-1">
         <input
-          className="formula-input"
+          className="flex-1 px-2 text-sm outline-none"
           value={text}
           onFocus={() => {
             focusedRef.current = true
@@ -146,23 +145,7 @@ export function FormulaBar({ view }: Props) {
           }}
         />
         {completion.length > 0 && (
-          <div
-            className="autocomplete"
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              minWidth: '100%',
-              background: '#ffffff',
-              border: '1px solid #d9dce1',
-              borderTop: 'none',
-              zIndex: 11,
-              maxHeight: '200px',
-              overflowY: 'auto',
-              font: `13px ${FONT_STACK}`,
-              boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-            }}
-          >
+          <div className="absolute top-full left-0 z-11 max-h-[200px] min-w-full overflow-y-auto border border-t-0 border-line-strong bg-surface text-sm shadow-2">
             {completion.map((name, i) => (
               <div
                 key={name}
@@ -170,12 +153,9 @@ export function FormulaBar({ view }: Props) {
                   e.preventDefault()
                   accept(name)
                 }}
-                style={{
-                  padding: '2px 8px',
-                  cursor: 'pointer',
-                  background: i === selIndex ? '#e8f0fe' : '#ffffff',
-                  color: i === selIndex ? '#1a73e8' : '#202124',
-                }}
+                className={`cursor-pointer px-2 py-0.5 ${
+                  i === selIndex ? 'bg-primary-soft text-primary' : 'bg-surface text-ink'
+                }`}
               >
                 {name}
               </div>

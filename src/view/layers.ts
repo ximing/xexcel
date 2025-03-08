@@ -15,17 +15,18 @@ import { extractCurrentSheetRanges } from '../formula/rangeRefs'
 import { GridGeometry } from './geometry'
 import { CELL_PAD_X } from './measure'
 import { contentViewport, hScrollbar, SB_SIZE, vScrollbar } from './scrollbar'
+import { THEME } from './theme'
 import { dragPreviewKey, fillPreviewKey, REF_PALETTE, refHighlightKey, ResizeGuide, resizeGuideKey } from './types'
 
-const COLOR_GRID = '#d9dce1'
-const COLOR_HEADER_BG = '#f7f8fa'
-const COLOR_HEADER_TEXT = '#5f6368'
-const COLOR_HEADER_ACTIVE_BG = '#e8f0fe'
-const COLOR_HEADER_ACTIVE_TEXT = '#1a73e8'
+const COLOR_GRID = THEME.lineStrong
+const COLOR_HEADER_BG = THEME.surface2
+const COLOR_HEADER_TEXT = THEME.ink2
+const COLOR_HEADER_ACTIVE_BG = THEME.primarySoft
+const COLOR_HEADER_ACTIVE_TEXT = THEME.primary
 const COLOR_SELECT_FILL = 'rgba(26, 115, 232, 0.12)'
-const COLOR_SELECT_BORDER = '#1a73e8'
-const COLOR_FROZEN_LINE = '#9aa0a6'
-const COLOR_TEXT = '#202124'
+const COLOR_SELECT_BORDER = THEME.primary
+const COLOR_FROZEN_LINE = THEME.ink3
+const COLOR_TEXT = THEME.ink
 const FONT_SIZE = 13
 const FONT_FAMILY =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
@@ -40,6 +41,7 @@ const noListen = { listening: false }
 
 // 单条边框边：double 画两条平行线（间距 ×zoom），其余按线宽/虚线（线宽 ×zoom）
 function drawBorderEdge(inner: Konva.Group, points: number[], e: BorderEdge, zoom = 1): void {
+  // 单元格默认边框色是文档语义非 chrome（与 REF_PALETTE 同类），不收敛进 THEME
   const stroke = e.color ?? '#000000'
   if (e.style === 'double') {
     const [x1, y1, x2, y2] = points
@@ -170,7 +172,7 @@ function renderGridLayer(
   const hw = ROW_HEADER_WIDTH * zoom
   const hh = COL_HEADER_HEIGHT * zoom
   const headerFont = FONT_SIZE * zoom
-  layer.add(new Konva.Rect({ x: hw, y: hh, width: viewW, height: viewH, fill: '#ffffff', ...noListen }))
+  layer.add(new Konva.Rect({ x: hw, y: hh, width: viewW, height: viewH, fill: THEME.surface, ...noListen }))
   layer.add(new Konva.Rect({ x: 0, y: 0, width: viewW, height: hh, fill: COLOR_HEADER_BG, ...noListen }))
   layer.add(new Konva.Rect({ x: 0, y: 0, width: hw, height: viewH, fill: COLOR_HEADER_BG, ...noListen }))
 
@@ -420,7 +422,7 @@ function renderCellsInto(
   // 合并区：白底盖网格线 → 锚点 bg → 外框 → 锚点文字
   for (const m of merges) {
     const rect = geom.rangeRect(m)
-    inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, fill: '#ffffff', ...noListen }))
+    inner.add(new Konva.Rect({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, fill: THEME.surface, ...noListen }))
     const anchor = sheet.getCell(m.sr, m.sc)
     const anchorBg = cfOf(m.sr, m.sc)?.bg ?? anchor?.style?.bg
     if (anchorBg) {
@@ -451,7 +453,7 @@ function renderCellsInto(
         new Konva.Line({
           points: [cx - 4 * zoom, cy - 3 * zoom, cx + 4 * zoom, cy - 3 * zoom, cx, cy + 3 * zoom],
           closed: true,
-          fill: on ? '#1a73e8' : '#9aa0a6',
+          fill: on ? THEME.primary : THEME.ink3,
           ...noListen,
         }),
       )
@@ -563,7 +565,7 @@ function renderOverlayLayer(
         width: fhSize,
         height: fhSize,
         fill: COLOR_SELECT_BORDER,
-        stroke: '#ffffff',
+        stroke: THEME.surface,
         strokeWidth: 1,
         ...noListen,
       }),
@@ -623,14 +625,14 @@ function renderScrollbars(
   ]
   for (const b of bars) {
     if (!b) continue
-    layer.add(new Konva.Rect({ x: b.track.x, y: b.track.y, width: b.track.w, height: b.track.h, fill: '#f1f3f4', ...noListen }))
+    layer.add(new Konva.Rect({ x: b.track.x, y: b.track.y, width: b.track.w, height: b.track.h, fill: THEME.hover, ...noListen }))
     layer.add(
       new Konva.Rect({
         x: b.thumb.x + 2,
         y: b.thumb.y + 2,
         width: Math.max(0, b.thumb.w - 4),
         height: Math.max(0, b.thumb.h - 4),
-        fill: '#c1c7cd',
+        fill: THEME.scrollbar,
         cornerRadius: 4,
         ...noListen,
       }),

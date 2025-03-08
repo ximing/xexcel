@@ -5,7 +5,6 @@ import { registerValidationNotice } from './core/validation'
 import { registerPluginNotice } from './plugins/notify'
 import { showNotice } from './app/notice'
 import './app/theme.css'
-import './app/style.css'
 
 registerValidationNotice(showNotice)
 registerPluginNotice(showNotice)

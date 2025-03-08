@@ -9,6 +9,7 @@ import { functionNames } from '../formula/eval'
 import { normalizedCell } from '../formula/input'
 import { completionCandidates } from '../formula/rangeRefs'
 import type { EditorView } from './editorview'
+import { THEME } from './theme'
 import { refHighlightKey } from './types'
 
 interface EditSession {
@@ -45,7 +46,7 @@ export function openEditor(view: EditorView, addr: CellAddr, initialText?: strin
     minWidth: `${r.w + 2}px`,
     minHeight: `${r.h + 2}px`,
     boxSizing: 'border-box',
-    border: '2px solid #1a73e8',
+    border: `2px solid ${THEME.primary}`,
     outline: 'none',
     margin: '0',
     padding: '1px 5px',
@@ -53,8 +54,8 @@ export function openEditor(view: EditorView, addr: CellAddr, initialText?: strin
     resize: 'none',
     overflow: 'hidden',
     zIndex: '10',
-    background: '#ffffff',
-    color: '#202124',
+    background: THEME.surface,
+    color: THEME.ink,
   })
   el.value = initialText ?? cell?.raw ?? ''
   // wrap 格：编辑框随内容向下增长（不小于行高）
@@ -149,8 +150,8 @@ function updateCompletion(s: EditSession, text: string): void {
       left: `${s.el.offsetLeft}px`,
       top: `${s.el.offsetTop + s.el.offsetHeight}px`,
       minWidth: `${s.el.offsetWidth}px`,
-      background: '#ffffff',
-      border: '1px solid #d9dce1',
+      background: THEME.surface,
+      border: `1px solid ${THEME.lineStrong}`,
       borderTop: 'none',
       zIndex: '11',
       maxHeight: '200px',
@@ -175,8 +176,8 @@ function renderCompletion(s: EditSession): void {
     Object.assign(item.style, {
       padding: '2px 8px',
       cursor: 'pointer',
-      background: i === s.selIndex ? '#e8f0fe' : '#ffffff',
-      color: i === s.selIndex ? '#1a73e8' : '#202124',
+      background: i === s.selIndex ? THEME.primarySoft : THEME.surface,
+      color: i === s.selIndex ? THEME.primary : THEME.ink,
     })
     // mousedown 而非 click：在 blur 前 intercept 并阻止 textarea 失焦
     item.addEventListener('mousedown', (e) => {
