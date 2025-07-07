@@ -2,6 +2,12 @@
 
 浏览器端 Excel 风格电子表格，架构仿 ProseMirror——一切皆状态（State）+ 事务（Transaction）+ 插件（Plugin），视图只是状态的投影。
 
+## 在线演示
+
+<https://ximing.github.io/xexcel/>
+
+![xexcel 界面截图](docs/images/screenshot.png)
+
 ## 特性
 
 - 编辑与公式：单元格编辑 / 公式引擎（lexer / parser / eval，跨表引用）/ 数字格式
