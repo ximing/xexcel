@@ -9,7 +9,7 @@ import { SheetTabBar } from '../react/SheetTabBar'
 import { StatusBar } from '../react/StatusBar'
 import { Toolbar } from '../react/Toolbar'
 import { ConfirmHost } from '../react/ui/ConfirmHost'
-import { EditorView } from '../view/editorview'
+import { EditorView } from '@gmi/excel-view'
 import { workbookStorage } from './storage'
 import { createDemoState, createStateFromWorkbook } from './demo'
 

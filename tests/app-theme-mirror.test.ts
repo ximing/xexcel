@@ -1,7 +1,7 @@
 // theme.css @theme 与 view/theme.ts 的同值守护：防两处漂移
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { THEME } from '../src/view/theme'
+import { THEME } from '@gmi/excel-view'
 
 function cssColors(): Record<string, string> {
   const css = readFileSync('src/app/theme.css', 'utf8')

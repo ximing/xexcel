@@ -8,7 +8,7 @@ import { workbookStorage } from '../app/storage'
 import { csvToGrid, sheetToCSV } from '@gmi/excel-core'
 import { parseXlsx, workbookToExcelJS } from '@gmi/excel-core'
 import type { Workbook } from '@gmi/excel-core'
-import type { EditorView } from '../view/editorview'
+import type { EditorView } from '@gmi/excel-view'
 import { buildImportTr } from './csvImport'
 import {
   CSV_MAX_BYTES,

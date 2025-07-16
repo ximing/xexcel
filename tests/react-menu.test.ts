@@ -4,7 +4,7 @@ import { rangeSelection } from '@gmi/excel-core'
 import type { Selection } from '@gmi/excel-core'
 import { SheetState } from '@gmi/excel-core'
 import { menuItems } from '../src/react/menu'
-import type { ContextMenuOpen } from '../src/view/types'
+import type { ContextMenuOpen } from '@gmi/excel-view'
 
 const mk = (doc?: Workbook, selection?: Selection): SheetState =>
   SheetState.create({ doc: doc ?? Workbook.create({ rowCount: 10, colCount: 10 }), selection })

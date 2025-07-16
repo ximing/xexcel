@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      konva:
-        specifier: ^9.3.16
-        version: 9.3.22
       lucide-react:
         specifier: ^1.28.0
         version: 1.28.0(react@18.3.1)
@@ -58,6 +55,25 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6
     devDependencies:
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(typescript@5.6.3)
+      typescript:
+        specifier: ~5.6
+        version: 5.6.3
+      vitest:
+        specifier: ^2.1
+        version: 2.1.9(@types/node@26.1.2)(lightningcss@1.32.0)
+
+  packages/excel-view:
+    dependencies:
+      konva:
+        specifier: ^9.3.16
+        version: 9.3.22
+    devDependencies:
+      '@gmi/excel-core':
+        specifier: workspace:*
+        version: link:../excel-core
       tsup:
         specifier: ^8.3.5
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(typescript@5.6.3)

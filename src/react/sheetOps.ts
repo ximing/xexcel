@@ -3,7 +3,7 @@
 import { nextSheetId, nextSheetName, SheetData, SheetId } from '@gmi/excel-core'
 import { singleCell } from '@gmi/excel-core'
 import { isValidSheetName, SHEET_NAME_MAX_LEN } from '@gmi/excel-core'
-import type { EditorView } from '../view/editorview'
+import type { EditorView } from '@gmi/excel-view'
 import { showNotice } from '../app/notice'
 import { askConfirm } from './ui/confirmStore'
 

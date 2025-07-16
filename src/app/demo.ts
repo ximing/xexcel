@@ -2,7 +2,7 @@
 import { history } from '@gmi/excel-core'
 import { CellStyle, Workbook } from '@gmi/excel-core'
 import { SheetState } from '@gmi/excel-core'
-import { builtinPlugins } from '../plugins'
+import { builtinPlugins } from '@gmi/excel-view'
 
 const HEADER_STYLE: CellStyle = { bold: true, bg: '#e8f0fe', align: 'center' }
 

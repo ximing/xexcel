@@ -8,8 +8,8 @@ import { showNotice } from '../app/notice'
 import { functionNames } from '@gmi/excel-core'
 import { normalizedCell } from '@gmi/excel-core'
 import { completionCandidates } from '@gmi/excel-core'
-import type { EditorView } from '../view/editorview'
-import { refHighlightKey } from '../view/types'
+import type { EditorView } from '@gmi/excel-view'
+import { refHighlightKey } from '@gmi/excel-view'
 import { useSheetState } from './bridge'
 
 interface Props {

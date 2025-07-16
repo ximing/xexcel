@@ -1,0 +1,25 @@
+{
+  "name": "@gmi/excel-view",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "konva": "^9.3.16"
+  },
+  "peerDependencies": {
+    "@gmi/excel-core": "0.1.0"
+  },
+  "devDependencies": {
+    "@gmi/excel-core": "workspace:*",
+    "tsup": "^8.3.5",
+    "typescript": "~5.6",
+    "vitest": "^2.1"
+  }
+}

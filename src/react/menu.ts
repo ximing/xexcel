@@ -1,7 +1,7 @@
 // 右键菜单项推导（纯逻辑，node 可测）：按 kind + 当前 state 计算可见项与禁用态。
 import { selectionRange } from '@gmi/excel-core'
 import type { SheetState } from '@gmi/excel-core'
-import type { ContextMenuOpen } from '../view/types'
+import type { ContextMenuOpen } from '@gmi/excel-view'
 
 export interface MenuItemSpec {
   id: string
