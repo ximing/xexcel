@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { undoDepth } from '../src/core/history'
-import { Workbook } from '../src/core/model'
+import { undoDepth } from '@gmi/excel-core'
+import { Workbook } from '@gmi/excel-core'
 import { createStateFromWorkbook } from '../src/app/demo'
 
 describe('createStateFromWorkbook', () => {

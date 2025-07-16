@@ -1,11 +1,11 @@
 // src/react/csvImport.ts
 // CSV 导入组合：grid → 新建 sheet + 单事务（undo 一步复原）。纯逻辑，不 import view/DOM。
-import { Cell, nextSheetId } from '../core/model'
-import { singleCell } from '../core/selection'
-import { dedupeSheetName } from '../core/sheetname'
-import type { SheetState } from '../core/state'
-import type { Transaction } from '../core/transaction'
-import { normalizedCell } from '../formula/input'
+import { Cell, nextSheetId } from '@gmi/excel-core'
+import { singleCell } from '@gmi/excel-core'
+import { dedupeSheetName } from '@gmi/excel-core'
+import type { SheetState } from '@gmi/excel-core'
+import type { Transaction } from '@gmi/excel-core'
+import { normalizedCell } from '@gmi/excel-core'
 
 export const IMPORT_MIN_ROWS = 100
 export const IMPORT_MIN_COLS = 26

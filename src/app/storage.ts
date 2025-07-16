@@ -1,7 +1,7 @@
 // localStorage 薄壳：防抖自动保存 + 损坏备份 + 保存状态订阅（StatusBar 用）。
 // node（vitest）环境退化为内存 Map：模块 import 期不得触碰 localStorage。
-import { deserializeWorkbook, serializeWorkbook } from '../core/io/persist'
-import { Workbook } from '../core/model'
+import { deserializeWorkbook, serializeWorkbook } from '@gmi/excel-core'
+import { Workbook } from '@gmi/excel-core'
 
 export interface StorageLike {
   getItem(key: string): string | null

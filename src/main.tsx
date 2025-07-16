@@ -1,7 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/App'
-import { registerValidationNotice } from './core/validation'
+import { registerValidationNotice } from '@gmi/excel-core'
 import { registerPluginNotice } from './plugins/notify'
 import { showNotice } from './app/notice'
 import './app/theme.css'

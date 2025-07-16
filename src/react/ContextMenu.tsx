@@ -3,7 +3,7 @@
 // 粘贴经 navigator.clipboard.readText 后走 view.someProp('handlePaste')。
 import { Fragment, useEffect } from 'react'
 import { showNotice } from '../app/notice'
-import { selectionRange } from '../core/selection'
+import { selectionRange } from '@gmi/excel-core'
 import type { EditorView } from '../view/editorview'
 import { contextMenuKey, ContextMenuOpen, tabRenameKey } from '../view/types'
 import { useSheetState } from './bridge'

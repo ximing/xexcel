@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { Workbook } from '../src/core/model'
-import { evaluatorFor } from '../src/formula/engine'
+import { Workbook } from '@gmi/excel-core'
+import { evaluatorFor } from '@gmi/excel-core'
 import { computeFillEntries } from '../src/plugins/fillhandle'
 
 const mk = (cells: Array<[number, number, string]>) => {

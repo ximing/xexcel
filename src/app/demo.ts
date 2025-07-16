@@ -1,7 +1,7 @@
 // demo 数据：spec §7。1000×26，表头/公式/合计/IF 列/H2/I2 逐格规格。
-import { history } from '../core/history'
-import { CellStyle, Workbook } from '../core/model'
-import { SheetState } from '../core/state'
+import { history } from '@gmi/excel-core'
+import { CellStyle, Workbook } from '@gmi/excel-core'
+import { SheetState } from '@gmi/excel-core'
 import { builtinPlugins } from '../plugins'
 
 const HEADER_STYLE: CellStyle = { bold: true, bg: '#e8f0fe', align: 'center' }

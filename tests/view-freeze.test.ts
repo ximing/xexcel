@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Workbook } from '../src/core/model'
+import { Workbook } from '@gmi/excel-core'
 import { GridGeometry } from '../src/view/geometry'
 
 const geomOf = (fr: number, fc: number) =>

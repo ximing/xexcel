@@ -1,6 +1,6 @@
 // 边框渲染裁决：每条网格线只画一次，共享边取线宽权重高者，同重取左/上格。
 // 不 import konva（node 可测）；绘制描述由 layers 消费。
-import { BorderEdge, BorderLineStyle, SheetData } from '../core/model'
+import { BorderEdge, BorderLineStyle, SheetData } from '@gmi/excel-core'
 
 // 线宽权重：hair 0.5 / thin 1 / medium 2 / thick 3；装饰线型按对应线宽档
 export function edgeWeight(e: BorderEdge): number {

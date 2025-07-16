@@ -1,8 +1,8 @@
 // F4 富剪贴板单测：富 payload（areas+styles）/ planPaste（raw entries + styleEntries 整体替换）/
 // copy 多区域 tsv 块间空行 + text/html table / 外部 TSV cell:{raw} 兜底 / cut 不相交清源 / clampRange 不扩表。
 import { describe, expect, it } from 'vitest'
-import { Workbook } from '../src/core/model'
-import { appendRange, rangeSelection } from '../src/core/selection'
+import { Workbook } from '@gmi/excel-core'
+import { appendRange, rangeSelection } from '@gmi/excel-core'
 import { buildCopyPayload, ClipboardPayload, planPaste } from '../src/plugins/clipboard'
 
 const mk = (rows = 6, cols = 6) => Workbook.create({ rowCount: rows, colCount: cols })

@@ -6,7 +6,7 @@
 // 拖拽结束后抑制紧随的 click（避免误触切换表）。
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
-import { singleCell } from '../core/selection'
+import { singleCell } from '@gmi/excel-core'
 import type { EditorView } from '../view/editorview'
 import { contextMenuKey, tabRenameKey } from '../view/types'
 import { useSheetState } from './bridge'

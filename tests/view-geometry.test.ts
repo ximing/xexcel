@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SheetData, DEFAULT_ROW_HEIGHT, DEFAULT_COL_WIDTH } from '../src/core/model'
+import { SheetData, DEFAULT_ROW_HEIGHT, DEFAULT_COL_WIDTH } from '@gmi/excel-core'
 import { GridGeometry } from '../src/view/geometry'
 
 describe('GridGeometry', () => {

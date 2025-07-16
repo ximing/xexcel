@@ -1,8 +1,8 @@
 // 筛选下拉浮层：值勾选列表（搜索/全选/清空）+ 条件筛选区。
 // 开启态来自 filterDropdownKey state field（点击箭头写入）；确定/清除经 tr.setFilter 入 undo 栈。
 import { useEffect, useMemo, useState } from 'react'
-import { FilterConditionCriteria, FilterCriteria, FilterOp, FilterState } from '../core/model'
-import { evaluatorFor } from '../formula/engine'
+import { FilterConditionCriteria, FilterCriteria, FilterOp, FilterState } from '@gmi/excel-core'
+import { evaluatorFor } from '@gmi/excel-core'
 import type { EditorView } from '../view/editorview'
 import { filterDropdownKey, FilterDropdownOpen } from '../view/types'
 import { useSheetState } from './bridge'

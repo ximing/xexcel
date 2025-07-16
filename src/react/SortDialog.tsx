@@ -2,9 +2,9 @@
 // 纯受控 UI 态；确定时计算排序条目并 dispatch 一个事务。
 import { useState } from 'react'
 import { showNotice } from '../app/notice'
-import { CellRange, colName } from '../core/addr'
-import { evaluatorFor } from '../formula/engine'
-import { computeSortEntries, sortBlockedByMerges } from '../formula/sort'
+import { CellRange, colName } from '@gmi/excel-core'
+import { evaluatorFor } from '@gmi/excel-core'
+import { computeSortEntries, sortBlockedByMerges } from '@gmi/excel-core'
 import type { EditorView } from '../view/editorview'
 import { Button } from './ui/Button'
 import { Dialog } from './ui/Dialog'

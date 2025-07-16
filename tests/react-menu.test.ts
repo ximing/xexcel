@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { SheetData, Workbook } from '../src/core/model'
-import { rangeSelection } from '../src/core/selection'
-import type { Selection } from '../src/core/selection'
-import { SheetState } from '../src/core/state'
+import { SheetData, Workbook } from '@gmi/excel-core'
+import { rangeSelection } from '@gmi/excel-core'
+import type { Selection } from '@gmi/excel-core'
+import { SheetState } from '@gmi/excel-core'
 import { menuItems } from '../src/react/menu'
 import type { ContextMenuOpen } from '../src/view/types'
 

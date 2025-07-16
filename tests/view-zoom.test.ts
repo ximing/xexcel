@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SheetData } from '../src/core/model'
+import { SheetData } from '@gmi/excel-core'
 import { GridGeometry } from '../src/view/geometry'
 import { anchoredScroll, nextZoomLevel, ZOOM_LEVELS } from '../src/view/zoom'
 

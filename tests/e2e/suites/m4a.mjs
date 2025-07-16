@@ -93,7 +93,7 @@ export default async function run({ assertEq }) {
         sh.getCell(2, 0)?.raw ?? null, sh.getCell(2, 1)?.raw ?? null]`),
       ['姓名', '3', '=B2*2', '含,逗号'], 'S4 CSV 单元格内容')
     assertEq(await ev(`
-      const { evaluatorFor } = await import('/src/formula/engine.ts')
+      const { evaluatorFor } = await import('/packages/excel-core/src/formula/engine.ts')
       return evaluatorFor(__xcell.state.doc).get(__xcell.state.doc.active, 2, 0)`),
       6, 'S4 公式复活计算值（B2=3 → =B2*2）')
     await ev(`document.querySelector('button[aria-label="撤销"]').click(); return 1`)

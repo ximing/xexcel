@@ -2,10 +2,10 @@
 // mouseup → cut 移动（SetCellsStep 写目标 raw+style + clearRange 清源，一个 Transaction 一次 undo）；
 // 源与目标相交 / 目标落 merge → 拒绝 + pluginNotice 提示（plugins 层不经 window.alert）；
 // 多区域仅移动活动区域（selectionRange(sel) = ranges[last]）。
-import { CellRange, clampRange, normalizeRange, rangesIntersect } from '../core/addr'
-import { Cell, SheetData } from '../core/model'
-import { EditorViewLike, HitResult, Plugin } from '../core/plugin'
-import { rangeSelection, selectionRange } from '../core/selection'
+import { CellRange, clampRange, normalizeRange, rangesIntersect } from '@gmi/excel-core'
+import { Cell, SheetData } from '@gmi/excel-core'
+import { EditorViewLike, HitResult, Plugin } from '@gmi/excel-core'
+import { rangeSelection, selectionRange } from '@gmi/excel-core'
 import type { EditorView } from '../view/editorview'
 import { dragPreviewKey } from '../view/types'
 import { pluginNotice } from './notify'

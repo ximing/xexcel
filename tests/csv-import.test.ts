@@ -1,8 +1,8 @@
 // tests/csv-import.test.ts
 import { describe, expect, it } from 'vitest'
-import { history, undo, undoDepth } from '../src/core/history'
-import { Workbook } from '../src/core/model'
-import { SheetState } from '../src/core/state'
+import { history, undo, undoDepth } from '@gmi/excel-core'
+import { Workbook } from '@gmi/excel-core'
+import { SheetState } from '@gmi/excel-core'
 import { buildImportTr, IMPORT_MIN_COLS, IMPORT_MIN_ROWS, uniqueSheetName } from '../src/react/csvImport'
 
 const mk = () =>

@@ -1,6 +1,6 @@
 // 缩放：档位常量与锚点换算（纯逻辑，node 可测）。zoom=1 为 100%。
-import type { SheetId } from '../core/model'
-import type { SheetState } from '../core/state'
+import type { SheetId } from '@gmi/excel-core'
+import type { SheetState } from '@gmi/excel-core'
 import { zoomKey } from './types'
 
 export const ZOOM_LEVELS = [0.5, 0.75, 0.9, 1, 1.25, 1.5, 2]

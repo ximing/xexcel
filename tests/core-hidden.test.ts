@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { SheetData, Workbook } from '../src/core/model'
-import { SetHiddenStep } from '../src/core/steps'
-import { stepFromJSON } from '../src/core/steps'
-import { StructureStep } from '../src/core/steps'
+import { SheetData, Workbook } from '@gmi/excel-core'
+import { SetHiddenStep } from '@gmi/excel-core'
+import { stepFromJSON } from '@gmi/excel-core'
+import { StructureStep } from '@gmi/excel-core'
 import { GridGeometry } from '../src/view/geometry'
 
 function wb(): Workbook {

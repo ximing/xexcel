@@ -4,14 +4,14 @@
 // 每象限独立 clip+偏移复用同一套内容函数；选区覆盖层同样按象限裁切（自然分裂）。
 // 每次 updateState 后整层重建可见节点（M1 从简，1000 格/帧量级可接受）。
 import Konva from 'konva'
-import { CellRange, colName, rangesIntersect } from '../core/addr'
-import { BorderEdge, CFStyle, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
+import { CellRange, colName, rangesIntersect } from '@gmi/excel-core'
+import { BorderEdge, CFStyle, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '@gmi/excel-core'
 import { edgeDash, edgeWidth, resolveHEdge, resolveVEdge } from './borders'
-import type { SheetState } from '../core/state'
-import type { CellEvaluator } from '../formula/engine'
-import { evaluatorFor } from '../formula/engine'
-import { condFormatStyle, duplicateSets } from '../formula/condformat'
-import { extractCurrentSheetRanges } from '../formula/rangeRefs'
+import type { SheetState } from '@gmi/excel-core'
+import type { CellEvaluator } from '@gmi/excel-core'
+import { evaluatorFor } from '@gmi/excel-core'
+import { condFormatStyle, duplicateSets } from '@gmi/excel-core'
+import { extractCurrentSheetRanges } from '@gmi/excel-core'
 import { GridGeometry } from './geometry'
 import { CELL_PAD_X } from './measure'
 import { contentViewport, hScrollbar, SB_SIZE, vScrollbar } from './scrollbar'
@@ -467,7 +467,7 @@ function drawCellText(
   sheetId: string,
   r: number,
   c: number,
-  cell: { raw: string; style?: import('../core/model').CellStyle },
+  cell: { raw: string; style?: import('@gmi/excel-core').CellStyle },
   rect: { x: number; y: number; w: number; h: number },
   cf?: CFStyle,
   zoom = 1,
@@ -476,7 +476,7 @@ function drawCellText(
   if (text === '') return
   // 条件格式命中样式覆盖格样式（仅 CFStyle 子集键）；跳过 undefined 值，
   // 防御显式 undefined own property 覆盖静态样式
-  const style: import('../core/model').CellStyle = { ...cell.style }
+  const style: import('@gmi/excel-core').CellStyle = { ...cell.style }
   if (cf) {
     for (const [k, v] of Object.entries(cf)) {
       if (v !== undefined) (style as Record<string, unknown>)[k] = v

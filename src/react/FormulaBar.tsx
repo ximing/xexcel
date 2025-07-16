@@ -2,12 +2,12 @@
 // Enter 提交 setCell 并把焦点还给表格，Esc 还原；失焦提交（Excel 习惯）。
 // F5：输入 =… 时画布高亮被引区域（refHighlightKey meta）+ 函数名补全下拉。
 import { useEffect, useRef, useState } from 'react'
-import { toA1 } from '../core/addr'
-import { validateInput } from '../core/validation'
+import { toA1 } from '@gmi/excel-core'
+import { validateInput } from '@gmi/excel-core'
 import { showNotice } from '../app/notice'
-import { functionNames } from '../formula/eval'
-import { normalizedCell } from '../formula/input'
-import { completionCandidates } from '../formula/rangeRefs'
+import { functionNames } from '@gmi/excel-core'
+import { normalizedCell } from '@gmi/excel-core'
+import { completionCandidates } from '@gmi/excel-core'
 import type { EditorView } from '../view/editorview'
 import { refHighlightKey } from '../view/types'
 import { useSheetState } from './bridge'

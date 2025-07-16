@@ -1,5 +1,5 @@
 // 自绘滚动条几何：轨道/滑块矩形与拖拽映射比例。纯数学，node 可测。
-import { COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '../core/model'
+import { COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '@gmi/excel-core'
 import { Rect } from './types'
 
 export const SB_SIZE = 12

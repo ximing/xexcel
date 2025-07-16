@@ -2,9 +2,9 @@
 // 草稿编辑，确定时一次性 tr.setValidations 提交（一次 undo）。结构镜像 CondFormatDialog。
 import { useState } from 'react'
 import { showNotice } from '../app/notice'
-import { parseRangeA1 } from '../core/addr'
-import { FilterOp, ValidationRule } from '../core/model'
-import { selectionRange } from '../core/selection'
+import { parseRangeA1 } from '@gmi/excel-core'
+import { FilterOp, ValidationRule } from '@gmi/excel-core'
+import { selectionRange } from '@gmi/excel-core'
 import type { EditorView } from '../view/editorview'
 import { useSheetState } from './bridge'
 import { Button } from './ui/Button'

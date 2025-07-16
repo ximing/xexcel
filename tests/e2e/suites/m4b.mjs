@@ -127,7 +127,7 @@ export default async function run({ assertEq }) {
         sh.getCell(0, 1)?.raw ?? null, sh.getCell(1, 1)?.raw ?? null]`),
       ['标题', true, '#ff0000', '3', '=B1*2'], 'S2 粗体红字入 model + 公式复活为 raw')
     assertEq(await ev(`
-      const { evaluatorFor } = await import('/src/formula/engine.ts')
+      const { evaluatorFor } = await import('/packages/excel-core/src/formula/engine.ts')
       return evaluatorFor(__xcell.state.doc).get(__xcell.state.doc.active, 1, 1)`),
       6, 'S2 公式计算值（B1=3 → =B1*2）')
     assertEq(await ev(`
