@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "noUnusedLocals": true,
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@gmi/excel-core": ["./packages/excel-core/src/index.ts"],
+      "@gmi/excel-core/*": ["./packages/excel-core/src/*"],
+      "@gmi/excel-view": ["./packages/excel-view/src/index.ts"],
+      "@gmi/excel-view/*": ["./packages/excel-view/src/*"],
+      "@gmi/excel-react": ["./packages/excel-react/src/index.ts"],
+      "@gmi/excel-react/*": ["./packages/excel-react/src/*"]
+    }
+  }
+}
