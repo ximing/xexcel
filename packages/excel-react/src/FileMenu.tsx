@@ -1,10 +1,10 @@
 // src/react/FileMenu.tsx
 // 「文件」下拉：打开 CSV（新建 sheet 导入，可撤销）/ 打开 xlsx（整簿替换，不可撤销）/ 导出 CSV / 导出 xlsx / 清除浏览器存档。
 import { FileDown, FilePlus2, FileSpreadsheet, FileText, FolderOpen, Trash2, type LucideIcon } from 'lucide-react'
-import { createStateFromWorkbook } from '../app/demo'
-import { downloadBlob, pickFile, readFileArrayBuffer, readFileText } from '../app/fileio'
-import { showNotice } from '../app/notice'
-import { workbookStorage } from '../app/storage'
+import { createStateFromWorkbook } from './createState'
+import { downloadBlob, pickFile, readFileArrayBuffer, readFileText } from './fileio'
+import { showNotice } from './notice'
+import { workbookStorage } from './storage'
 import { csvToGrid, sheetToCSV } from '@gmi/excel-core'
 import { parseXlsx, workbookToExcelJS } from '@gmi/excel-core'
 import type { Workbook } from '@gmi/excel-core'
@@ -18,7 +18,7 @@ import {
   FileMenuId,
   fileMenuItems,
   isGridEmpty,
-} from './filemenu'
+} from './fileMenuCore'
 import { askConfirm } from './ui/confirmStore'
 import { Dropdown } from './ui/Dropdown'
 import { IconButton } from './ui/IconButton'

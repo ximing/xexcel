@@ -1,6 +1,6 @@
 // tests/react-filemenu.test.ts
 import { describe, expect, it } from 'vitest'
-import { csvBaseName, fileMenuItems, isGridEmpty } from '../src/react/filemenu'
+import { csvBaseName, fileMenuItems, isGridEmpty } from '../src/fileMenuCore'
 
 describe('fileMenuItems', () => {
   it('五项：打开 CSV / 打开 xlsx / 导出 CSV / 导出 xlsx / 清除存档（danger）', () => {

@@ -7,8 +7,8 @@ import { Workbook } from '@gmi/excel-core'
 import { SheetState } from '@gmi/excel-core'
 import { appendRange, rangeSelection } from '@gmi/excel-core'
 import type { Selection } from '@gmi/excel-core'
-import { canSort, canFilter, sortRejection, filterRejection } from '../src/react/Toolbar'
-import { canCondFormat, condFormatRejection } from '../src/react/CondFormatDialog'
+import { canSort, canFilter, sortRejection, filterRejection } from '../src/Toolbar'
+import { canCondFormat, condFormatRejection } from '../src/CondFormatDialog'
 
 const mk = (sel: Selection): SheetState =>
   SheetState.create({ doc: Workbook.create({ rowCount: 10, colCount: 10 }), selection: sel })

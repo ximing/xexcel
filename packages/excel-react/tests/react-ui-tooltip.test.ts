@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolvePlacement } from '../src/react/ui/tooltipPlacement'
+import { resolvePlacement } from '../src/ui/tooltipPlacement'
 
 describe('resolvePlacement', () => {
   const H = 800

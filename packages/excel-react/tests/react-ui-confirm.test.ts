@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { askConfirm, getConfirm, resolveConfirm } from '../src/react/ui/confirmStore'
+import { askConfirm, getConfirm, resolveConfirm } from '../src/ui/confirmStore'
 
 describe('confirmStore', () => {
   it('ask 后挂起，resolve(true) 兑现 true 并清空', async () => {

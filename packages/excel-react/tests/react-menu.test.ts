@@ -3,7 +3,7 @@ import { SheetData, Workbook } from '@gmi/excel-core'
 import { rangeSelection } from '@gmi/excel-core'
 import type { Selection } from '@gmi/excel-core'
 import { SheetState } from '@gmi/excel-core'
-import { menuItems } from '../src/react/menu'
+import { menuItems } from '../src/menu'
 import type { ContextMenuOpen } from '@gmi/excel-view'
 
 const mk = (doc?: Workbook, selection?: Selection): SheetState =>

@@ -6,7 +6,7 @@ import {
   normalizeRuleRange,
   parseItems,
   ruleInvalid,
-} from '../src/react/validationRules'
+} from '../src/validationRules'
 
 const num: ValidationRule = { id: 'v1', range: { sr: 0, sc: 0, er: 9, ec: 0 }, type: 'numRange', op: 'between', v1: '1', v2: '9' }
 const len: ValidationRule = { id: 'v2', range: { sr: 1, sc: 1, er: 5, ec: 1 }, type: 'textLen', op: 'lte', v1: '3' }

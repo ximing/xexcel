@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { history, undo, undoDepth } from '@gmi/excel-core'
 import { Workbook } from '@gmi/excel-core'
 import { SheetState } from '@gmi/excel-core'
-import { buildImportTr, IMPORT_MIN_COLS, IMPORT_MIN_ROWS, uniqueSheetName } from '../src/react/csvImport'
+import { buildImportTr, IMPORT_MIN_COLS, IMPORT_MIN_ROWS, uniqueSheetName } from '../src/csvImport'
 
 const mk = () =>
   SheetState.create({ doc: Workbook.create({ rowCount: 10, colCount: 5 }), plugins: [history()] })

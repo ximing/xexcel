@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@source '.';
 
 @theme {
   /* 色板（spec §2 唯一权威源） */

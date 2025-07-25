@@ -2,7 +2,7 @@
 // 剪切/复制经 execCommand 触发 proxy 的 copy/cut 事件（clipboard 插件接管）；
 // 粘贴经 navigator.clipboard.readText 后走 view.someProp('handlePaste')。
 import { Fragment, useEffect } from 'react'
-import { showNotice } from '../app/notice'
+import { showNotice } from './notice'
 import { selectionRange } from '@gmi/excel-core'
 import type { EditorView } from '@gmi/excel-view'
 import { contextMenuKey, ContextMenuOpen, tabRenameKey } from '@gmi/excel-view'

@@ -1,7 +1,7 @@
 // 条件格式对话框：规则列表（增删/上下移调优先级）+ 行内编辑（范围/类型/条件/样式）。
 // 草稿编辑，确定时一次性 tr.setCondFormats 提交（一次 undo）。
 import { useState } from 'react'
-import { showNotice } from '../app/notice'
+import { showNotice } from './notice'
 import { parseRangeA1, toA1 } from '@gmi/excel-core'
 import { CondFormatRule, FilterOp } from '@gmi/excel-core'
 import { selectionRange } from '@gmi/excel-core'

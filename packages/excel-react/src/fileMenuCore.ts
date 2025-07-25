@@ -1,4 +1,4 @@
-// src/react/filemenu.ts
+// 文件菜单纯逻辑（原 filemenu.ts；与 FileMenu.tsx 同目录仅大小写冲突，tsup dts 无法发射，故改名）
 // 文件菜单纯逻辑（组件外可单测，同 menu.ts 模式）。
 export type FileMenuId = 'openCsv' | 'openXlsx' | 'exportCsv' | 'exportXlsx' | 'clearStorage'
 

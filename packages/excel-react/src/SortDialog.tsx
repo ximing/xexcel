@@ -1,7 +1,7 @@
 // 自定义排序对话框：最多 3 个关键字（列 + 升/降），含表头勾选。
 // 纯受控 UI 态；确定时计算排序条目并 dispatch 一个事务。
 import { useState } from 'react'
-import { showNotice } from '../app/notice'
+import { showNotice } from './notice'
 import { CellRange, colName } from '@gmi/excel-core'
 import { evaluatorFor } from '@gmi/excel-core'
 import { computeSortEntries, sortBlockedByMerges } from '@gmi/excel-core'

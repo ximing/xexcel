@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { undoDepth } from '@gmi/excel-core'
 import { Workbook } from '@gmi/excel-core'
-import { createStateFromWorkbook } from '../src/app/demo'
+import { createStateFromWorkbook } from '@gmi/excel-react'
 
 describe('createStateFromWorkbook', () => {
   it('以给定 workbook 建 state，history 等插件就位', () => {

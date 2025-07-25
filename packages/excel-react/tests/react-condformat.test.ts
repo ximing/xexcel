@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toggleCFStyle } from '../src/react/cfstyle'
+import { toggleCFStyle } from '../src/cfstyle'
 
 describe('toggleCFStyle', () => {
   it('关态剔除键，不留显式 undefined own property', () => {

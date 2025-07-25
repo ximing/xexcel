@@ -4,7 +4,7 @@ import { nextSheetId, nextSheetName, SheetData, SheetId } from '@gmi/excel-core'
 import { singleCell } from '@gmi/excel-core'
 import { isValidSheetName, SHEET_NAME_MAX_LEN } from '@gmi/excel-core'
 import type { EditorView } from '@gmi/excel-view'
-import { showNotice } from '../app/notice'
+import { showNotice } from './notice'
 import { askConfirm } from './ui/confirmStore'
 
 // 空表判定：usedRange 为单格且该格无内容（usedRange 对空表返回全 0）

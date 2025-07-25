@@ -1,8 +1,7 @@
 // demo 数据：spec §7。1000×26，表头/公式/合计/IF 列/H2/I2 逐格规格。
-import { history } from '@gmi/excel-core'
-import { CellStyle, Workbook } from '@gmi/excel-core'
-import { SheetState } from '@gmi/excel-core'
-import { builtinPlugins } from '@gmi/excel-view'
+import { Workbook } from '@gmi/excel-core'
+import type { CellStyle, SheetState } from '@gmi/excel-core'
+import { createStateFromWorkbook } from '@gmi/excel-react'
 
 const HEADER_STYLE: CellStyle = { bold: true, bg: '#e8f0fe', align: 'center' }
 
@@ -46,8 +45,4 @@ export function createDemoState(): SheetState {
 
   wb = wb.setSheet(wb.active, sheet)
   return createStateFromWorkbook(wb)
-}
-
-export function createStateFromWorkbook(wb: Workbook): SheetState {
-  return SheetState.create({ doc: wb, plugins: [history(), ...builtinPlugins()] })
 }

@@ -1,7 +1,7 @@
 // 数据验证对话框：规则列表（增删）+ 行内编辑（范围/类型/条件/序列项）。
 // 草稿编辑，确定时一次性 tr.setValidations 提交（一次 undo）。结构镜像 CondFormatDialog。
 import { useState } from 'react'
-import { showNotice } from '../app/notice'
+import { showNotice } from './notice'
 import { parseRangeA1 } from '@gmi/excel-core'
 import { FilterOp, ValidationRule } from '@gmi/excel-core'
 import { selectionRange } from '@gmi/excel-core'

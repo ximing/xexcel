@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { toA1 } from '@gmi/excel-core'
 import { validateInput } from '@gmi/excel-core'
-import { showNotice } from '../app/notice'
+import { showNotice } from './notice'
 import { functionNames } from '@gmi/excel-core'
 import { normalizedCell } from '@gmi/excel-core'
 import { completionCandidates } from '@gmi/excel-core'

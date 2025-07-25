@@ -1,7 +1,7 @@
 // toolbarMenus 构建纯函数：disabled/active 映射断言（逐项 find，不钉死数组顺序）
 import { describe, expect, it } from 'vitest'
-import { buildFreezeItems, buildNumberFormatItems, buildRowColItems, buildSortItems } from '../src/react/toolbarMenus'
-import type { MenuEntry } from '../src/react/ui/Menu'
+import { buildFreezeItems, buildNumberFormatItems, buildRowColItems, buildSortItems } from '../src/toolbarMenus'
+import type { MenuEntry } from '../src/ui/Menu'
 
 const noop = (): void => {}
 const H = {

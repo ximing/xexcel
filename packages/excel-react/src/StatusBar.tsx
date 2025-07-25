@@ -1,7 +1,7 @@
 // 状态栏：左侧 就绪/编辑中；右侧对选区数字统计（忽略非数字，单格只显示计数）+ 缩放档位控件。
 import { useEffect, useReducer, useSyncExternalStore } from 'react'
-import { getNotice, subscribeNotice } from '../app/notice'
-import { workbookStorage } from '../app/storage'
+import { getNotice, subscribeNotice } from './notice'
+import { workbookStorage } from './storage'
 import { forEachSelectionRange } from '@gmi/excel-core'
 import type { SheetState } from '@gmi/excel-core'
 import { formatNumber } from '@gmi/excel-core'

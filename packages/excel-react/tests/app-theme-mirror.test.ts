@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { THEME } from '@gmi/excel-view'
 
 function cssColors(): Record<string, string> {
-  const css = readFileSync('src/app/theme.css', 'utf8')
+  const css = readFileSync(new URL('../src/theme.css', import.meta.url), 'utf8')
   const out: Record<string, string> = {}
   for (const m of css.matchAll(/--color-([a-z0-9-]+):\s*(#[0-9a-fA-F]{6});/g)) {
     const camel = m[1].replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())

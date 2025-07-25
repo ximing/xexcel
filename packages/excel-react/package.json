@@ -1,0 +1,38 @@
+{
+  "name": "@gmi/excel-react",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./styles.css": "./dist/styles.css",
+    "./theme.css": "./src/theme.css"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup && tailwindcss -i src/theme.css -o dist/styles.css --minify",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "lucide-react": "^1.28.0" },
+  "peerDependencies": {
+    "@gmi/excel-core": "0.1.0",
+    "@gmi/excel-view": "0.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@gmi/excel-core": "workspace:*",
+    "@gmi/excel-view": "workspace:*",
+    "@tailwindcss/cli": "^4.3.3",
+    "@types/react": "^18.3",
+    "@types/react-dom": "^18.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^4.3.3",
+    "tsup": "^8.3.5",
+    "typescript": "~5.6",
+    "vitest": "^2.1"
+  }
+}
