@@ -3,6 +3,8 @@ import { bringToFront, cmd, evaluateJS, getSession, setSession } from './bridge.
 import { HELPER_SOURCE } from './helper.js'
 
 const APP = process.env.E2E_APP || 'http://localhost:5180'
+// apps/demo/e2e/lib → 仓库根（pnpm --filter 从根定位 demo 包）
+const ROOT = new URL('../../../..', import.meta.url).pathname
 let devProc = null
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -33,8 +35,8 @@ export async function ensureApp() {
   try { await cmd('list_tabs') } catch { throw new Error('kimi-webbridge daemon 不可达（~/.kimi-webbridge/bin/kimi-webbridge start）') }
   // dev server：已起则复用，否则 spawn（strictPort 防撞端口）
   try { await fetch(APP, { signal: AbortSignal.timeout(1500) }) } catch {
-    devProc = spawn('npm', ['run', 'dev', '--', '--port', '5180', '--strictPort'], {
-      cwd: new URL('../../..', import.meta.url).pathname, stdio: 'ignore',
+    devProc = spawn('pnpm', ['--filter', './apps/demo', 'exec', 'vite', '--port', '5180', '--strictPort'], {
+      cwd: ROOT, stdio: 'ignore',
     })
     for (let i = 0; i < 60; i++) {
       try { await fetch(APP); break } catch { await new Promise(r => setTimeout(r, 500)) }

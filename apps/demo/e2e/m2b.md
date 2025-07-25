@@ -1,6 +1,6 @@
 # M2b 浏览器验收（浏览器）
 
-前置：`npm run dev`；dev 下 `window.__xcell` 为 EditorView。
+前置：`pnpm --filter ./apps/demo dev`（仓库根）；dev 下 `window.__xcell` 为 EditorView。
 读 raw：`__xcell.state.activeSheet.getCell(r,c)?.raw`；显示值目测网格。
 每节附【预期】。失败即终止并回报。先 Ctrl+A / Delete 清空 demo 数据再开始。
 

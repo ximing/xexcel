@@ -1,4 +1,4 @@
-// M4c 数据验证 e2e suite（E4 六场景；叙述版见 tests/e2e/m4c.md）。
+// M4c 数据验证 e2e suite（E4 六场景；叙述版见 apps/demo/e2e/m4c.md）。
 // 页面内经 __xcell + W helper 驱动；对话框走真实 DOM；导出字节回 runner 用 exceljs 校验。
 import ExcelJS from 'exceljs'
 import { bringToFront, evaluateJS } from '../lib/bridge.mjs'

@@ -1,6 +1,6 @@
 # M3b 浏览器验收（浏览器）
 
-前置：`npm run dev` 启动；dev 下 `window.__xcell` 为 EditorView。
+前置：`pnpm --filter ./apps/demo dev` 启动（仓库根）；dev 下 `window.__xcell` 为 EditorView。
 读 raw：`__xcell.state.activeSheet.getCell(r,c)?.raw`（0-based）；style：`...?.style`。每步后附【预期】。失败即终止并回报。
 
 ## 1. 边框

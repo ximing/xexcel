@@ -1,6 +1,6 @@
 # M2a 浏览器验收（浏览器）
 
-前置：`npm run dev` 启动；dev 下 `window.__xcell` 为 EditorView。
+前置：`pnpm --filter ./apps/demo dev` 启动（仓库根）；dev 下 `window.__xcell` 为 EditorView。
 读格显示值：`__xcell.state` 配合 `evaluatorFor` 不便直接用时，可在控制台执行
 `__xcell.state.activeSheet.getCell(r,c)?.raw` 读 raw；显示值目测网格即可。
 每步后附【预期】。失败即终止并回报。

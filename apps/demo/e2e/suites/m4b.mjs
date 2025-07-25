@@ -1,4 +1,4 @@
-// M4b xlsx 导入导出 e2e suite（5 场景；叙述版见 tests/e2e/m4b.md）。
+// M4b xlsx 导入导出 e2e suite（5 场景；叙述版见 apps/demo/e2e/m4b.md）。
 // 导出字节回 runner 用 exceljs 回读校验（等价 m4b.md 附录 B 全断言）；
 // 导入文件 runner 侧 exceljs 生成 /tmp/m4b-import.xlsx（附录 A）再读字节 feedFile。
 import { readFileSync } from 'node:fs'
@@ -8,6 +8,9 @@ import { feedFile, freshPage, pollUntil, reload } from '../lib/env.mjs'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const ev = (code) => evaluateJS(code)
+
+// dev server root 为 apps/demo，包源码在 root 之外，须走 vite /@fs/ 绝对路径
+const ENGINE_URL = '/@fs' + new URL('../../../../packages/excel-core/src/formula/engine.ts', import.meta.url).pathname
 
 // 点「文件」→ 菜单项（M5：触发器 aria-label="文件"，项为 role="menuitem"；helper 内建 300ms 等待）
 async function clickMenu(includes) {
@@ -127,7 +130,7 @@ export default async function run({ assertEq }) {
         sh.getCell(0, 1)?.raw ?? null, sh.getCell(1, 1)?.raw ?? null]`),
       ['标题', true, '#ff0000', '3', '=B1*2'], 'S2 粗体红字入 model + 公式复活为 raw')
     assertEq(await ev(`
-      const { evaluatorFor } = await import('/packages/excel-core/src/formula/engine.ts')
+      const { evaluatorFor } = await import('${ENGINE_URL}')
       return evaluatorFor(__xcell.state.doc).get(__xcell.state.doc.active, 1, 1)`),
       6, 'S2 公式计算值（B1=3 → =B1*2）')
     assertEq(await ev(`

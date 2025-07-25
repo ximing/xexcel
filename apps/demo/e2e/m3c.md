@@ -1,6 +1,6 @@
 # M3c 浏览器验收（浏览器）
 
-前置：`npm run dev` 启动；dev 下 `window.__xcell` 为 EditorView。0-based 行列。
+前置：`pnpm --filter ./apps/demo dev` 启动（仓库根）；dev 下 `window.__xcell` 为 EditorView。0-based 行列。
 读 raw：`__xcell.state.activeSheet.getCell(r,c)?.raw`；style：`...?.style`。每步后附【预期】。
 失败即终止并回报。注入 helper（`window.W`）封装像素事件 + 读状态：
 

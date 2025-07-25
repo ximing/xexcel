@@ -1,4 +1,4 @@
-// M3c 交互重构 e2e suite（F2 多区域选择 / F3 拖拽移动 / F4 富剪贴板 / F5 公式编辑器；叙述版见 tests/e2e/m3c.md）。
+// M3c 交互重构 e2e suite（F2 多区域选择 / F3 拖拽移动 / F4 富剪贴板 / F5 公式编辑器；叙述版见 apps/demo/e2e/m3c.md）。
 // 页面内经 __xcell + W helper 驱动合成鼠标/键盘事件；F5 公式栏走真实 React DOM。
 import { evaluateJS } from '../lib/bridge.mjs'
 import { freshPage } from '../lib/env.mjs'

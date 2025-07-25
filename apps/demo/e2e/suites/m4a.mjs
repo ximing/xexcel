@@ -1,10 +1,13 @@
-// M4a 持久化 e2e suite（6 场景；叙述版见 tests/e2e/m4a.md）。
+// M4a 持久化 e2e suite（6 场景；叙述版见 apps/demo/e2e/m4a.md）。
 // 页面内经 __xcell + W helper 驱动；CSV 导入走 harness feedFile（base64+DataTransfer 主路径）。
 import { bringToFront, evaluateJS } from '../lib/bridge.mjs'
 import { feedFile, freshPage, pollUntil, reinject, reload } from '../lib/env.mjs'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const ev = (code) => evaluateJS(code)
+
+// dev server root 为 apps/demo，包源码在 root 之外，须走 vite /@fs/ 绝对路径
+const ENGINE_URL = '/@fs' + new URL('../../../../packages/excel-core/src/formula/engine.ts', import.meta.url).pathname
 
 function assertIncludes(hay, needle, label) {
   if (typeof hay !== 'string' || !hay.includes(needle)) {
@@ -93,7 +96,7 @@ export default async function run({ assertEq }) {
         sh.getCell(2, 0)?.raw ?? null, sh.getCell(2, 1)?.raw ?? null]`),
       ['姓名', '3', '=B2*2', '含,逗号'], 'S4 CSV 单元格内容')
     assertEq(await ev(`
-      const { evaluatorFor } = await import('/packages/excel-core/src/formula/engine.ts')
+      const { evaluatorFor } = await import('${ENGINE_URL}')
       return evaluatorFor(__xcell.state.doc).get(__xcell.state.doc.active, 2, 0)`),
       6, 'S4 公式复活计算值（B2=3 → =B2*2）')
     await ev(`document.querySelector('button[aria-label="撤销"]').click(); return 1`)

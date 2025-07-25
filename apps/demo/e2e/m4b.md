@@ -1,6 +1,6 @@
 # M4b 浏览器验收（浏览器）：xlsx 导入导出
 
-前置：`npm run dev`（http://localhost:5173）；dev 下 `window.__xcell` 为 EditorView。
+前置：`pnpm --filter ./apps/demo dev`（仓库根，http://localhost:5180）；dev 下 `window.__xcell` 为 EditorView。
 先注入 m3c.md 的 `window.W` helper。每步后附【预期】，失败即终止并回报。
 localStorage 键：`xexcel.workbook`。行列索引 0-based。
 

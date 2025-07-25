@@ -1,4 +1,4 @@
-// 页面注入源码：W helper（原样搬自 tests/e2e/m3c.md）+ m4b.md 的 createElement/confirm stub。
+// 页面注入源码：W helper（原样搬自 apps/demo/e2e/m3c.md）+ m4b.md 的 createElement/confirm stub。
 // 经 evaluate 注入；每次刷新页面后须重注。
 export const HELPER_SOURCE = `window.W = (() => {
   const V = () => window.__xcell

@@ -1,4 +1,4 @@
-// e2e 回归 runner：node tests/e2e/run.mjs [suite...]（默认全部）
+// e2e 回归 runner：node apps/demo/e2e/run.mjs [suite...]（默认全部）
 import { cleanup, ensureApp } from './lib/env.mjs'
 
 const suites = {
