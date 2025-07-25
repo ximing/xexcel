@@ -5,26 +5,11 @@
   "type": "module",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:e2e": "node tests/e2e/run.mjs",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.1.2",
-    "@types/react": "^18.3",
-    "@types/react-dom": "^18.3",
-    "@vitejs/plugin-react": "^4.3",
-    "tailwindcss": "^4.3.3",
-    "typescript": "~5.6",
-    "vite": "^5.4",
-    "vitest": "^2.1"
+    "dev": "pnpm --filter ./apps/demo dev",
+    "build": "pnpm -r build",
+    "preview": "pnpm --filter ./apps/demo preview",
+    "test": "pnpm -r test",
+    "test:e2e": "node apps/demo/e2e/run.mjs",
+    "typecheck": "pnpm -r typecheck"
   }
 }

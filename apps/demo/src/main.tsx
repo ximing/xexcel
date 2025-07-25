@@ -4,7 +4,7 @@ import { registerValidationNotice } from '@gmi/excel-core'
 import { registerPluginNotice } from '@gmi/excel-view'
 import { showNotice } from '@gmi/excel-react'
 import '@gmi/excel-react/theme.css'
-import { App } from './app/App'
+import { App } from './App'
 
 registerValidationNotice(showNotice)
 registerPluginNotice(showNotice)

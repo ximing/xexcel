@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { Workbook } from '@gmi/excel-core'
-import { evaluatorFor, isFormula } from '@gmi/excel-core'
+import { Workbook } from '../src/core/model'
+import { evaluatorFor, isFormula } from '../src/formula/engine'
 
 const mk = (cells: Array<[number, number, string]>) => {
   let sheet = Workbook.create({ rowCount: 50, colCount: 26 }).activeSheet
