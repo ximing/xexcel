@@ -19,16 +19,30 @@
 
 ## 架构
 
-分层依赖单向 `react → view → core/formula`：
+pnpm workspace monorepo，分层依赖单向 `excel-react → excel-view → excel-core`：
 
-- `src/core` 纯数据与状态（model / steps / transaction / state / plugin / history / commands），零 DOM 依赖
-- `src/formula` 公式引擎，零 DOM 依赖
-- `src/view` 命令式 Konva 视图
-- `src/plugins` 内建交互插件
-- `src/react` React 外壳 + `ui/` 通用组件层（设计系统）
-- `src/app` 应用入口
+- `packages/excel-core` 纯数据与状态（model / steps / transaction / state / plugin / history / commands）+ 公式引擎 + xlsx/CSV 互操作，零 DOM 依赖
+- `packages/excel-view` 命令式 Konva 视图 + 内建交互插件
+- `packages/excel-react` React 外壳 + `ui/` 通用组件层（设计系统）
+- `apps/demo` 演示应用（Pages 部署源）
 
 所有文档修改只能经 Transaction/Step；视图 / 插件 / React 永不直接改 doc。
+
+## SDK 集成
+
+仓库为 pnpm workspace monorepo，SDK 三包可独立编译（ESM + d.ts），外部系统经 npm pack / file: 引用集成：
+
+- `@gmi/excel-core`：零 DOM 核心（模型/事务/插件框架/公式引擎/xlsx/CSV 互操作），Node 可用
+- `@gmi/excel-view`：Konva 画布视图 + 内建交互插件
+- `@gmi/excel-react`：React 外壳（`<ExcelEditor/>` + 工具栏/公式栏/状态栏 + ui 组件层）
+
+```tsx
+import { Workbook } from '@gmi/excel-core'
+import { ExcelEditor, createStateFromWorkbook } from '@gmi/excel-react'
+import '@gmi/excel-react/styles.css'
+
+<ExcelEditor state={createStateFromWorkbook(Workbook.create({ rowCount: 1000, colCount: 26 }))} />
+```
 
 ## 技术栈
 
@@ -38,17 +52,17 @@ TypeScript(strict) / Vite / React 18 / Konva（命令式）/ Tailwind v4（设�
 
 | 命令 | 说明 |
 |------|------|
-| `npm run dev` | 启动 Vite 开发服务器 |
-| `npm test` | 运行 vitest 单元测试 |
-| `npm run typecheck` | tsc --noEmit 类型检查 |
-| `npm run build` | 类型检查 + 生产构建 |
-| `npm run test:e2e` | 真实浏览器回归（浏览器本机 Chrome，38 场景） |
+| `pnpm dev` | 启动 demo Vite 开发服务器 |
+| `pnpm -r test` | 运行 vitest 单元测试 |
+| `pnpm -r typecheck` | tsc --noEmit 类型检查 |
+| `pnpm -r build` | 类型检查 + 生产构建 |
+| `node apps/demo/e2e/run.mjs` | 真实浏览器回归（浏览器本机 Chrome，38 场景） |
 
 测试现状：533 单测（72 文件）+ 38 e2e 场景。
 
 ## 设计规范
 
-M5 建立：设计 token 单源（`src/app/theme.css` @theme：色板 / 圆角 / 阴影 / 字号）+ `src/react/ui/` 组件层（Icon / Tooltip / IconButton / Button / Menu / Dropdown / Dialog / ConfirmDialog / Select / TextInput），画布取色镜像 `src/view/theme.ts`。
+M5 建立：设计 token 单源（`packages/excel-react/src/theme.css` @theme：色板 / 圆角 / 阴影 / 字号）+ `packages/excel-react/src/ui/` 组件层（Icon / Tooltip / IconButton / Button / Menu / Dropdown / Dialog / ConfirmDialog / Select / TextInput），画布取色镜像 `packages/excel-view/src/view/theme.ts`。
 
 ## 文档
 

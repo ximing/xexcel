@@ -36,9 +36,9 @@ __xcell.state.activeSheet.getCell(19,1)?.raw
 // React 状态更新异步：点按钮后需等菜单渲染；点菜单项后需等 StatusBar 渲染
 await (async () => {
   window.confirm = () => true
-  ;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
+  ;document.querySelector('button[aria-label="文件"]').click()
   await new Promise(r=>setTimeout(r,300))
-  ;[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent.includes('清除')).click()
+  ;[...document.querySelectorAll('button[role="menuitem"]')].find(b=>b.textContent.includes('清除')).click()
   await new Promise(r=>setTimeout(r,500))
 })()
 ;[localStorage.getItem('xexcel.workbook'), document.querySelector('.status-notice')?.textContent]
@@ -66,9 +66,9 @@ __xcell.dispatch(tr)
 window.__dl = null
 const oc = URL.createObjectURL.bind(URL)
 URL.createObjectURL = (b) => { window.__dl = b; return oc(b) }
-;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
+;document.querySelector('button[aria-label="文件"]').click()
 await new Promise(r=>setTimeout(r,300))
-;[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent==='导出 CSV').click()
+;[...document.querySelectorAll('button[role="menuitem"]')].find(b=>b.textContent==='导出 CSV').click()
 await new Promise(r=>setTimeout(r,300))
 // blob.text() 解码时会剥离 UTF-8 BOM，BOM 须用 arrayBuffer 验字节
 const txt = await window.__dl.text()
@@ -94,9 +94,9 @@ document.createElement = (tag, ...rest) => {
   }, 0)
   return el
 }
-;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
+;document.querySelector('button[aria-label="文件"]').click()
 await new Promise(r=>setTimeout(r,300))
-;[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent.includes('打开 CSV')).click()
+;[...document.querySelectorAll('button[role="menuitem"]')].find(b=>b.textContent.includes('打开 CSV')).click()
 await new Promise(r=>setTimeout(r,500))
 document.createElement = oce
 const wb = __xcell.state.doc
@@ -112,14 +112,15 @@ const sh = __xcell.state.activeSheet
 
 ```js
 // 公式复活：evaluator 有计算值
-const { evaluatorFor } = await import('/src/formula/engine.ts')
+// 包源码在 dev server root（apps/demo）之外，须走 vite /@fs 绝对路径（同 suites/m4a.mjs 的 ENGINE_URL）
+const { evaluatorFor } = await import('/@fs/Users/ximing/project/mygithub/xexcel/packages/excel-core/src/formula/engine.ts')
 evaluatorFor(__xcell.state.doc).get(__xcell.state.doc.active, 2, 0)
 ```
 【预期】6（B2=3 → =B2*2）
 
 ```js
 // undo 一步（点工具栏撤销按钮）：新 sheet 消失
-document.querySelector('.tool-btn[title="撤销"]').click()
+document.querySelector('button[aria-label="撤销"]').click()
 __xcell.state.doc.order.length
 ```
 【预期】回到导入前的 sheet 数（undo 一步复原）

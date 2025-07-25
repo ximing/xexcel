@@ -1,6 +1,6 @@
 # M4b 浏览器验收（浏览器）：xlsx 导入导出
 
-前置：`pnpm --filter ./apps/demo dev`（仓库根，http://localhost:5180）；dev 下 `window.__xcell` 为 EditorView。
+前置：`pnpm --filter ./apps/demo dev -- --port 5180`（仓库根，http://localhost:5180）；dev 下 `window.__xcell` 为 EditorView。
 先注入 m3c.md 的 `window.W` helper。每步后附【预期】，失败即终止并回报。
 localStorage 键：`xexcel.workbook`。行列索引 0-based。
 
@@ -47,8 +47,8 @@ W.read(0, 0)?.raw
 菜单操作约定（React 异步：点「文件」后等 300ms 再点菜单项）：
 
 ```js
-// 打开菜单：  [...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
-// 等 300ms 后：[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent.includes('xxx')).click()
+// 打开菜单：  document.querySelector('button[aria-label="文件"]').click()
+// 等 300ms 后：[...document.querySelectorAll('button[role="menuitem"]')].find(b=>b.textContent.includes('xxx')).click()
 ```
 
 ---
@@ -85,9 +85,9 @@ stub 下载捕获 Blob，点「导出 xlsx」：
 window.__dl = null
 const oc = URL.createObjectURL.bind(URL)
 URL.createObjectURL = (b) => { window.__dl = b; return oc(b) }
-;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
+;document.querySelector('button[aria-label="文件"]').click()
 await new Promise(r=>setTimeout(r,300))
-;[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent==='导出 xlsx').click()
+;[...document.querySelectorAll('button[role="menuitem"]')].find(b=>b.textContent==='导出 xlsx').click()
 await new Promise(r=>setTimeout(r,800)) // exportXlsx 内部 await writeBuffer，异步
 const bytes = new Uint8Array(await window.__dl.arrayBuffer())
 URL.createObjectURL = oc
@@ -140,9 +140,9 @@ window.__namesBefore
 2. evaluate 点菜单（confirm 已是默认放行的 `() => true`）：
 
 ```js
-;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
+;document.querySelector('button[aria-label="文件"]').click()
 await new Promise(r=>setTimeout(r,300))
-;[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent.includes('打开 xlsx')).click()
+;[...document.querySelectorAll('button[role="menuitem"]')].find(b=>b.textContent.includes('打开 xlsx')).click()
 await new Promise(r=>setTimeout(r,300))
 !!window.__lastInput
 ```
@@ -182,7 +182,8 @@ const a1 = sh.getCell(0, 0)
 【预期】['标题', true, '#ff0000', '3', '=B1*2']（粗体红字导入进 model；公式复活为 raw）
 
 ```js
-const { evaluatorFor } = await import('/src/formula/engine.ts')
+// 包源码在 dev server root（apps/demo）之外，须走 vite /@fs 绝对路径（同 suites/m4b.mjs 的 ENGINE_URL）
+const { evaluatorFor } = await import('/@fs/Users/ximing/project/mygithub/xexcel/packages/excel-core/src/formula/engine.ts')
 evaluatorFor(__xcell.state.doc).get(__xcell.state.doc.active, 1, 1)
 ```
 【预期】6（B1=3 → =B1*2 计算值）
@@ -287,9 +288,9 @@ window.__confirmCalls = []
 window.confirm = (msg) => { window.__confirmCalls.push(msg); return false }
 window.__lastInput = null
 const docBefore = __xcell.state.doc
-;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
+;document.querySelector('button[aria-label="文件"]').click()
 await new Promise(r=>setTimeout(r,300))
-;[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent.includes('打开 xlsx')).click()
+;[...document.querySelectorAll('button[role="menuitem"]')].find(b=>b.textContent.includes('打开 xlsx')).click()
 await new Promise(r=>setTimeout(r,300))
 ;[window.__confirmCalls.length, window.__confirmCalls[0].includes('替换'), window.__lastInput, __xcell.state.doc === docBefore]
 ```
@@ -299,9 +300,9 @@ confirm 放行 + 取消文件选择 → 无动作无报错：
 
 ```js
 window.confirm = (msg) => { window.__confirmCalls.push(msg); return true }
-;[...document.querySelectorAll('.tool-btn')].find(b=>b.textContent==='文件').click()
+;document.querySelector('button[aria-label="文件"]').click()
 await new Promise(r=>setTimeout(r,300))
-;[...document.querySelectorAll('.file-menu-item')].find(b=>b.textContent.includes('打开 xlsx')).click()
+;[...document.querySelectorAll('button[role="menuitem"]')].find(b=>b.textContent.includes('打开 xlsx')).click()
 await new Promise(r=>setTimeout(r,300))
 // 模拟用户在系统对话框点「取消」：pickFile 监听 cancel 事件（Chrome 113+）
 window.__lastInput.dispatchEvent(new Event('cancel'))
