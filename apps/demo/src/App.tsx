@@ -1,8 +1,8 @@
-// demo 应用壳：存档恢复/自动保存/__xcell 调试暴露；通用编辑器壳在 @gmi/excel-react。
+// demo 应用壳：存档恢复/自动保存/__xcell 调试暴露；通用编辑器壳在 @xexcel/react。
 import { useEffect, useState } from 'react'
-import type { EditorView } from '@gmi/excel-view'
-import { ExcelEditor, createStateFromWorkbook, workbookStorage } from '@gmi/excel-react'
-import type { SheetState } from '@gmi/excel-core'
+import type { EditorView } from '@xexcel/view'
+import { ExcelEditor, createStateFromWorkbook, workbookStorage } from '@xexcel/react'
+import type { SheetState } from '@xexcel/core'
 import { createDemoState } from './demo'
 
 // 启动：有存档以存档建初始 state（恢复非用户操作，不可撤销，不走事务）

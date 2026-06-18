@@ -1,29 +1,58 @@
 {
-  "name": "@gmi/excel-react",
+  "name": "@xexcel/react",
   "version": "0.1.0",
-  "private": true,
+  "description": "React shell for xexcel: <ExcelEditor/> plus toolbar, formula bar, status bar, and UI primitives.",
+  "license": "MIT",
+  "author": "ximing",
   "type": "module",
   "sideEffects": ["**/*.css"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
     "./styles.css": "./dist/styles.css"
   },
   "files": ["dist"],
+  "keywords": [
+    "spreadsheet",
+    "excel",
+    "react",
+    "grid",
+    "xlsx"
+  ],
+  "homepage": "https://ximing.github.io/xexcel/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ximing/xexcel.git",
+    "directory": "packages/excel-react"
+  },
+  "bugs": {
+    "url": "https://github.com/ximing/xexcel/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "tsup && tailwindcss -i src/theme.css -o dist/styles.css --minify",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": { "lucide-react": "^1.28.0" },
+  "dependencies": {
+    "lucide-react": "^1.28.0"
+  },
   "peerDependencies": {
-    "@gmi/excel-core": "0.1.0",
-    "@gmi/excel-view": "0.1.0",
+    "@xexcel/core": "^0.1.0",
+    "@xexcel/view": "^0.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@gmi/excel-core": "workspace:*",
-    "@gmi/excel-view": "workspace:*",
+    "@xexcel/core": "workspace:*",
+    "@xexcel/view": "workspace:*",
     "@tailwindcss/cli": "^4.3.3",
     "@types/react": "^18.3",
     "@types/react-dom": "^18.3",

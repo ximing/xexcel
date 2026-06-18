@@ -7,14 +7,14 @@
 //   不相交则清源）；不一致（外部内容）→ TSV 兜底：文本原样落 cell:{raw}、空串清格、越界裁剪、
 //   样式丢失（已知限制）。多区域 paste：首 area 锚 activeCell，余 area 按源内相对偏移落格。
 // 全部经 dispatch transaction，不直接改 doc。
-import { CellRange, clampRange, normalizeRange, rangeCellCount, rangesEqual, rangesIntersect } from '@gmi/excel-core'
-import { Cell, CellStyle, Workbook } from '@gmi/excel-core'
-import { EditorViewLike, Plugin } from '@gmi/excel-core'
-import { forEachSelectionRange, rangeSelection, selectionRange } from '@gmi/excel-core'
-import type { Selection } from '@gmi/excel-core'
-import { evaluatorFor } from '@gmi/excel-core'
-import { normalizedCell } from '@gmi/excel-core'
-import { shiftFormula } from '@gmi/excel-core'
+import { CellRange, clampRange, normalizeRange, rangeCellCount, rangesEqual, rangesIntersect } from '@xexcel/core'
+import { Cell, CellStyle, Workbook } from '@xexcel/core'
+import { EditorViewLike, Plugin } from '@xexcel/core'
+import { forEachSelectionRange, rangeSelection, selectionRange } from '@xexcel/core'
+import type { Selection } from '@xexcel/core'
+import { evaluatorFor } from '@xexcel/core'
+import { normalizedCell } from '@xexcel/core'
+import { shiftFormula } from '@xexcel/core'
 
 export interface ClipboardArea {
   range: CellRange

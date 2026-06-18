@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Workbook } from '@gmi/excel-core'
+import { Workbook } from '@xexcel/core'
 import { navigateFocus } from '../src/plugins/keymap'
 
 // 10×10 表，合并区 B2:C3（sr:1,sc:1,er:2,ec:2）

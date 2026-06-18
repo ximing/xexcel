@@ -1,9 +1,9 @@
 // 工作表增/删/改名共用逻辑（SheetTabBar 与右键菜单共用）。
 // 空表跳过删除确认；删 active 表重置选区到 A1；重名 notice 不派发。
-import { nextSheetId, nextSheetName, SheetData, SheetId } from '@gmi/excel-core'
-import { singleCell } from '@gmi/excel-core'
-import { isValidSheetName, SHEET_NAME_MAX_LEN } from '@gmi/excel-core'
-import type { EditorView } from '@gmi/excel-view'
+import { nextSheetId, nextSheetName, SheetData, SheetId } from '@xexcel/core'
+import { singleCell } from '@xexcel/core'
+import { isValidSheetName, SHEET_NAME_MAX_LEN } from '@xexcel/core'
+import type { EditorView } from '@xexcel/view'
 import { showNotice } from './notice'
 import { askConfirm } from './ui/confirmStore'
 

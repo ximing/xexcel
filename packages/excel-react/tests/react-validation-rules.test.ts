@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ValidationRule } from '@gmi/excel-core'
+import { ValidationRule } from '@xexcel/core'
 import {
   describeRule,
   nextValidationId,

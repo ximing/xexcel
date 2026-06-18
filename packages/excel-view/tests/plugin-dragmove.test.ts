@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SheetData } from '@gmi/excel-core'
+import { SheetData } from '@xexcel/core'
 import { buildMove } from '../src/plugins/dragmove'
 const mk = (r = 8, c = 8) => SheetData.create({ rowCount: r, colCount: c })
 const set = (s: SheetData, r: number, c: number, raw: string, style?: any) =>

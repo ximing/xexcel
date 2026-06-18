@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SheetData } from '@gmi/excel-core'
+import { SheetData } from '@xexcel/core'
 import { edgeDash, edgeWeight, edgeWidth, resolveHEdge, resolveVEdge } from '../src/view/borders'
 
 const mk = (): SheetData => SheetData.create({ rowCount: 5, colCount: 5 })

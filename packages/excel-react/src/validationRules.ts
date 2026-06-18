@@ -1,7 +1,7 @@
 // 数据验证对话框纯逻辑（组件外可单测）。
-import { CellRange, clampRange, parseRangeA1, toA1 } from '@gmi/excel-core'
-import { FilterOp, ValidationRule } from '@gmi/excel-core'
-import type { SheetState } from '@gmi/excel-core'
+import { CellRange, clampRange, parseRangeA1, toA1 } from '@xexcel/core'
+import { FilterOp, ValidationRule } from '@xexcel/core'
+import type { SheetState } from '@xexcel/core'
 
 export const VALIDATION_OPS: { op: FilterOp; label: string }[] = [
   { op: 'between', label: '介于' },

@@ -1,5 +1,5 @@
 // 文本测量：列宽自适应用。canvas 部分仅浏览器可用；纯逻辑部分（optimal*）注入测量函数，node 可测。
-import { CellStyle } from '@gmi/excel-core'
+import { CellStyle } from '@xexcel/core'
 
 export const CELL_PAD_X = 6
 const DEFAULT_FONT_SIZE = 13

@@ -61,7 +61,7 @@ export default async function run({ assertEq }) {
     const wb = new ExcelJS.Workbook()
     await wb.xlsx.load(Buffer.from(r.b64, 'base64'))
     const ws = wb.worksheets[0]
-    assertEq(ws.name, 'Sheet1', 'S1 sheet 名')
+    assertEq(ws.name, '销售', 'S1 sheet 名')
     const a21 = ws.getCell('A21')
     assertEq(a21.value, '汇总区', 'S1 A21 值')
     assertEq(a21.font?.bold ?? null, true, 'S1 A21 粗体')
@@ -102,10 +102,10 @@ export default async function run({ assertEq }) {
     const b64 = readFileSync('/tmp/m4b-import.xlsx').toString('base64')
     // 导入前现场
     assertEq(await ev(`
-      window.__archiveBefore = localStorage.getItem('xexcel.workbook')
+      window.__archiveBefore = localStorage.getItem('xexcel.workbook.v2')
       window.__namesBefore = [...__xcell.state.doc.order].map((id) => __xcell.state.doc.names.get(id))
       window.__lastInput = null
-      return window.__namesBefore`), ['Sheet1'], 'S2 导入前 demo 单表')
+      return window.__namesBefore`), ['销售', '样式', '试用'], 'S2 导入前 demo 三表')
     await bringToFront()
     await clickMenu('打开 xlsx')
     // M5：打开 xlsx 前置 ConfirmDialog（confirmLabel「打开」），确认后才创建 pickFile input
@@ -144,12 +144,12 @@ export default async function run({ assertEq }) {
   async function s3() {
     // 导入成功立即落档（saveNow），存档此刻已是新 workbook
     assertEq(await ev(`
-      const arch = localStorage.getItem('xexcel.workbook')
+      const arch = localStorage.getItem('xexcel.workbook.v2')
       return [arch !== window.__archiveBefore, arch.includes('数据'), arch.includes('空表')]`),
       [true, true, true], 'S3 导入成功瞬间存档已是新 workbook')
     await ev(`W.setCell(3, 0, '验收标记'); return 1`)
     // 防抖 1s 落盘；节流 tab 内定时器可能延迟，轮询而非固定 sleep
-    await pollUntil(`localStorage.getItem('xexcel.workbook')?.includes('验收标记')`, 'S3 编辑防抖落盘')
+    await pollUntil(`localStorage.getItem('xexcel.workbook.v2')?.includes('验收标记')`, 'S3 编辑防抖落盘')
     await reload() // 刷新后 helper/stub 已重注
     assertEq(await ev(`
       const wb = __xcell.state.doc
@@ -177,7 +177,7 @@ export default async function run({ assertEq }) {
       ['文件无法解析', '数据', '标题', '验收标记'], 'S4 notice 报无法解析 + 现场分毫未动')
     // 自动保存已恢复（导入失败后 resume 生效）
     await ev(`W.setCell(4, 0, '恢复标记'); return 1`)
-    await pollUntil(`localStorage.getItem('xexcel.workbook')?.includes('恢复标记')`, 'S4 自动保存恢复落盘')
+    await pollUntil(`localStorage.getItem('xexcel.workbook.v2')?.includes('恢复标记')`, 'S4 自动保存恢复落盘')
     assertEq(await ev(`return window.__statusError()`),
       null, 'S4 无自动保存失败提示')
   }

@@ -1,8 +1,8 @@
 // 通用编辑器壳：Toolbar → FormulaBar → FindBar → grid（EditorView mount 点）→ SheetTabBar → StatusBar。
 // EditorView 在 useEffect 内一次性创建，unmount 时 destroy；state 仅挂载时取一次（同原 App 语义）。
 import { useEffect, useRef, useState } from 'react'
-import type { SheetState } from '@gmi/excel-core'
-import { EditorView } from '@gmi/excel-view'
+import type { SheetState } from '@xexcel/core'
+import { EditorView } from '@xexcel/view'
 import { ContextMenu } from './ContextMenu'
 import { FilterDropdown } from './FilterDropdown'
 import { FindBar } from './FindBar'

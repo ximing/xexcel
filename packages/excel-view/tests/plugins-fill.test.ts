@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { Workbook } from '@gmi/excel-core'
-import { evaluatorFor } from '@gmi/excel-core'
+import { Workbook } from '@xexcel/core'
+import { evaluatorFor } from '@xexcel/core'
 import { computeFillEntries } from '../src/plugins/fillhandle'
 
 const mk = (cells: Array<[number, number, string]>) => {

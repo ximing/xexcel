@@ -2,6 +2,15 @@
   "name": "xexcel",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
+  "homepage": "https://ximing.github.io/xexcel/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ximing/xexcel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ximing/xexcel/issues"
+  },
   "type": "module",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
