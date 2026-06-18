@@ -55,6 +55,7 @@ export function dragmove(): Plugin {
     },
     props: {
       handleMouseDown(view: EditorViewLike, e: MouseEvent, hit: HitResult): boolean {
+        if (e.button !== 0) return false // 仅左键拖拽（同 selection，防右键菜单吞 mouseup）
         if (hit.region !== 'selborder') return false
         const v = view as EditorView
         dragging = true

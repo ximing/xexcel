@@ -128,6 +128,9 @@ export function selection(): Plugin {
     },
     props: {
       handleMouseDown(view: EditorViewLike, e: MouseEvent, hit: HitResult): boolean {
+        // 仅左键发起选择/调宽拖拽：右键 mousedown 后 contextmenu 菜单会拦截 mouseup 冒泡，
+        // 若允许右键进入拖拽态，drag 永不清除，mousemove 会持续改选区（issue #1）
+        if (e.button !== 0) return false
         const v = view as EditorView
         const sheet = v.state.activeSheet
         switch (hit.region) {
