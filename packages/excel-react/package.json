@@ -6,8 +6,7 @@
   "sideEffects": ["**/*.css"],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./styles.css": "./dist/styles.css",
-    "./theme.css": "./src/theme.css"
+    "./styles.css": "./dist/styles.css"
   },
   "files": ["dist"],
   "scripts": {
