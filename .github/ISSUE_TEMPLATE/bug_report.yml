@@ -1,0 +1,45 @@
+name: Bug report
+description: Something does not work the way you expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues first. Security problems go to [SECURITY.md](https://github.com/ximing/xexcel/blob/main/SECURITY.md), not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Minimal formula, sheet, or steps. A tiny xlsx or a few cells is enough.
+      placeholder: |
+        1. Open the demo
+        2. Type =SUM(A1:A2) in B1
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: Chrome 128 / Node 22 / @xexcel/react 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options:
+        - Demo (GitHub Pages)
+        - Embedded @xexcel/react
+        - Headless @xexcel/core
+        - xlsx / CSV I/O
+        - Not sure
+    validations:
+      required: true

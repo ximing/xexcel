@@ -6,14 +6,14 @@
 //   evaluator.get 为 number）→ 等差序列（步长 =(末值-首值)/(n-1)）；dispatch 并 setSelection
 //   到新区域、清 preview
 // 全部经 dispatch transaction，不直接改 doc。拖拽态存插件闭包变量。
-import { CellRange, rangesEqual } from '@gmi/excel-core'
-import { Cell, SheetData } from '@gmi/excel-core'
-import { EditorViewLike, Plugin } from '@gmi/excel-core'
-import { rangeSelection, selectionRange } from '@gmi/excel-core'
-import type { Transaction } from '@gmi/excel-core'
-import type { FormulaValue } from '@gmi/excel-core'
-import { evaluatorFor } from '@gmi/excel-core'
-import { shiftFormula } from '@gmi/excel-core'
+import { CellRange, rangesEqual } from '@xexcel/core'
+import { Cell, SheetData } from '@xexcel/core'
+import { EditorViewLike, Plugin } from '@xexcel/core'
+import { rangeSelection, selectionRange } from '@xexcel/core'
+import type { Transaction } from '@xexcel/core'
+import type { FormulaValue } from '@xexcel/core'
+import { evaluatorFor } from '@xexcel/core'
+import { shiftFormula } from '@xexcel/core'
 import type { EditorView } from '../view/editorview'
 import { fillPreviewKey } from '../view/types'
 

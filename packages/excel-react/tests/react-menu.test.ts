@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { SheetData, Workbook } from '@gmi/excel-core'
-import { rangeSelection } from '@gmi/excel-core'
-import type { Selection } from '@gmi/excel-core'
-import { SheetState } from '@gmi/excel-core'
+import { SheetData, Workbook } from '@xexcel/core'
+import { rangeSelection } from '@xexcel/core'
+import type { Selection } from '@xexcel/core'
+import { SheetState } from '@xexcel/core'
 import { menuItems } from '../src/menu'
-import type { ContextMenuOpen } from '@gmi/excel-view'
+import type { ContextMenuOpen } from '@xexcel/view'
 
 const mk = (doc?: Workbook, selection?: Selection): SheetState =>
   SheetState.create({ doc: doc ?? Workbook.create({ rowCount: 10, colCount: 10 }), selection })

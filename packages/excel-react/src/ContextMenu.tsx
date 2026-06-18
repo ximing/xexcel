@@ -3,9 +3,9 @@
 // 粘贴经 navigator.clipboard.readText 后走 view.someProp('handlePaste')。
 import { Fragment, useEffect } from 'react'
 import { showNotice } from './notice'
-import { selectionRange } from '@gmi/excel-core'
-import type { EditorView } from '@gmi/excel-view'
-import { contextMenuKey, ContextMenuOpen, tabRenameKey } from '@gmi/excel-view'
+import { selectionRange } from '@xexcel/core'
+import type { EditorView } from '@xexcel/view'
+import { contextMenuKey, ContextMenuOpen, tabRenameKey } from '@xexcel/view'
 import { useSheetState } from './bridge'
 import { menuItems } from './menu'
 import { addSheet, removeSheet } from './sheetOps'

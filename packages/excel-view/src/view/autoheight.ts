@@ -1,7 +1,7 @@
 // 自动行高推导：wrap 格按显示文本折行需求撑高（推导值不入模型；手动行高行不参与）。
 // 行高按 (宽度|字体|文本) 缓存；列宽/字号/内容变化经 sheet 引用变化自然失效。
-import { CellStyle, SheetData } from '@gmi/excel-core'
-import type { CellEvaluator } from '@gmi/excel-core'
+import { CellStyle, SheetData } from '@xexcel/core'
+import type { CellEvaluator } from '@xexcel/core'
 import { CELL_PAD_X, measureTextWidth, wrapRowHeight } from './measure'
 
 const heightCache = new Map<string, number>()

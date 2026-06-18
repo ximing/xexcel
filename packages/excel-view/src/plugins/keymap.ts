@@ -5,11 +5,11 @@
 // - F2 → openEditor；可打印单字符（无 Ctrl/Cmd/Alt）→ 清 proxy 后 openEditor(focus, key)
 // 命中的按键一律 preventDefault 并返回 true；未命中返回 false（不拦截 copy/paste 等）。
 // 移动类 dispatch 带 scrollIntoView()。
-import { CellAddr, CellRange } from '@gmi/excel-core'
-import { clearSelection, selectAll } from '@gmi/excel-core'
-import { redo, undo } from '@gmi/excel-core'
-import { EditorViewLike, Plugin } from '@gmi/excel-core'
-import { extendActiveRange, singleCell } from '@gmi/excel-core'
+import { CellAddr, CellRange } from '@xexcel/core'
+import { clearSelection, selectAll } from '@xexcel/core'
+import { redo, undo } from '@xexcel/core'
+import { EditorViewLike, Plugin } from '@xexcel/core'
+import { extendActiveRange, singleCell } from '@xexcel/core'
 import { isEditing, openEditor } from '../view/editbox'
 import type { EditorView } from '../view/editorview'
 import { findBarKey, formatPainterKey } from '../view/types'

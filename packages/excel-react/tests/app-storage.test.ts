@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Workbook } from '@gmi/excel-core'
+import { Workbook } from '@xexcel/core'
 import { STORAGE_KEY, StorageLike, WorkbookStorage } from '../src/storage'
 
 function memStorage(): StorageLike & { dump: Map<string, string> } {

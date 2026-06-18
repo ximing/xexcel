@@ -1,10 +1,39 @@
 {
-  "name": "@gmi/excel-view",
+  "name": "@xexcel/view",
   "version": "0.1.0",
-  "private": true,
+  "description": "Imperative Konva canvas for xexcel: virtualized grid, selection, fill handle, clipboard, keymap.",
+  "license": "MIT",
+  "author": "ximing",
   "type": "module",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "files": ["dist"],
+  "keywords": [
+    "spreadsheet",
+    "excel",
+    "canvas",
+    "konva",
+    "grid"
+  ],
+  "homepage": "https://ximing.github.io/xexcel/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ximing/xexcel.git",
+    "directory": "packages/excel-view"
+  },
+  "bugs": {
+    "url": "https://github.com/ximing/xexcel/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
@@ -14,10 +43,10 @@
     "konva": "^9.3.16"
   },
   "peerDependencies": {
-    "@gmi/excel-core": "0.1.0"
+    "@xexcel/core": "^0.1.0"
   },
   "devDependencies": {
-    "@gmi/excel-core": "workspace:*",
+    "@xexcel/core": "workspace:*",
     "tsup": "^8.3.5",
     "typescript": "~5.6",
     "vitest": "^2.1"

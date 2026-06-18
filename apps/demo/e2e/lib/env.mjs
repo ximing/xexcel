@@ -66,6 +66,7 @@ export async function freshPage() {
   await evaluateJS(`
     Storage.prototype.setItem = function () {}
     localStorage.removeItem('xexcel.workbook')
+    localStorage.removeItem('xexcel.workbook.v2')
     location.reload()
     'ok'`)
   await new Promise(r => setTimeout(r, 2500))

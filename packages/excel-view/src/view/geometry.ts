@@ -1,6 +1,6 @@
 // 网格几何：行高列宽前缀和 + 二分反查。不 import konva，可在 node 环境单测。
-import { CellAddr, CellRange } from '@gmi/excel-core'
-import { SheetData } from '@gmi/excel-core'
+import { CellAddr, CellRange } from '@xexcel/core'
+import { SheetData } from '@xexcel/core'
 import { Rect } from './types'
 
 // 二分：最后一个 tops[i] <= v 的 i，clamp 到 [0, count-1]

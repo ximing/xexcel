@@ -13,12 +13,12 @@
     "noUnusedLocals": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@gmi/excel-core": ["./packages/excel-core/src/index.ts"],
-      "@gmi/excel-core/*": ["./packages/excel-core/src/*"],
-      "@gmi/excel-view": ["./packages/excel-view/src/index.ts"],
-      "@gmi/excel-view/*": ["./packages/excel-view/src/*"],
-      "@gmi/excel-react": ["./packages/excel-react/src/index.ts"],
-      "@gmi/excel-react/*": ["./packages/excel-react/src/*"]
+      "@xexcel/core": ["./packages/excel-core/src/index.ts"],
+      "@xexcel/core/*": ["./packages/excel-core/src/*"],
+      "@xexcel/view": ["./packages/excel-view/src/index.ts"],
+      "@xexcel/view/*": ["./packages/excel-view/src/*"],
+      "@xexcel/react": ["./packages/excel-react/src/index.ts"],
+      "@xexcel/react/*": ["./packages/excel-react/src/*"]
     }
   }
 }

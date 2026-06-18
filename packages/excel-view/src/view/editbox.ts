@@ -2,12 +2,12 @@
 // Esc 取消；Enter 提交并下移；Tab 提交并右移；blur 提交。编辑期间焦点在编辑器上，
 // proxy 处于 blur，插件 keydown 不触发。
 // F5：编辑 =… 公式时画布高亮被引区域（refHighlightKey meta）；函数名补全下拉。
-import type { CellAddr } from '@gmi/excel-core'
-import { singleCell } from '@gmi/excel-core'
-import { notifyValidationReject, validateInput } from '@gmi/excel-core'
-import { functionNames } from '@gmi/excel-core'
-import { normalizedCell } from '@gmi/excel-core'
-import { completionCandidates } from '@gmi/excel-core'
+import type { CellAddr } from '@xexcel/core'
+import { singleCell } from '@xexcel/core'
+import { notifyValidationReject, validateInput } from '@xexcel/core'
+import { functionNames } from '@xexcel/core'
+import { normalizedCell } from '@xexcel/core'
+import { completionCandidates } from '@xexcel/core'
 import type { EditorView } from './editorview'
 import { THEME } from './theme'
 import { refHighlightKey } from './types'

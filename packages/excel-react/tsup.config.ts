@@ -6,4 +6,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
+  external: ['@xexcel/core', '@xexcel/view', 'react', 'react-dom', 'lucide-react'],
 })

@@ -1,7 +1,7 @@
 // localStorage 薄壳：防抖自动保存 + 损坏备份 + 保存状态订阅（StatusBar 用）。
 // node（vitest）环境退化为内存 Map：模块 import 期不得触碰 localStorage。
-import { deserializeWorkbook, serializeWorkbook } from '@gmi/excel-core'
-import { Workbook } from '@gmi/excel-core'
+import { deserializeWorkbook, serializeWorkbook } from '@xexcel/core'
+import { Workbook } from '@xexcel/core'
 
 export interface StorageLike {
   getItem(key: string): string | null
@@ -9,7 +9,7 @@ export interface StorageLike {
   removeItem(key: string): void
 }
 
-export const STORAGE_KEY = 'xexcel.workbook'
+export const STORAGE_KEY = 'xexcel.workbook.v2'
 
 export interface SaveStatus {
   readonly error: string | null

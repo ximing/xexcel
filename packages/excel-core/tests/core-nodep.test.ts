@@ -10,7 +10,7 @@ const scan = (dir: string): string[] =>
     e.isDirectory() ? scan(join(dir, e.name)) : e.name.endsWith('.ts') ? [join(dir, e.name)] : [])
 
 // 禁用 import 目标：任何上层包与 DOM/视图库
-const FORBIDDEN = ['@gmi/excel-view', '@gmi/excel-react', 'konva', 'react', 'react-dom']
+const FORBIDDEN = ['@xexcel/view', '@xexcel/react', 'konva', 'react', 'react-dom']
 
 describe('core/formula 零上层依赖', () => {
   for (const dir of ['core', 'formula']) {

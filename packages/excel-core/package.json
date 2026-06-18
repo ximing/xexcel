@@ -1,10 +1,43 @@
 {
-  "name": "@gmi/excel-core",
+  "name": "@xexcel/core",
   "version": "0.1.0",
-  "private": true,
+  "description": "Headless spreadsheet engine: immutable workbook, transactions, plugins, formula evaluator, xlsx/CSV I/O. Zero DOM.",
+  "license": "MIT",
+  "author": "ximing",
   "type": "module",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "files": ["dist"],
+  "keywords": [
+    "spreadsheet",
+    "excel",
+    "formula",
+    "xlsx",
+    "csv",
+    "transaction",
+    "headless",
+    "typescript"
+  ],
+  "homepage": "https://ximing.github.io/xexcel/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ximing/xexcel.git",
+    "directory": "packages/excel-core"
+  },
+  "bugs": {
+    "url": "https://github.com/ximing/xexcel/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "tsup",
     "test": "vitest run",

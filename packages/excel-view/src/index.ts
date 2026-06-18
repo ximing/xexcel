@@ -1,4 +1,4 @@
-// 公共 API 面：Konva 视图 + 内建交互插件。依赖 @gmi/excel-core。
+// 公共 API 面：Konva 视图 + 内建交互插件。依赖 @xexcel/core。
 export * from './view/autoheight'
 export * from './view/borders'
 export * from './view/editbox'

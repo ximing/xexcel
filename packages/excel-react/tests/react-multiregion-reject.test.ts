@@ -3,10 +3,10 @@
 // 此处对按钮禁用判定（canSort/canFilter/canCondFormat）与拒绝消息解析（sort/filter/condFormat
 // Rejection）做断言：多区域 → 禁用 + 返回拒绝消息；单区域 → 启用 + 放行（null）。零回归。
 import { describe, expect, it } from 'vitest'
-import { Workbook } from '@gmi/excel-core'
-import { SheetState } from '@gmi/excel-core'
-import { appendRange, rangeSelection } from '@gmi/excel-core'
-import type { Selection } from '@gmi/excel-core'
+import { Workbook } from '@xexcel/core'
+import { SheetState } from '@xexcel/core'
+import { appendRange, rangeSelection } from '@xexcel/core'
+import type { Selection } from '@xexcel/core'
 import { canSort, canFilter, sortRejection, filterRejection } from '../src/Toolbar'
 import { canCondFormat, condFormatRejection } from '../src/CondFormatDialog'
 

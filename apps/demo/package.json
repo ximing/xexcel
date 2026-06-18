@@ -11,9 +11,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@gmi/excel-core": "workspace:*",
-    "@gmi/excel-react": "workspace:*",
-    "@gmi/excel-view": "workspace:*",
+    "@xexcel/core": "workspace:*",
+    "@xexcel/react": "workspace:*",
+    "@xexcel/view": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

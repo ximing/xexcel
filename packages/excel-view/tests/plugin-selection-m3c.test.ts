@@ -2,14 +2,14 @@
 // 用 SheetState.create + 最小 fake view（state getter + dispatch 捕获 + focus/geometry no-op），
 // 直接调 plugin.spec.props.handleMouseDown / handleKeyDown，断言 state.selection 形态。
 import { describe, expect, it } from 'vitest'
-import { Workbook } from '@gmi/excel-core'
-import { SheetState } from '@gmi/excel-core'
-import { appendRange, rangeSelection, singleCell } from '@gmi/excel-core'
-import type { Transaction } from '@gmi/excel-core'
+import { Workbook } from '@xexcel/core'
+import { SheetState } from '@xexcel/core'
+import { appendRange, rangeSelection, singleCell } from '@xexcel/core'
+import type { Transaction } from '@xexcel/core'
 import { selection } from '../src/plugins/selection'
 import { keymap } from '../src/plugins/keymap'
 import type { EditorView } from '../src/view/editorview'
-import type { HitResult } from '@gmi/excel-core'
+import type { HitResult } from '@xexcel/core'
 
 // 最小 fake view：selection 插件 mousedown 只用 state/dispatch/focus；
 // keymap move 用 geometry() 判隐藏行列，mock 成全可见。

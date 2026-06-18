@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Live demo
+    url: https://ximing.github.io/xexcel/
+    about: Try the current build in the browser
+  - name: Discussions
+    url: https://github.com/ximing/xexcel/discussions
+    about: Questions and ideas that are not a bug

@@ -6,12 +6,12 @@
 //   （layers 读取画虚线），mouseup dispatch tr.resize（最小 20px）；双击边框自适应内容尺寸
 //   （整行/整列选区包含目标时批量；空行/列经 resize null 恢复默认）
 // 全部经 props 拦截 + dispatch transaction，不直接改 doc。拖拽态存插件闭包变量。
-import { CellAddr, rangeContains } from '@gmi/excel-core'
-import { selectAll } from '@gmi/excel-core'
-import { CellStyle, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '@gmi/excel-core'
-import { EditorViewLike, HitResult, Plugin } from '@gmi/excel-core'
-import { appendRange, extendActiveRange, rangeSelection, selectionRange, singleCell, toggleRange } from '@gmi/excel-core'
-import { evaluatorFor } from '@gmi/excel-core'
+import { CellAddr, rangeContains } from '@xexcel/core'
+import { selectAll } from '@xexcel/core'
+import { CellStyle, COL_HEADER_HEIGHT, ROW_HEADER_WIDTH } from '@xexcel/core'
+import { EditorViewLike, HitResult, Plugin } from '@xexcel/core'
+import { appendRange, extendActiveRange, rangeSelection, selectionRange, singleCell, toggleRange } from '@xexcel/core'
+import { evaluatorFor } from '@xexcel/core'
 import type { EditorView } from '../view/editorview'
 import { measureTextWidth, optimalColWidth, optimalRowHeight } from '../view/measure'
 import { ResizeGuide, resizeGuideKey } from '../view/types'

@@ -1,9 +1,9 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import { registerValidationNotice } from '@gmi/excel-core'
-import { registerPluginNotice } from '@gmi/excel-view'
-import { showNotice } from '@gmi/excel-react'
-import '@gmi/excel-react/theme.css'
+import { registerValidationNotice } from '@xexcel/core'
+import { registerPluginNotice } from '@xexcel/view'
+import { showNotice } from '@xexcel/react'
+import '@xexcel/react/theme.css'
 import { App } from './App'
 
 registerValidationNotice(showNotice)

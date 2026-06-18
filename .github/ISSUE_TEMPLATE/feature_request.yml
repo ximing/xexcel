@@ -1,0 +1,30 @@
+name: Feature request
+description: A formula, interaction, or API you want
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard or missing today? Check README "What this is not" first.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Smallest change that would help. Prefer a formula or a Step over a new product surface.
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Layer
+      options:
+        - core / formula
+        - view / interaction
+        - react chrome
+        - docs
+        - not sure
+    validations:
+      required: true

@@ -1,6 +1,6 @@
 // 视图层公共类型。本文件不得 import konva（需在 node 环境单测）。
-import { PluginKey } from '@gmi/excel-core'
-import type { HitResult as CoreHitResult } from '@gmi/excel-core'
+import { PluginKey } from '@xexcel/core'
+import type { HitResult as CoreHitResult } from '@xexcel/core'
 
 export interface Rect {
   x: number
@@ -44,7 +44,7 @@ export const findBarKey = new PluginKey('findBar')
 
 // 格式刷状态：源格 style 快照 + 是否锁定连刷；null=未激活
 export interface FormatPainterState {
-  style: import('@gmi/excel-core').CellStyle
+  style: import('@xexcel/core').CellStyle
   locked: boolean
 }
 export const formatPainterKey = new PluginKey('formatPainter')
@@ -56,7 +56,7 @@ export interface ContextMenuOpen {
   y: number
   row: number
   col: number
-  sheet?: import('@gmi/excel-core').SheetId // kind='tab'
+  sheet?: import('@xexcel/core').SheetId // kind='tab'
 }
 export const contextMenuKey = new PluginKey('contextMenu')
 

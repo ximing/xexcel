@@ -29,7 +29,7 @@ export default async function run({ assertEq }) {
       return 1`)
     assertEq(await ev(`return __xcell.state.activeSheet.getCell(19, 1)?.raw ?? null`), '99', 'S1 B20 输入 99')
     // 防抖 1s 落盘；节流 tab 内定时器可能延迟，轮询而非固定 sleep
-    await pollUntil(`(localStorage.getItem('xexcel.workbook')?.length ?? 0) > 0`, 'S1 防抖落盘')
+    await pollUntil(`(localStorage.getItem('xexcel.workbook.v2')?.length ?? 0) > 0`, 'S1 防抖落盘')
     await reload()
     assertEq(await ev(`return __xcell.state.activeSheet.getCell(19, 1)?.raw ?? null`), '99', 'S1 刷新后 B20 恢复')
     assertEq(await ev(`return __xcell.state.activeSheet.getCell(0, 0)?.raw ?? null`), '产品', 'S1 刷新后 A1 demo 数据也在存档')
@@ -41,7 +41,7 @@ export default async function run({ assertEq }) {
       await window.__clickFileMenu('清除')
       window.__clickDialogBtn('清除')
       await new Promise((r) => setTimeout(r, 500))
-      return [localStorage.getItem('xexcel.workbook'), window.__notice()]`)
+      return [localStorage.getItem('xexcel.workbook.v2'), window.__notice()]`)
     assertEq(r[0], null, 'S2 存档已删')
     assertIncludes(r[1], '已清除浏览器存档', 'S2 StatusBar 提示')
     await reload()
@@ -106,9 +106,9 @@ export default async function run({ assertEq }) {
   // ---- 场景 5：损坏存档恢复 ----
   async function s5() {
     // 等 S4 undo 的防抖存档落盘（存档不再含「进货」sheet），避免 beforeunload flush 覆盖损坏档
-    await pollUntil(`!localStorage.getItem('xexcel.workbook')?.includes('进货')`, 'S5 undo 防抖落盘')
+    await pollUntil(`!localStorage.getItem('xexcel.workbook.v2')?.includes('进货')`, 'S5 undo 防抖落盘')
     await ev(`
-      localStorage.setItem('xexcel.workbook', '{broken')
+      localStorage.setItem('xexcel.workbook.v2', '{broken')
       location.reload()
       'ok'`)
     await bringToFront()
@@ -117,8 +117,8 @@ export default async function run({ assertEq }) {
     // 防抖落盘尚未触发）；runner 观测时初始存档已写回。语义等价断言：主键不再是损坏串
     // （null 或有效初始存档均可）+ .corrupt 备份 + 正常启动。
     assertEq(await ev(`
-      const main = localStorage.getItem('xexcel.workbook')
-      return [!!window.__xcell, localStorage.getItem('xexcel.workbook.corrupt'), main !== '{broken']`),
+      const main = localStorage.getItem('xexcel.workbook.v2')
+      return [!!window.__xcell, localStorage.getItem('xexcel.workbook.v2.corrupt'), main !== '{broken']`),
       [true, '{broken', true], 'S5 正常启动 + 损坏档备份 .corrupt + 主键损坏串已清')
     await reinject()
     assertEq(await ev(`return __xcell.state.activeSheet.getCell(0, 0)?.raw ?? null`), '产品', 'S5 落默认 demo 表')

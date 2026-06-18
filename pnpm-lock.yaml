@@ -10,13 +10,13 @@ importers:
 
   apps/demo:
     dependencies:
-      '@gmi/excel-core':
+      '@xexcel/core':
         specifier: workspace:*
         version: link:../../packages/excel-core
-      '@gmi/excel-react':
+      '@xexcel/react':
         specifier: workspace:*
         version: link:../../packages/excel-react
-      '@gmi/excel-view':
+      '@xexcel/view':
         specifier: workspace:*
         version: link:../../packages/excel-view
       react:
@@ -76,12 +76,6 @@ importers:
         specifier: ^1.28.0
         version: 1.28.0(react@18.3.1)
     devDependencies:
-      '@gmi/excel-core':
-        specifier: workspace:*
-        version: link:../excel-core
-      '@gmi/excel-view':
-        specifier: workspace:*
-        version: link:../excel-view
       '@tailwindcss/cli':
         specifier: ^4.3.3
         version: 4.3.3
@@ -91,6 +85,12 @@ importers:
       '@types/react-dom':
         specifier: ^18.3
         version: 18.3.7(@types/react@18.3.31)
+      '@xexcel/core':
+        specifier: workspace:*
+        version: link:../excel-core
+      '@xexcel/view':
+        specifier: workspace:*
+        version: link:../excel-view
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -116,7 +116,7 @@ importers:
         specifier: ^9.3.16
         version: 9.3.22
     devDependencies:
-      '@gmi/excel-core':
+      '@xexcel/core':
         specifier: workspace:*
         version: link:../excel-core
       tsup:

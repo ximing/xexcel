@@ -1,7 +1,7 @@
 // 临时 UI 态宿主：metaField 工厂（PluginKey + StateField 桥接 tr meta 通道，
 // 配 addToHistory:false 不入 undo 栈）与 filterui（筛选箭头点击 → 开启下拉面板）。
-import { EditorViewLike, HitResult, Plugin, PluginKey } from '@gmi/excel-core'
-import { forEachSelectionRange } from '@gmi/excel-core'
+import { EditorViewLike, HitResult, Plugin, PluginKey } from '@xexcel/core'
+import { forEachSelectionRange } from '@xexcel/core'
 import type { EditorView } from '../view/editorview'
 import { contextMenuKey, filterDropdownKey, formatPainterKey, FormatPainterState } from '../view/types'
 
@@ -49,7 +49,7 @@ export function painter(): Plugin {
         const fp = v.state.getField(formatPainterKey) as FormatPainterState | null | undefined
         if (!fp || hit.region !== 'cell') return false
         const st = v.state
-        const entries: { row: number; col: number; style: import('@gmi/excel-core').CellStyle }[] = []
+        const entries: { row: number; col: number; style: import('@xexcel/core').CellStyle }[] = []
         forEachSelectionRange(st.selection, r => {
           for (let row = r.sr; row <= r.er; row++)
             for (let col = r.sc; col <= r.ec; col++) entries.push({ row, col, style: fp.style })

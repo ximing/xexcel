@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SheetData } from '@gmi/excel-core'
+import { SheetData } from '@xexcel/core'
 import { GridGeometry } from '../src/view/geometry'
 import { wrappedLineCount, wrapRowHeight, WRAP_LINE_PAD } from '../src/view/measure'
 
