@@ -137,4 +137,26 @@ describe('Shift 扩展多步生长（锚点固定，不滑动）', () => {
     expect(getState().selection.ranges).toEqual([{ sr: 0, sc: 0, er: 0, ec: 4 }])
     expect(getState().selection.activeCell).toEqual({ row: 0, col: 4 })
   })
+
+  // issue #1：右键 mousedown 不得进入拖拽态（右键菜单会拦截 mouseup 冒泡，drag 若残留则 mousemove 持续改选区）
+  it('右键 mousedown 不进入拖拽态，后续 mousemove 不改选区', () => {
+    const { view, getState } = mkView({ selection: rangeSelection({ sr: 1, sc: 1, er: 3, ec: 3 }) })
+    const sel = selection()
+    const rightDown = { ...mkEvent(), button: 2 } as MouseEvent
+    const handled = sel.spec.props!.handleMouseDown!(view, rightDown, cellHit(2, 2))
+    expect(handled).toBe(false)
+    expect(getState().selection.ranges).toEqual([{ sr: 1, sc: 1, er: 3, ec: 3 }]) // 选区不被右键改动
+    sel.spec.props!.handleMouseMove!(view, move(330, 180), cellHit(5, 5)) // 菜单打开期间移动鼠标
+    expect(getState().selection.ranges).toEqual([{ sr: 1, sc: 1, er: 3, ec: 3 }]) // 选区不跟随
+  })
+
+  it('右键点行列边框不进入 resize 拖拽态', () => {
+    const { view, getState } = mkView()
+    const sel = selection()
+    const rightDown = { ...mkEvent(), button: 2 } as MouseEvent
+    const before = getState().activeSheet.colWidth(2)
+    const handled = sel.spec.props!.handleMouseDown!(view, rightDown, { region: 'colborder', row: -1, col: 2 })
+    expect(handled).toBe(false)
+    expect(getState().activeSheet.colWidth(2)).toBe(before) // 未拖拽，列宽不变
+  })
 })

@@ -59,6 +59,7 @@ export function fillhandle(): Plugin {
     },
     props: {
       handleMouseDown(view: EditorViewLike, _e: MouseEvent, hit): boolean {
+        if (_e.button !== 0) return false // 仅左键拖拽（同 selection，防右键菜单吞 mouseup）
         if (hit.region !== 'fillhandle') return false
         const v = view as EditorView
         source = selectionRange(v.state.selection)

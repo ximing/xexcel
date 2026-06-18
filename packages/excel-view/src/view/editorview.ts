@@ -407,6 +407,9 @@ export class EditorView implements EditorViewLike {
   }
 
   private onMouseDown = (e: MouseEvent): void => {
+    // 右键 mousedown 不做任何选择/拖拽：选区调整由 contextmenu 处理器负责（点在选区内保持选区），
+    // 且右键菜单会拦截 mouseup 冒泡，此处若启动拖拽态将永不清除（issue #1）
+    if (e.button !== 0) return
     const hit = this.hitTest(e.clientX, e.clientY)
     if (hit.region === 'hscrollbar' || hit.region === 'vscrollbar') {
       const geom = this.geometry()
