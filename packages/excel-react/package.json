@@ -1,6 +1,6 @@
 {
   "name": "@xexcel/react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React shell for xexcel: <ExcelEditor/> plus toolbar, formula bar, status bar, and UI primitives.",
   "license": "MIT",
   "author": "ximing",

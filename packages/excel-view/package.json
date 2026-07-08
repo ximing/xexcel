@@ -1,6 +1,6 @@
 {
   "name": "@xexcel/view",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Imperative Konva canvas for xexcel: virtualized grid, selection, fill handle, clipboard, keymap.",
   "license": "MIT",
   "author": "ximing",
