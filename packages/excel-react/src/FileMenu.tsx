@@ -19,6 +19,7 @@ import {
   fileMenuItems,
   isGridEmpty,
 } from './fileMenuCore'
+import { t, useLocale } from './i18n'
 import { askConfirm } from './ui/confirmStore'
 import { Dropdown } from './ui/Dropdown'
 import { IconButton } from './ui/IconButton'
@@ -37,28 +38,29 @@ const ITEM_ICON: Record<FileMenuId, LucideIcon> = {
 }
 
 export function FileMenu({ view }: Props) {
+  const locale = useLocale()
   const openCsv = async (): Promise<void> => {
     const file = await pickFile('.csv,text/csv')
     if (!file) return
     if (
       file.size > CSV_MAX_BYTES &&
-      !(await askConfirm({ title: '导入 CSV', body: `文件 ${Math.round(file.size / 1024 / 1024)}MB，较大，确定导入？` }))
+      !(await askConfirm({ title: t(locale, 'file.importCsvTitle'), body: t(locale, 'file.sizeWarn', { size: Math.round(file.size / 1024 / 1024) }) }))
     )
       return
     let grid
     try {
       grid = csvToGrid(await readFileText(file))
     } catch {
-      showNotice('文件读取失败')
+      showNotice(t(locale, 'file.readFail'))
       return
     }
     if (isGridEmpty(grid)) {
-      showNotice('CSV 文件为空')
+      showNotice(t(locale, 'file.csvEmpty'))
       return
     }
     if (
       grid.length > CSV_MAX_ROWS &&
-      !(await askConfirm({ title: '导入 CSV', body: `共 ${grid.length} 行，较多，确定导入？` }))
+      !(await askConfirm({ title: t(locale, 'file.importCsvTitle'), body: t(locale, 'file.csvRowsWarn', { n: grid.length }) }))
     )
       return
     view.dispatch(buildImportTr(view.state, grid, csvBaseName(file.name)))
@@ -75,10 +77,10 @@ export function FileMenu({ view }: Props) {
   const openXlsx = async (): Promise<void> => {
     if (
       !(await askConfirm({
-        title: '打开 xlsx',
-        body: '将替换当前表格内容，浏览器存档将被覆盖。',
+        title: t(locale, 'file.openXlsxTitle'),
+        body: t(locale, 'file.openXlsxBody'),
         danger: true,
-        confirmLabel: '打开',
+        confirmLabel: t(locale, 'file.openXlsxConfirm'),
       }))
     )
       return
@@ -86,7 +88,7 @@ export function FileMenu({ view }: Props) {
     if (!file) return
     if (
       file.size > XLSX_MAX_BYTES &&
-      !(await askConfirm({ title: '打开 xlsx', body: `文件 ${Math.round(file.size / 1024 / 1024)}MB，较大，确定导入？` }))
+      !(await askConfirm({ title: t(locale, 'file.openXlsxTitle'), body: t(locale, 'file.sizeWarn', { size: Math.round(file.size / 1024 / 1024) }) }))
     )
       return
     // 先暂停自动保存：导入期间（含 updateState 触发的订阅）不写存档；不清存档，失败时现场与存档都不动
@@ -96,9 +98,9 @@ export function FileMenu({ view }: Props) {
       const wb = await parseXlsx(new Uint8Array(await readFileArrayBuffer(file)))
       view.updateState(createStateFromWorkbook(wb)) // 同启动恢复路径，不可撤销
       opened = wb
-      showNotice(`已打开 ${file.name}`)
+      showNotice(t(locale, 'file.opened', { name: file.name }))
     } catch {
-      showNotice('文件无法解析')
+      showNotice(t(locale, 'file.parseFail'))
     } finally {
       workbookStorage.resume()
     }
@@ -121,7 +123,7 @@ export function FileMenu({ view }: Props) {
         }),
       )
     } catch {
-      showNotice('导出失败')
+      showNotice(t(locale, 'file.exportFail'))
     }
     view.focus()
   }
@@ -129,15 +131,15 @@ export function FileMenu({ view }: Props) {
   const clearStorage = async (): Promise<void> => {
     if (
       !(await askConfirm({
-        title: '清除浏览器存档',
-        body: '当前内容刷新后将不再恢复。',
+        title: t(locale, 'file.clearTitle'),
+        body: t(locale, 'file.clearBody'),
         danger: true,
-        confirmLabel: '清除',
+        confirmLabel: t(locale, 'file.clearConfirm'),
       }))
     )
       return
     workbookStorage.suspend()
-    showNotice('已清除浏览器存档，刷新后生效')
+    showNotice(t(locale, 'file.clearDone'))
     view.focus()
   }
 
@@ -149,7 +151,7 @@ export function FileMenu({ view }: Props) {
     else void clearStorage()
   }
 
-  const entries: MenuEntry[] = fileMenuItems().flatMap((it): MenuEntry[] => {
+  const entries: MenuEntry[] = fileMenuItems(locale).flatMap((it): MenuEntry[] => {
     const entry: MenuEntry = {
       id: it.id,
       label: it.label,
@@ -163,7 +165,7 @@ export function FileMenu({ view }: Props) {
 
   return (
     <Dropdown
-      trigger={(open, toggle) => <IconButton icon={FileSpreadsheet} tip="文件" active={open} onClick={toggle} />}
+      trigger={(open, toggle) => <IconButton icon={FileSpreadsheet} tip={t(locale, 'file.tip')} active={open} onClick={toggle} />}
       entries={entries}
     />
   )

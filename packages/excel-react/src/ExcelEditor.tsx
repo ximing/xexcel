@@ -12,13 +12,16 @@ import { StatusBar } from './StatusBar'
 import { Toolbar } from './Toolbar'
 import { ConfirmHost } from './ui/ConfirmHost'
 
+import { LocaleContext, type Locale } from './i18n'
+
 export interface ExcelEditorProps {
   state: SheetState
   // 宿主拿 view 句柄接线自动保存/调试暴露；unmount 时回调 null
   onView?: (view: EditorView | null) => void
+  locale?: Locale
 }
 
-export function ExcelEditor({ state, onView }: ExcelEditorProps) {
+export function ExcelEditor({ state, onView, locale = 'zh' }: ExcelEditorProps) {
   const mountRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<EditorView | null>(null)
 
@@ -38,6 +41,7 @@ export function ExcelEditor({ state, onView }: ExcelEditorProps) {
 
   // 固定槽位顺序渲染，保证 view 出现/消失时 grid 容器 DOM 节点不被重建
   return (
+    <LocaleContext.Provider value={locale}>
     <div className="flex h-full flex-col">
       {view ? <Toolbar view={view} /> : null}
       {view ? <FormulaBar view={view} /> : null}
@@ -49,5 +53,6 @@ export function ExcelEditor({ state, onView }: ExcelEditorProps) {
       {view ? <ContextMenu view={view} /> : null}
       <ConfirmHost />
     </div>
+    </LocaleContext.Provider>
   )
 }

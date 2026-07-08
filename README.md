@@ -29,7 +29,7 @@ export function App() {
   const state = createStateFromWorkbook(
     Workbook.create({ rowCount: 1000, colCount: 26 }),
   )
-  return <ExcelEditor state={state} />
+  return <ExcelEditor state={state} locale="en" />
 }
 ```
 
@@ -51,7 +51,7 @@ xexcel is a **small, readable embeddable kernel**, not an office suite. Out of s
 - realtime collaboration
 - charts, pivot tables, sparklines
 - VBA / macros / array-dynamic formulas
-- full Excel function library (common functions only: `SUM` `AVERAGE` `COUNT` `MIN` `MAX` `IF` `SUMIF` `ABS` `ROUND` and friends)
+- full Excel function library (common functions only: `SUM` `AVERAGE` `COUNT` `MIN` `MAX` `IF` `SUMIF` `COUNTIF` `AVERAGEIF` `ABS` `ROUND` and friends)
 - print layout / page setup
 - mobile-first touch editing
 
@@ -69,6 +69,27 @@ pnpm workspace. Dependencies flow one way: `react → view → core`.
 | `apps/demo` | Live demo (GitHub Pages source) |
 
 Every document mutation goes through a Transaction/Step. Views, plugins, and React components never write the doc directly.
+
+## Keyboard
+
+`Mod` is ⌘ on macOS and Ctrl on Windows/Linux. Copy / cut / paste use the browser events (`Mod+C` / `Mod+X` / `Mod+V`); the fill handle is mouse-only.
+
+| Keys | Action |
+|---|---|
+| Arrow | Move the active cell |
+| Shift+Arrow | Extend the selection |
+| Tab / Shift+Tab | Move right / left |
+| Enter / Shift+Enter | Move down / up |
+| Delete / Backspace | Clear the selection |
+| F2 | Edit the active cell |
+| Printable character | Start editing, replace contents |
+| Mod+A | Select all |
+| Mod+F | Find / replace |
+| Mod+Z | Undo |
+| Mod+Shift+Z or Ctrl+Y | Redo |
+| Esc | Cancel format painter |
+
+`<ExcelEditor locale="en" />` switches chrome (toolbar, file menu, context menu, status bar) to English. Default is `zh`.
 
 ## Develop
 

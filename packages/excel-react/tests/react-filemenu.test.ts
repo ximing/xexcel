@@ -12,6 +12,15 @@ describe('fileMenuItems', () => {
       { id: 'clearStorage', label: '清除浏览器存档', danger: true },
     ])
   })
+  it('locale=en 切英文', () => {
+    expect(fileMenuItems('en').map((i) => i.label)).toEqual([
+      'Open CSV…',
+      'Open xlsx…',
+      'Export CSV',
+      'Export xlsx',
+      'Clear browser archive',
+    ])
+  })
 })
 
 describe('csvBaseName', () => {

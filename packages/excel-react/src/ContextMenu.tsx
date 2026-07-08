@@ -9,8 +9,10 @@ import { contextMenuKey, ContextMenuOpen, tabRenameKey } from '@xexcel/view'
 import { useSheetState } from './bridge'
 import { menuItems } from './menu'
 import { addSheet, removeSheet } from './sheetOps'
+import { t, useLocale } from './i18n'
 
 export function ContextMenu({ view }: { view: EditorView }) {
+  const locale = useLocale()
   const state = useSheetState(view)
   const open = state.getField(contextMenuKey) as ContextMenuOpen | null | undefined
 
@@ -30,7 +32,7 @@ export function ContextMenu({ view }: { view: EditorView }) {
   }, [open !== null])
 
   if (!open) return null
-  const items = menuItems(state, open)
+  const items = menuItems(state, open, locale)
 
   const act = (id: string): void => {
     const st = view.state
@@ -49,7 +51,7 @@ export function ContextMenu({ view }: { view: EditorView }) {
             if (t) view.someProp('handlePaste', (p) => p(view, t))
             view.focus()
           })
-          .catch(() => showNotice('无法读取剪贴板'))
+          .catch(() => showNotice(t(locale, 'menu.clipboardFail')))
         break
       case 'insertRows':
         // 数量 = 选区行跨度（非整行选也按跨度，对齐 Excel）
@@ -107,7 +109,7 @@ export function ContextMenu({ view }: { view: EditorView }) {
         addSheet(view)
         break
       case 'tabRemove':
-        void removeSheet(view, open.sheet!, st.doc.names.get(open.sheet!) ?? open.sheet!)
+        void removeSheet(view, open.sheet!, st.doc.names.get(open.sheet!) ?? open.sheet!, locale)
         break
       case 'tabRename':
         // 改名输入态由 SheetTabBar 订阅 tabRenameKey 进入

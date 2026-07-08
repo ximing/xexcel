@@ -6,6 +6,8 @@ describe('functionNames', () => {
     const names = functionNames()
     expect(names).toContain('SUM')
     expect(names).toContain('ABS')
+    expect(names).toContain('COUNTIF')
+    expect(names).toContain('AVERAGEIF')
     expect(names.every(n => n === n.toUpperCase())).toBe(true)
     expect(new Set(names).size).toBe(names.length) // 无重复
   })

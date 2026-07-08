@@ -5,6 +5,7 @@ import { singleCell } from '@xexcel/core'
 import { isValidSheetName, SHEET_NAME_MAX_LEN } from '@xexcel/core'
 import type { EditorView } from '@xexcel/view'
 import { showNotice } from './notice'
+import { t, type Locale } from './i18n'
 import { askConfirm } from './ui/confirmStore'
 
 // 空表判定：usedRange 为单格且该格无内容（usedRange 对空表返回全 0）
@@ -24,15 +25,15 @@ export function addSheet(view: EditorView): void {
   view.focus()
 }
 
-export async function removeSheet(view: EditorView, id: SheetId, name: string): Promise<void> {
+export async function removeSheet(view: EditorView, id: SheetId, name: string, locale: Locale = 'zh'): Promise<void> {
   const st = view.state
   if (st.doc.order.length <= 1) return
   if (!isSheetEmpty(st.doc.sheet(id))) {
     const ok = await askConfirm({
-      title: '删除工作表',
-      body: `确定删除工作表「${name}」？可通过撤销恢复。`,
+      title: t(locale, 'sheet.deleteTitle'),
+      body: t(locale, 'sheet.deleteBody', { name }),
       danger: true,
-      confirmLabel: '删除',
+      confirmLabel: t(locale, 'sheet.deleteConfirm'),
     })
     if (!ok) return
   }

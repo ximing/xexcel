@@ -11,6 +11,7 @@ import type { EditorView } from '@xexcel/view'
 import { zoomKey } from '@xexcel/view'
 import { ZOOM_LEVELS, zoomOf } from '@xexcel/view'
 import { useSheetState } from './bridge'
+import { t, useLocale } from './i18n'
 import { Button } from './ui/Button'
 import { Dropdown } from './ui/Dropdown'
 import type { MenuEntry } from './ui/Menu'
@@ -41,6 +42,7 @@ function collectStats(state: SheetState): { sum: number; count: number; single: 
 }
 
 export function StatusBar({ view }: Props) {
+  const locale = useLocale()
   const state = useSheetState(view)
   const saveStatus = useSyncExternalStore(workbookStorage.subscribeStatus, workbookStorage.getStatus)
   const notice = useSyncExternalStore(subscribeNotice, getNotice)
@@ -54,8 +56,12 @@ export function StatusBar({ view }: Props) {
 
   const { sum, count, single } = collectStats(state)
   const stats = single
-    ? `计数: ${count}`
-    : `求和: ${formatNumber(sum)}　平均: ${count ? formatNumber(sum / count) : '-'}　计数: ${count}`
+    ? t(locale, 'status.count', { n: count })
+    : t(locale, 'status.stats', {
+        sum: formatNumber(sum),
+        avg: count ? formatNumber(sum / count) : '-',
+        n: count,
+      })
 
   // 缩放档位：点击百分比向上弹出档位菜单；zoom 非文档态（addToHistory:false）
   const zoom = zoomOf(state, state.doc.active)
@@ -76,8 +82,8 @@ export function StatusBar({ view }: Props) {
   return (
     <div className="flex h-6 flex-none items-center justify-between border-t border-line bg-surface-2 px-3 text-xs text-ink-2">
       <span className="flex items-center">
-        <span>{isEditing() ? '编辑中' : '就绪'}</span>
-        {saveStatus.error ? <span className="ml-3 text-danger-deep">自动保存失败</span> : null}
+        <span>{isEditing() ? t(locale, 'status.editing') : t(locale, 'status.ready')}</span>
+        {saveStatus.error ? <span className="ml-3 text-danger-deep">{t(locale, 'status.saveFail')}</span> : null}
         {notice ? <span className="ml-3 text-primary">{notice}</span> : null}
       </span>
       <span className="flex items-center gap-3">

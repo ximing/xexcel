@@ -9,7 +9,8 @@ const H = {
   hideRow: noop, hideCol: noop, unhide: noop, resetSize: noop,
   freezeRow: noop, freezeCol: noop, freezeTo: noop, unfreeze: noop,
   asc: noop, desc: noop, custom: noop,
-  thousands: noop, percent: noop, currency: noop, decInc: noop, decDec: noop,
+  thousands: noop, thousandsInt: noop, percent: noop, currency: noop,
+  date: noop, accounting: noop, decInc: noop, decDec: noop,
 }
 
 function item(entries: MenuEntry[], id: string): MenuEntry | undefined {
@@ -90,5 +91,13 @@ describe('buildNumberFormatItems', () => {
   it('无 numFmt 时无 active 项', () => {
     const items = buildNumberFormatItems(undefined, H)
     expect(items.every((e) => 'sep' in e || !e.active)).toBe(true)
+  })
+  it('含整数千分位 / 日期 / 会计格式', () => {
+    const items = buildNumberFormatItems(undefined, H)
+    expect(item(items, 'thousandsInt')).toBeTruthy()
+    expect(item(items, 'date')).toBeTruthy()
+    expect(item(items, 'accounting')).toBeTruthy()
+    expect(active(buildNumberFormatItems('yyyy-mm-dd', H), 'date')).toBe(true)
+    expect(active(buildNumberFormatItems('#,##0', H), 'thousandsInt')).toBe(true)
   })
 })
