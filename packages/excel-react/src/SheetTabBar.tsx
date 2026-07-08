@@ -13,6 +13,7 @@ import { useSheetState } from './bridge'
 import { addSheet, removeSheet, renameSheet } from './sheetOps'
 import { Icon } from './ui/Icon'
 import { IconButton } from './ui/IconButton'
+import { t, useLocale } from './i18n'
 
 interface Props {
   view: EditorView
@@ -29,6 +30,7 @@ interface DragSession {
 }
 
 export function SheetTabBar({ view }: Props) {
+  const locale = useLocale()
   const state = useSheetState(view)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -196,10 +198,10 @@ export function SheetTabBar({ view }: Props) {
                   type="button"
                   data-sheet-close
                   className="flex items-center rounded-sm p-0.5 text-ink-3 hover:bg-danger-soft hover:text-danger-deep"
-                  title="删除工作表"
+                  title={t(locale, 'sheet.deleteTitle')}
                   onClick={(e) => {
                     e.stopPropagation()
-                    void removeSheet(view, id, name)
+                    void removeSheet(view, id, name, locale)
                   }}
                 >
                   <Icon icon={X} size={12} />

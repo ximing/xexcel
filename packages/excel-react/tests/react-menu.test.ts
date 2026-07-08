@@ -25,6 +25,12 @@ describe('menuItems cell', () => {
     ])
   })
 
+  it('locale=en 切英文标签', () => {
+    const items = menuItems(mk(), cellOpen, 'en')
+    expect(byId(items, 'cut').label).toBe('Cut')
+    expect(byId(items, 'clear').label).toBe('Clear contents')
+  })
+
   it('选区内无隐藏行列时 unhide 禁用；有隐藏行/列时启用', () => {
     expect(byId(menuItems(mk(), cellOpen), 'unhide').disabled).toBe(true)
     const wb = Workbook.create({ rowCount: 10, colCount: 10 })

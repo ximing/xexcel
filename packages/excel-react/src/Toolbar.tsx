@@ -48,6 +48,7 @@ import { SortDialog } from './SortDialog'
 import { CondFormatDialog, canCondFormat } from './CondFormatDialog'
 import { ValidationDialog } from './ValidationDialog'
 import { canValidation } from './validationRules'
+import { t, useLocale } from './i18n'
 import { FileMenu } from './FileMenu'
 import { IconButton } from './ui/IconButton'
 import { Separator } from './ui/Separator'
@@ -91,6 +92,7 @@ const BORDER_PRESETS: { p: BorderPreset; label: string; outer: string; inner: bo
 ]
 
 export function Toolbar({ view }: Props) {
+  const locale = useLocale()
   const state = useSheetState(view)
   const { row, col } = state.selection.activeCell
   const active: CellStyle = state.activeSheet.getCell(row, col)?.style ?? {}
@@ -163,8 +165,11 @@ export function Toolbar({ view }: Props) {
 
   const numFmtHandlers = {
     thousands: () => patchFocus({ numFmt: '#,##0.00' }),
+    thousandsInt: () => patchFocus({ numFmt: '#,##0' }),
     percent: () => patchFocus({ numFmt: '0%' }),
     currency: () => patchFocus({ numFmt: '¥#,##0.00' }),
+    date: () => patchFocus({ numFmt: 'yyyy-mm-dd' }),
+    accounting: () => patchFocus({ numFmt: '¥* #,##0.00' }),
     decInc: () => patchFocus({ numFmt: adjustDecimals(active.numFmt, 1) }),
     decDec: () => patchFocus({ numFmt: adjustDecimals(active.numFmt, -1) }),
   }
@@ -263,7 +268,7 @@ export function Toolbar({ view }: Props) {
       <Separator />
       <IconButton
         icon={Undo2}
-        tip="撤销"
+        tip={t(locale, 'tip.undo')}
         kbd="Ctrl+Z"
         disabled={undoDepth(state) === 0}
         onClick={() => {
@@ -273,7 +278,7 @@ export function Toolbar({ view }: Props) {
       />
       <IconButton
         icon={Redo2}
-        tip="重做"
+        tip={t(locale, 'tip.redo')}
         kbd="Ctrl+Y"
         disabled={redoDepth(state) === 0}
         onClick={() => {
@@ -284,7 +289,7 @@ export function Toolbar({ view }: Props) {
       <Separator />
       <IconButton
         icon={Paintbrush}
-        tip="格式刷（单击刷一次，双击锁定连刷，Esc 解除）"
+        tip={t(locale, 'tip.painter')}
         active={!!fp}
         onClick={(e) => {
           if (e.detail === 2) {
@@ -300,71 +305,71 @@ export function Toolbar({ view }: Props) {
         }}
       />
       <Separator />
-      <IconButton icon={Bold} tip="加粗" active={!!active.bold} onClick={() => patchFocus(active.bold ? { bold: undefined } : { bold: true })} />
-      <IconButton icon={Italic} tip="斜体" active={!!active.italic} onClick={() => patchFocus(active.italic ? { italic: undefined } : { italic: true })} />
-      <IconButton icon={Underline} tip="下划线" active={!!active.underline} onClick={() => patchFocus(active.underline ? { underline: undefined } : { underline: true })} />
-      <IconButton icon={Strikethrough} tip="删除线" active={!!active.strikethrough} onClick={() => patchFocus(active.strikethrough ? { strikethrough: undefined } : { strikethrough: true })} />
+      <IconButton icon={Bold} tip={t(locale, 'tip.bold')} active={!!active.bold} onClick={() => patchFocus(active.bold ? { bold: undefined } : { bold: true })} />
+      <IconButton icon={Italic} tip={t(locale, 'tip.italic')} active={!!active.italic} onClick={() => patchFocus(active.italic ? { italic: undefined } : { italic: true })} />
+      <IconButton icon={Underline} tip={t(locale, 'tip.underline')} active={!!active.underline} onClick={() => patchFocus(active.underline ? { underline: undefined } : { underline: true })} />
+      <IconButton icon={Strikethrough} tip={t(locale, 'tip.strike')} active={!!active.strikethrough} onClick={() => patchFocus(active.strikethrough ? { strikethrough: undefined } : { strikethrough: true })} />
       <Select
-        tip="字号"
+        tip={t(locale, 'tip.fontSize')}
         value={String(active.fontSize ?? 13)}
         options={FONT_SIZES.map((s) => ({ value: String(s), label: String(s) }))}
         onChange={(v) => patchFocus({ fontSize: Number(v) })}
       />
       <Select
-        tip="字体"
+        tip={t(locale, 'tip.fontFamily')}
         value={active.fontFamily ?? ''}
         options={FONT_FAMILIES}
         onChange={(v) => patchFocus({ fontFamily: v || undefined })}
       />
       <span className="relative inline-flex">
-        <IconButton icon={Baseline} tip="文字颜色" onClick={() => colorRef.current?.click()} />
+        <IconButton icon={Baseline} tip={t(locale, 'tip.color')} onClick={() => colorRef.current?.click()} />
         <span className="pointer-events-none absolute inset-x-1.5 bottom-1 h-0.5 rounded-full" style={{ background: textColor }} />
         <input
           ref={colorRef}
           type="color"
-          aria-label="文字颜色"
+          aria-label={t(locale, 'tip.color')}
           className="sr-only"
           value={textColor}
           onChange={(e) => patchFocus({ color: e.target.value })}
         />
       </span>
       <span className="relative inline-flex">
-        <IconButton icon={PaintBucket} tip="背景颜色" onClick={() => bgRef.current?.click()} />
+        <IconButton icon={PaintBucket} tip={t(locale, 'tip.bg')} onClick={() => bgRef.current?.click()} />
         <span className="pointer-events-none absolute inset-x-1.5 bottom-1 h-0.5 rounded-full" style={{ background: bgColor }} />
         <input
           ref={bgRef}
           type="color"
-          aria-label="背景颜色"
+          aria-label={t(locale, 'tip.bg')}
           className="sr-only"
           value={bgColor}
           onChange={(e) => patchFocus({ bg: e.target.value })}
         />
       </span>
       <Separator />
-      {([['left', AlignLeft, '左对齐'], ['center', AlignCenter, '居中'], ['right', AlignRight, '右对齐']] as const).map(([a, icon, tip]) => (
-        <IconButton key={a} icon={icon} tip={tip} active={(active.align ?? 'left') === a} onClick={() => patchFocus({ align: a })} />
+      {([['left', AlignLeft, 'tip.alignLeft'], ['center', AlignCenter, 'tip.alignCenter'], ['right', AlignRight, 'tip.alignRight']] as const).map(([a, icon, tip]) => (
+        <IconButton key={a} icon={icon} tip={t(locale, tip)} active={(active.align ?? 'left') === a} onClick={() => patchFocus({ align: a })} />
       ))}
-      <IconButton icon={WrapText} tip="自动换行" active={!!active.wrap} onClick={() => patchFocus({ wrap: active.wrap ? undefined : true })} />
+      <IconButton icon={WrapText} tip={t(locale, 'tip.wrap')} active={!!active.wrap} onClick={() => patchFocus({ wrap: active.wrap ? undefined : true })} />
       <Separator />
-      {([['top', AlignStartVertical, '顶端对齐'], ['middle', AlignCenterVertical, '垂直居中'], ['bottom', AlignEndVertical, '底端对齐']] as const).map(([v, icon, tip]) => (
-        <IconButton key={v} icon={icon} tip={tip} active={(active.vAlign ?? 'bottom') === v} onClick={() => patchFocus({ vAlign: v })} />
+      {([['top', AlignStartVertical, 'tip.vTop'], ['middle', AlignCenterVertical, 'tip.vMiddle'], ['bottom', AlignEndVertical, 'tip.vBottom']] as const).map(([v, icon, tip]) => (
+        <IconButton key={v} icon={icon} tip={t(locale, tip)} active={(active.vAlign ?? 'bottom') === v} onClick={() => patchFocus({ vAlign: v })} />
       ))}
       <Separator />
       <Dropdown
-        trigger={(open, toggle) => <IconButton icon={Hash} tip="数字格式" active={open} onClick={toggle} />}
-        entries={buildNumberFormatItems(active.numFmt, numFmtHandlers)}
+        trigger={(open, toggle) => <IconButton icon={Hash} tip={t(locale, 'tip.numFmt')} active={open} onClick={toggle} />}
+        entries={buildNumberFormatItems(active.numFmt, numFmtHandlers, locale)}
       />
       <Separator />
-      <IconButton icon={Merge} tip="合并单元格" onClick={() => void doMerge()} />
+      <IconButton icon={Merge} tip={t(locale, 'tip.merge')} onClick={() => void doMerge()} />
       <IconButton
         icon={Split}
-        tip="拆分单元格"
+        tip={t(locale, 'tip.unmerge')}
         onClick={() => {
           unmergeSelection(view.state, (tr) => view.dispatch(tr))
           view.focus()
         }}
       />
-      <Dropdown key={borderKey} trigger={(open, toggle) => <IconButton icon={Grid2x2} tip="边框" active={open} onClick={toggle} />}>
+      <Dropdown key={borderKey} trigger={(open, toggle) => <IconButton icon={Grid2x2} tip={t(locale, 'tip.border')} active={open} onClick={toggle} />}>
         <div className="flex w-56 flex-col gap-2 rounded-md border border-line-strong bg-surface p-2 shadow-2">
           <div className="grid grid-cols-4 gap-1">
             {BORDER_PRESETS.map(({ p, label, outer, inner }) => (
@@ -390,10 +395,10 @@ export function Toolbar({ view }: Props) {
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <Select tip="线型" value={borderLine} options={BORDER_LINE_OPTIONS} onChange={(v) => setBorderLine(v as BorderLineStyle)} />
+            <Select tip={t(locale, 'tip.lineStyle')} value={borderLine} options={BORDER_LINE_OPTIONS} onChange={(v) => setBorderLine(v as BorderLineStyle)} />
             <input
               type="color"
-              aria-label="边框颜色"
+              aria-label={t(locale, 'tip.borderColor')}
               className="h-7 w-9 cursor-pointer rounded-md border border-line bg-surface p-0.5"
               value={borderColor}
               onChange={(e) => setBorderColor(e.target.value)}
@@ -403,22 +408,22 @@ export function Toolbar({ view }: Props) {
       </Dropdown>
       <Separator />
       <Dropdown
-        trigger={(open, toggle) => <IconButton icon={Sheet} tip="行列操作" active={open} onClick={toggle} />}
-        entries={buildRowColItems({ fullRow: isFullRowSel(state), fullCol: isFullColSel(state), canUnhide: hasHiddenInSel(state), canReset: canResetSize(state) }, rowColHandlers)}
+        trigger={(open, toggle) => <IconButton icon={Sheet} tip={t(locale, 'tip.rowCol')} active={open} onClick={toggle} />}
+        entries={buildRowColItems({ fullRow: isFullRowSel(state), fullCol: isFullColSel(state), canUnhide: hasHiddenInSel(state), canReset: canResetSize(state) }, rowColHandlers, locale)}
       />
       <Dropdown
-        trigger={(open, toggle) => <IconButton icon={Snowflake} tip="冻结" active={open} onClick={toggle} />}
-        entries={buildFreezeItems({ rows: state.activeSheet.frozenRows, cols: state.activeSheet.frozenCols }, freezeHandlers)}
+        trigger={(open, toggle) => <IconButton icon={Snowflake} tip={t(locale, 'tip.freeze')} active={open} onClick={toggle} />}
+        entries={buildFreezeItems({ rows: state.activeSheet.frozenRows, cols: state.activeSheet.frozenCols }, freezeHandlers, locale)}
       />
       <Separator />
       <Dropdown
-        trigger={(open, toggle) => <IconButton icon={ArrowUpDown} tip="排序" active={open} onClick={toggle} />}
-        entries={buildSortItems(canSort(state), sortHandlers)}
+        trigger={(open, toggle) => <IconButton icon={ArrowUpDown} tip={t(locale, 'tip.sort')} active={open} onClick={toggle} />}
+        entries={buildSortItems(canSort(state), sortHandlers, locale)}
       />
       {showSort && state.selection.ranges.length === 1 && <SortDialog view={view} range={selectionRange(view.state.selection)} onClose={() => setShowSort(false)} />}
       <IconButton
         icon={Filter}
-        tip="自动筛选（对选区启用/清除全表筛选）"
+        tip={t(locale, 'tip.filter')}
         active={!!state.activeSheet.filter}
         disabled={!canFilter(state)}
         onClick={() => {
@@ -441,16 +446,16 @@ export function Toolbar({ view }: Props) {
       />
       <IconButton
         icon={Search}
-        tip="查找/替换"
+        tip={t(locale, 'tip.find')}
         kbd="Ctrl+F"
         onClick={() => {
           view.dispatch(view.state.tr.setMeta(findBarKey, true).setMeta('addToHistory', false))
         }}
       />
       <Separator />
-      <IconButton icon={SwatchBook} tip="条件格式" disabled={!canCondFormat(state)} onClick={() => setShowCF(true)} />
+      <IconButton icon={SwatchBook} tip={t(locale, 'tip.cf')} disabled={!canCondFormat(state)} onClick={() => setShowCF(true)} />
       {showCF && <CondFormatDialog view={view} onClose={() => setShowCF(false)} />}
-      <IconButton icon={ShieldCheck} tip="数据验证" disabled={!canValidation(state)} onClick={() => setShowValidation(true)} />
+      <IconButton icon={ShieldCheck} tip={t(locale, 'tip.validation')} disabled={!canValidation(state)} onClick={() => setShowValidation(true)} />
       {showValidation && <ValidationDialog view={view} onClose={() => setShowValidation(false)} />}
     </div>
   )

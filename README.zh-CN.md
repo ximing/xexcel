@@ -29,7 +29,7 @@ export function App() {
   const state = createStateFromWorkbook(
     Workbook.create({ rowCount: 1000, colCount: 26 }),
   )
-  return <ExcelEditor state={state} />
+  return <ExcelEditor state={state} locale="zh" />
 }
 ```
 
@@ -51,7 +51,7 @@ xexcel 是**小而可读的可嵌入内核**，不是办公套件。0.1 不包�
 - 实时协作
 - 图表、数据透视、迷你图
 - VBA / 宏 / 动态数组公式
-- 完整 Excel 函数库（目前是常用函数：`SUM` `AVERAGE` `COUNT` `MIN` `MAX` `IF` `SUMIF` `ABS` `ROUND` 等）
+- 完整 Excel 函数库（目前是常用函数：`SUM` `AVERAGE` `COUNT` `MIN` `MAX` `IF` `SUMIF` `COUNTIF` `AVERAGEIF` `ABS` `ROUND` 等）
 - 打印排版
 - 移动端优先的触控编辑
 
@@ -69,6 +69,27 @@ pnpm workspace，依赖单向 `react → view → core`。
 | `apps/demo` | 演示应用（GitHub Pages 部署源） |
 
 所有文档修改只能经 Transaction/Step；视图、插件、React 组件永不直接改 doc。
+
+## 快捷键
+
+`Mod` 在 macOS 是 ⌘，Windows/Linux 是 Ctrl。复制 / 剪切 / 粘贴走浏览器事件（`Mod+C` / `Mod+X` / `Mod+V`）；填充柄只有鼠标。
+
+| 按键 | 作用 |
+|---|---|
+| 方向键 | 移动活动单元格 |
+| Shift+方向键 | 扩展选区 |
+| Tab / Shift+Tab | 右移 / 左移 |
+| Enter / Shift+Enter | 下移 / 上移 |
+| Delete / Backspace | 清除选区 |
+| F2 | 编辑活动单元格 |
+| 可打印字符 | 开编辑并替换内容 |
+| Mod+A | 全选 |
+| Mod+F | 查找 / 替换 |
+| Mod+Z | 撤销 |
+| Mod+Shift+Z 或 Ctrl+Y | 重做 |
+| Esc | 取消格式刷 |
+
+`<ExcelEditor locale="en" />` 把工具栏 / 文件菜单 / 右键菜单 / 状态栏切成英文。默认 `zh`。
 
 ## 开发
 
