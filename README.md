@@ -46,7 +46,7 @@ export function App() {
 
 ## What this is not
 
-xexcel is a **small, readable embeddable kernel**, not an office suite. Out of scope for 0.1:
+xexcel is a **small, readable embeddable kernel**, not an office suite. Out of scope for 1.0:
 
 - realtime collaboration
 - charts, pivot tables, sparklines
