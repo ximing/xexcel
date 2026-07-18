@@ -1,7 +1,6 @@
 # M4c 浏览器验收：数据验证（E4）
 
-可执行形式为 `apps/demo/e2e/suites/m4c.mjs`（`node apps/demo/e2e/run.mjs m4c`，kimi-webbridge daemon
-驱动）；本文档为同步骤的叙述版。前置与防干扰约定同 m4b.md「前置（必读）」：含异步步骤前
+可执行形式为 `apps/demo/e2e/suites/m4c.mjs`（`node apps/demo/e2e/run.mjs m4c`，浏览器 daemon 驱动）；本文档为同步骤的叙述版。前置与防干扰约定同 m4b.md「前置（必读）」：含异步步骤前
 bringToFront；notice 断言在触发后 5s 内；React 菜单/对话框点击后等 300ms。
 
 页面侧工具（`installPageTools` 注入，每次 freshPage 后重注）：

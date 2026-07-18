@@ -41,9 +41,9 @@ The workflow sends `NODE_AUTH_TOKEN` from that secret when present. If the secre
 3. Merge to `main`, then:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
-gh release create v0.1.0 --title "v0.1.0" --notes-file CHANGELOG.md
+git tag v1.0.0
+git push origin v1.0.0
+gh release create v1.0.0 --title "v1.0.0" --notes-file CHANGELOG.md
 ```
 
 The `release: published` event starts the publish job. Watch **Actions → Publish to npm**.
