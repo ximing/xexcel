@@ -1,4 +1,4 @@
-// kimi-webbridge daemon HTTP 封装：单 session 驱动浏览器。
+// 浏览器 e2e daemon 的 HTTP 封装：单 session。
 const DAEMON = 'http://127.0.0.1:10086/command'
 // session 可变：ensureApp 在 navigate 命中腐坏 tab 绑定时换新 session 重试
 let session = process.env.E2E_SESSION || 'xexcel-e2e'

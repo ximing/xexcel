@@ -142,7 +142,7 @@ window.W = (() => {
 ## F5 公式编辑增强
 
 ### 1. 编辑公式画布对被引区域彩色框（每域一色）
-- click(16,1) → kimi-webbridge `fill` `input.formula-input` 值 `=B16+C16`
+- click(16,1) → `fill` `input.formula-input` 值 `=B16+C16`
 - V.render() → 扫 overlay layer 的 Konva.Rect：stroke ∈ REF_PALETTE 且 dash=[3,2]
 - 【预期】B16 处 stroke='#1a73e8'(palette[0])，C16 处 stroke='#ea4335'(palette[1])；每域一色循环
 
@@ -155,7 +155,7 @@ window.W = (() => {
 - ='=CO' → ArrowDown→ArrowUp（clamp 0）→ Enter → 【预期】'=COUNT('
 
 ---
-【验收记录】 kimi-webbridge F2-F5 全 PASS（见 docs/squad/m3c/acceptance.md）：
+【验收记录】F2-F5 全 PASS：
 F2 多区域（Ctrl 加/反选/LIFO/Shift 生长/格式全域/填充活动区/排序筛选禁用/表头并集）✓
 F3 拖动（cut raw+style/公式不 shift/相交拒绝/merge 拒绝/越界 clamp+reject 不扩表不丢数据/undo）✓
 F4 富剪贴板（内部样式+公式/多区域空行/出站 HTML 内联 CSS/外部兜底 cell:{raw}/undo）✓
