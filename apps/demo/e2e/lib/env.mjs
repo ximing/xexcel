@@ -32,7 +32,7 @@ export async function pollUntil(predCode, label, timeoutMs = 20000) {
 
 export async function ensureApp() {
   // daemon 可达性
-  try { await cmd('list_tabs') } catch { throw new Error('kimi-webbridge daemon 不可达（~/.kimi-webbridge/bin/kimi-webbridge start）') }
+  try { await cmd('list_tabs') } catch { throw new Error('e2e browser daemon 不可达') }
   // dev server：已起则复用，否则 spawn（strictPort 防撞端口）
   try { await fetch(APP, { signal: AbortSignal.timeout(1500) }) } catch {
     devProc = spawn('pnpm', ['--filter', './apps/demo', 'exec', 'vite', '--port', '5180', '--strictPort'], {
