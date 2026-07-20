@@ -3,7 +3,7 @@
 ## 项目概览
 
 - 浏览器端 Excel 风格电子表格。内核仿 ProseMirror：状态（State）+ 事务（Transaction）+ 插件（Plugin），视图只是状态的投影。
-- 技术栈：TypeScript(strict) + Vite + React 18 + Konva（命令式，不经 react-konva）+ Vitest。xlsx 用 exceljs；界面 token 用 Tailwind v4，图标 Lucide。
+- 技术栈：TypeScript(strict) + Vite + React 19 + Konva（命令式，不经 react-konva）+ Vitest。xlsx 用 exceljs；界面 token 用 Tailwind v4，图标 Lucide。
 - 设计说明：`docs/architecture.md`，分主题笔记在 `docs/design/`。
 
 ## 分层与依赖方向

@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "allowImportingTsExtensions": false,
+    "paths": {
+      "@xexcel/core": ["../excel-core/dist/index.d.ts"],
+      "@xexcel/view": ["../excel-view/dist/index.d.ts"]
+    }
+  },
+  "include": ["src"]
+}

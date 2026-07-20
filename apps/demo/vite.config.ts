@@ -10,12 +10,12 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom'],
     alias: {
-      '@xexcel/core': path.resolve(__dirname, '../../packages/excel-core/src'),
-      '@xexcel/view': path.resolve(__dirname, '../../packages/excel-view/src'),
-      '@xexcel/react': path.resolve(__dirname, '../../packages/excel-react/src'),
+      '@xexcel/core': path.resolve(import.meta.dirname, '../../packages/excel-core/src'),
+      '@xexcel/view': path.resolve(import.meta.dirname, '../../packages/excel-view/src'),
+      '@xexcel/react': path.resolve(import.meta.dirname, '../../packages/excel-react/src'),
       // node 环境下 vitest 走 konva 的 main（index-node.js，硬 require 'canvas'），
       // 别名为浏览器构建，与 browser 字段一致，app 构建行为不变。
-      konva: path.resolve(__dirname, '../../packages/excel-view/node_modules/konva/lib/index.js'),
+      konva: path.resolve(import.meta.dirname, '../../packages/excel-view/node_modules/konva/lib/index.js'),
     },
   },
   test: { environment: 'node', include: ['tests/**/*.test.ts'], passWithNoTests: true },
