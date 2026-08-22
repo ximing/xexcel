@@ -42,7 +42,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "lucide-react": "^1.28.0"
+    "lucide-react": "^1.32.0"
   },
   "peerDependencies": {
     "@xexcel/core": "^1.0.0",
