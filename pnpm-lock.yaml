@@ -113,8 +113,8 @@ importers:
   packages/excel-view:
     dependencies:
       konva:
-        specifier: ^9.3.16
-        version: 9.3.22
+        specifier: ^10.3.1
+        version: 10.3.1
     devDependencies:
       '@xexcel/core':
         specifier: workspace:*
@@ -1216,8 +1216,16 @@ packages:
   jszip@3.10.1:
     resolution: {integrity: sha512-xXDvecyTpGLrqFrvkrUSoxxfJI5AH7U8zxxtVclpsUtMCq4JQ290LY8AW5c7Ggnr/Y/oK+bQMbqK2qmtk3pN4g==}
 
-  konva@9.3.22:
-    resolution: {integrity: sha512-yQI5d1bmELlD/fowuyfOp9ff+oamg26WOCkyqUyc+nczD/lhRa3EvD2MZOoc4c1293TAubW9n34fSQLgSeEgSw==}
+  konva@10.3.1:
+    resolution: {integrity: sha512-7fT/jSkL2bZZOHRBk2QVMKAUbgHoKG72W+KJtpP5YMJUZRmjgoafROgxTADsrxKOY2ZM5eKyN/x6CM9PrlFfOg==}
+    peerDependencies:
+      canvas: ^3.0.0
+      skia-canvas: ^3.0.0
+    peerDependenciesMeta:
+      canvas:
+        optional: true
+      skia-canvas:
+        optional: true
 
   lazystream@1.0.1:
     resolution: {integrity: sha512-b94GiNHQNy6JNTrt5w6zNyffMrNkXZb3KTkCZJb2V1xaEGCk093vkZ2jk3tpaeP33/OiXC+WvK9AxUebnf5nbw==}
@@ -2708,7 +2716,7 @@ snapshots:
       readable-stream: 2.3.8
       setimmediate: 1.0.5
 
-  konva@9.3.22: {}
+  konva@10.3.1: {}
 
   lazystream@1.0.1:
     dependencies:
