@@ -48,16 +48,16 @@
     "@xexcel/core": "^1.0.0",
     "@xexcel/view": "^1.0.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@xexcel/core": "workspace:*",
     "@xexcel/view": "workspace:*",
     "@tailwindcss/cli": "^4.3.3",
     "@types/react": "^18.3",
-    "@types/react-dom": "^18.3",
+    "@types/react-dom": "^19.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react-dom": "^19.2.8",
     "tailwindcss": "^4.3.3",
     "tsup": "^8.3.5",
     "typescript": "~5.6",
