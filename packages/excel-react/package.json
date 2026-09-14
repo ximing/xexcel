@@ -47,16 +47,16 @@
   "peerDependencies": {
     "@xexcel/core": "^1.0.0",
     "@xexcel/view": "^1.0.0",
-    "react": "^19.2.8",
+    "react": "^19.3.0",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@xexcel/core": "workspace:*",
     "@xexcel/view": "workspace:*",
     "@tailwindcss/cli": "^4.3.3",
-    "@types/react": "^19.2",
+    "@types/react": "^19.3",
     "@types/react-dom": "^19.2",
-    "react": "^19.2.8",
+    "react": "^19.3.0",
     "react-dom": "^19.2.8",
     "tailwindcss": "^4.3.3",
     "tsup": "^8.3.5",
