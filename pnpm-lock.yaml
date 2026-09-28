@@ -113,8 +113,8 @@ importers:
   packages/excel-view:
     dependencies:
       konva:
-        specifier: ^10.3.1
-        version: 10.3.1
+        specifier: ^10.7.0
+        version: 10.7.0
     devDependencies:
       '@xexcel/core':
         specifier: workspace:*
@@ -1162,8 +1162,8 @@ packages:
   jszip@3.10.1:
     resolution: {integrity: sha512-xXDvecyTpGLrqFrvkrUSoxxfJI5AH7U8zxxtVclpsUtMCq4JQ290LY8AW5c7Ggnr/Y/oK+bQMbqK2qmtk3pN4g==}
 
-  konva@10.3.1:
-    resolution: {integrity: sha512-7fT/jSkL2bZZOHRBk2QVMKAUbgHoKG72W+KJtpP5YMJUZRmjgoafROgxTADsrxKOY2ZM5eKyN/x6CM9PrlFfOg==}
+  konva@10.7.0:
+    resolution: {integrity: sha512-2CwuytBrOlTh7WHCSeXyUeysB2rpwHruUUDD5etYtrzijkCVH+00+CQz5fJUGI0hm7mzxxDLYLw4Wpo+8QGJ4g==}
     peerDependencies:
       canvas: ^3.0.0
       skia-canvas: ^3.0.0
@@ -2567,7 +2567,7 @@ snapshots:
       readable-stream: 2.3.8
       setimmediate: 1.0.5
 
-  konva@10.3.1: {}
+  konva@10.7.0: {}
 
   lazystream@1.0.1:
     dependencies:
