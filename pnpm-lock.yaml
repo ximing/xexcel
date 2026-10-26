@@ -57,8 +57,8 @@ importers:
         specifier: 4.4.0
         version: 4.4.0
       numfmt:
-        specifier: ^3.2.6
-        version: 3.2.6
+        specifier: ^4.1.1
+        version: 4.1.1
     devDependencies:
       tsup:
         specifier: ^8.3.5
@@ -1425,8 +1425,8 @@ packages:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
 
-  numfmt@3.2.6:
-    resolution: {integrity: sha512-MXc2KP3j+2usdHTY5/ENUc2S+3BRF/cJqnR6RHeq6LBqKoIZOAQ62DQw974nnaZOencbfkmkTPyTmMnlkCpjzg==}
+  numfmt@4.1.1:
+    resolution: {integrity: sha512-12MJtolvN20WANpEm1LjEZrUgnjnBxg9Rp5FpXZZO06NInd7zc5cu8DOjVkrYfeWswNBOmDeD0MuJEYkVf5kzQ==}
 
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
@@ -2759,7 +2759,7 @@ snapshots:
 
   normalize-path@3.0.0: {}
 
-  numfmt@3.2.6: {}
+  numfmt@4.1.1: {}
 
   object-assign@4.1.1: {}
 
