@@ -45,7 +45,7 @@
   },
   "dependencies": {
     "exceljs": "4.4.0",
-    "numfmt": "^3.2.6"
+    "numfmt": "^4.1.2"
   },
   "devDependencies": {
     "tsup": "^9.0.0",
